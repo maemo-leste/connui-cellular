@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<gconfschemafile>
+	<schemalist>
+		<schema>
+			<key>/schemas/system/osso/connectivity/ui/auto_connect/65_gprs/label</key>
+			<applyto>/system/osso/connectivity/ui/auto_connect/65_gprs/label</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>%s</default>
+			<locale name="C"><short>Auto connect Device PSD option label</short></locale>
+		</schema>
+		<schema>
+			<key>/schemas/system/osso/connectivity/ui/auto_connect/65_gprs/network_types</key>
+			<applyto>/system/osso/connectivity/ui/auto_connect/65_gprs/network_types</applyto>
+			<owner>connui-cellular</owner>
+			<type>list</type>
+			<list_type>string</list_type>
+			<default>[GPRS]</default>
+			<locale name="C"><short>Auto connect Device PSD option network types</short></locale>
+		</schema>
+
+		<schema>
+			<key>/schemas/system/osso/connectivity/network_type/GPRS/icon_name</key>
+			<applyto>/system/osso/connectivity/network_type/GPRS/icon_name</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>general_packetdata</default>
+			<locale name="C"><short>Infrastructure WLAN icon name</short></locale>
+		</schema>
+		<schema>
+			<key>/schemas/system/osso/connectivity/network_type/GPRS/statusbar_icon_name</key>
+			<applyto>/system/osso/connectivity/network_type/GPRS/statusbar_icon_name</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>general_packetdata</default>
+			<locale name="C"><short>Cellular data statusbar icon name</short></locale>
+		</schema>
+		<schema>
+			<key>/schemas/system/osso/connectivity/network_type/GPRS/statusbar_dimmed_icon_name</key>
+			<applyto>/system/osso/connectivity/network_type/GPRS/statusbar_dimmed_icon_name</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>statusarea_internetconn_packetdata_dimmed</default>
+			<locale name="C"><short>Cellular data statusbar dimmed icon name</short></locale>
+		</schema>
+		<schema>
+			<key>/schemas/system/osso/connectivity/network_type/GPRS/name</key>
+			<applyto>/system/osso/connectivity/network_type/GPRS/name</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>conn_mngr_fi_type_device_psd</default>
+			<locale name="C"><short>GPRS human readable name</short></locale>
+		</schema>
+		<schema>
+			<key>/schemas/system/osso/connectivity/network_type/GPRS/gettext_catalog</key>
+			<applyto>/system/osso/connectivity/network_type/GPRS/gettext_catalog</applyto>
+			<owner>connui-cellular</owner>
+			<type>string</type>
+			<default>osso-connectivity-ui</default>
+			<locale name="C"><short>GPRS human readable name gettext catalog</short></locale>
+		</schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/ui/gprs_data_warning_home_acknowledged</key>
+                        <applyto>/system/osso/connectivity/ui/gprs_data_warning_home_acknowledged</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>bool</type>
+                        <default>true</default>
+                        <locale name="C"><short>Has user acknowledged cellular data home warning</short></locale>
+                </schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/ui/gprs_data_warning_roaming_acknowledged</key>
+                        <applyto>/system/osso/connectivity/ui/gprs_data_warning_roaming_acknowledged</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>bool</type>
+                        <default>true</default>
+                        <locale name="C"><short>Has user acknowledged cellular data roaming warning</short></locale>
+                </schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_home_notification_enabled</key>
+                        <applyto>/system/osso/connectivity/network_type/GPRS/gprs_home_notification_enabled</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>bool</type>
+                        <default>false</default>
+                        <locale name="C"><short>Is data counter warning enabled for home network</short></locale>
+                </schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_roaming_notification_enabled</key>
+                        <applyto>/system/osso/connectivity/network_type/GPRS/gprs_roaming_notification_enabled</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>bool</type>
+                        <default>true</default>
+                        <locale name="C"><short>Is data counter warning enabled for roaming network</short></locale>
+                </schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_home_warning_limit</key>
+                        <applyto>/system/osso/connectivity/network_type/GPRS/gprs_home_warning_limit</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>string</type>
+                        <default>1000</default>
+                        <locale name="C"><short>Data warning limit for home network in megabytes</short></locale>
+                </schema>
+                <schema>
+                        <key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_roaming_warning_limit</key>
+                        <applyto>/system/osso/connectivity/network_type/GPRS/gprs_roaming_warning_limit</applyto>
+                        <owner>connui-cellular</owner>
+                        <type>string</type>
+                        <default>10</default>
+                        <locale name="C"><short>Data warning limit for roaming network in megabytes</short></locale>
+                </schema>
+
+	</schemalist>
+</gconfschemafile>

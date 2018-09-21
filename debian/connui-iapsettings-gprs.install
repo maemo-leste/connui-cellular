@@ -1,0 +1,3 @@
+etc/gconf/*
+usr/lib/iapsettings/*.so
+

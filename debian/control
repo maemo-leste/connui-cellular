@@ -1,0 +1,16 @@
+Source: connui-cellular
+Section: x11
+Priority: optional
+Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
+Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88), libconbtui0-dev (>= 2.88.10), connui-iapsettings-dev (>= 2.78.2),
+ osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev
+Standards-Version: 3.7.2
+
+Package: connui-iapsettings-gprs
+Section: x11
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Internet Settings UI for GPRS IAPs
+ This package provides the Internet Settings UI plugin that allows you to
+ create, edit and delete GPRS Internet Access Point configurations.
+

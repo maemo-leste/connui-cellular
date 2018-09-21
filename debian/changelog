@@ -1,0 +1,921 @@
+connui-cellular (2.118+0m5) unstable; urgency=low
+
+  * This entry has been added by BIFH queue processor
+    version has been changed to 2.118+0m5
+
+ -- Antti Julku <ext-antti.julku@nokia.com>  Fri, 06 Aug 2010 15:04:05 +0300
+
+connui-cellular (2.118) unstable; urgency=low
+
+  * Fixes: NB#183890 - Osso-connectivity crash after operator settings message
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Fri, 06 Aug 2010 12:22:56 +0300
+
+connui-cellular (2.117) unstable; urgency=low
+
+  * Fixes: NB#142491 - Coverity findings in connui-cellular
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Thu, 27 May 2010 14:22:37 +0300
+
+connui-cellular (2.116) unstable; urgency=low
+
+  * Fixes: NB#151072 - Indication of unavailability of cellular services
+    Changed info banner to note
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Wed, 17 Mar 2010 11:44:09 +0200
+
+connui-cellular (2.115) unstable; urgency=low
+
+  * Fixes: NB#157640 - Displaying the Data transfer warning message
+    again even after selecting the disable warning option
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Tue, 23 Feb 2010 14:32:56 +0200
+
+connui-cellular (2.114) unstable; urgency=low
+
+  * Fixes: NB#157230 - Truncation caused by too long text-input field
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Mon, 22 Feb 2010 14:34:08 +0200
+
+connui-cellular (2.113) unstable; urgency=low
+
+  * Fixes: NB#157423 - osso-connectivity-ui-conndlgs crashes when showing 
+    "Sim registration failed" or "Select network in Phonesettings." 
+    error note
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Mon, 15 Feb 2010 14:32:35 +0200
+
+connui-cellular (2.112) unstable; urgency=low
+
+  * Fixes: NB#156979 - Translation bugs in data warning dialog
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue, 09 Feb 2010 12:08:19 +0200
+
+connui-cellular (2.111) unstable; urgency=low
+
+  * Fixes: NB#150919 - Roaming data counter and warning dialog for 
+    excessive cellular data usage 
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Fri, 05 Feb 2010 17:49:54 +0200
+
+connui-cellular (2.110) unstable; urgency=low
+
+  * Fixes: NB#151072 - Indication of unavailability of cellular services 
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Fri, 22 Jan 2010 14:24:00 +0200
+
+connui-cellular (2.109) unstable; urgency=low
+
+  * Fixes: NB#108877 - Network mode is enabled when psd connection active
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Thu, 07 Jan 2010 12:16:44 +0200
+
+connui-cellular (2.108) unstable; urgency=low
+
+  * Fixes: NB#150453 - Show properly how many pin/puk attempts remain
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Fri, 04 Dec 2009 15:08:17 +0200
+
+connui-cellular (2.107) unstable; urgency=low
+
+  * Fixes: NB#127855 - Show the operator name only once.
+  * Fixes: NB#143040 - Select button not available on manual network
+    search while searching or list is empty.
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Thu, 03 Dec 2009 11:14:15 +0200
+
+connui-cellular (2.106) unstable; urgency=low
+
+  * Fixes: NB#149229 - Modem health check in startup
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Thu, 03 Nov 2009 10:58:51 +0200
+
+connui-cellular (2.105) unstable; urgency=low
+
+  * Fixes 147003 - Modem health check in startup
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Wed, 25 Nov 2009 18:00:51 +0200
+
+connui-cellular (2.104) unstable; urgency=low
+
+  * Fixes: NB#109307 - Updated fix that excludes modem health check from
+    the package
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue, 18 Nov 2009 14:38:56 +0200
+
+connui-cellular (2.103) unstable; urgency=low
+
+  * Fixes NB#109307 - Removed SIM unlocking from pin-code-query
+  * Implemented Modem health check to show error note if modem check fails
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Fri, 17 Nov 2009 10:13:05 +0200
+
+connui-cellular (2.102) unstable; urgency=low
+
+  * Fixes: NB#138356 - Show call forwarding corretly when busy 
+    forwarding is not set but other cases are
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 30 Oct 2009 11:06:11 +0200
+
+connui-cellular (2.101) unstable; urgency=low
+
+  * Fixes: NB#128520 - Forward to and Select contact widgets are hid when 
+    call divert is disabled
+  * Fixes: NB#139454 - Pin code query accepts only maximum of 8 digits
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Thu, 15 Oct 2009 16:03:33 +0300
+
+connui-cellular (2.100) unstable; urgency=low
+
+  * Fixes: NB#121374 - Pin code query can be skipped pressing outside the dialog
+  * Fixes: NB#128520 - Phone applet layout issues corrected
+  * Fixes: NB#129206 - 911 call is not established and device UI freezes if 
+    launched from pin code change dialog box 
+  * Fixes: NB#134392 - Crash in phone settings when deactivating phone while 
+    in PIN query dialog
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue, 29 Sep 2009 10:48:27 +0300
+
+connui-cellular (2.99) unstable; urgency=low
+
+  * Fixes: NB#140708 - Show 'Cellular network not available' as a banner 
+    instead of a note
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 28 Sep 2009 10:54:31 +0300
+
+connui-cellular (2.98) unstable; urgency=low
+
+  * Fixes: NB#138313 - Datacounter fixed
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 23 Sep 2009 13:06:51 +0300
+
+connui-cellular (2.97) unstable; urgency=low
+
+  * Fixes: NB#132496 - Cellular settings UI changes lost if made 
+    while spinner is active
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Tue, 22 Sep 2009 09:52:51 +0300
+
+connui-cellular (2.96) unstable; urgency=low
+
+  * Fixes: NB#133964 - Order of priority on the preferred PLMN list does 
+    not match with the networks shown during manual search on a Roaming SIM - PCP
+  * Fixes: NB#139555 - Phone settings hangs after changing manual network 
+    selection to automatic
+  * Fixes: NB#138305 - Cert non-pass RX-51: TC6.2.1.1 TC 6.2.1.6 (34.123-1), FDDIV
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Mon, 21 Sep 2009 14:24:12 +0300
+
+connui-cellular (2.95) unstable; urgency=low
+
+  * Fixes: NB#136213 - Minor memory leak in phone applet
+  * Fixes: NB#137811 - Fixed layout issues in phone applet
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Thu, 10 Sep 2009 16:37:29 +0300
+
+connui-cellular (2.94) unstable; urgency=low
+
+  * Fixes: NB#137343 - Manual network selection failure does not hang phone settings
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Mon,  7 Sep 2009 15:47:03 +0300
+
+connui-cellular (2.93) unstable; urgency=low
+
+  * Fixes: NB#135549 - Fixed states for 'no sim' icon
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 04 Sep 2009 10:59:11 +0300
+
+connui-cellular (2.92) unstable; urgency=low
+
+  * Fixes: NB#132772 - Don't show 'Select network in Phone settings' note 
+    if network selection mode is Automatic
+  * Fixes: NB#136526 - Hide 'Select network in Phone settings' note 
+    if network connection is restored
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 02 Sep 2009 13:19:51 +0300
+
+connui-cellular (2.91) unstable; urgency=low
+
+  * Fixes: NB#128889 - Prohibited access to phone settings
+    when phone deactivated
+
+ -- Markus Silvan <ext-markus.p.silvan@nokia.com>  Wed, 19 Aug 2009 09:54:00 +0300
+
+connui-cellular (2.90) unstable; urgency=low
+
+  * Fixes: NB#128520 - phone applet layout issues corrected.
+  * Fixes: NB#130980 - multiple fixes to cell error note status listener.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 14 Aug 2009 13:44:57 +0300
+
+connui-cellular (2.89) unstable; urgency=low
+
+  * Fixes: NB#128690 - When selection dialog is hid, cancel ongoing network
+    selection.
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue, 11 Aug 2009 18:43:12 +0300
+
+connui-cellular (2.88) unstable; urgency=low
+
+  * Fixes: NB#131229 - Added display on/off handlers to cellular home and
+    status items.
+  * Fixes: NB#129209 - Customized operator logo not displayed fixed
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 11 Aug 2009 11:10:14 +0300
+
+connui-cellular (2.87) unstable; urgency=low
+
+  * Fixes: NB#128690 - Manual network selection fails from primary
+    roaming network to other network when data connection is active
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Mon, 10 Aug 2009 15:12:58 +0300
+
+connui-cellular (2.86) unstable; urgency=low
+
+  * Fixes: NB#129219 - connui plugin syslog spamming reduced even more
+
+ -- Jukka Rissanen <jukka.rissanen@nokia.com>  Fri,  7 Aug 2009 13:20:58 +0300
+
+connui-cellular (2.85) unstable; urgency=low
+
+  * Fixes: NB#128690 - Manual network selection fails from primary 
+    roaming network to other network when data connection is active
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue,  4 Aug 2009 12:44:35 +0300
+
+connui-cellular (2.84) unstable; urgency=low
+
+  * Fixes: NB#129186 - Phone settings dialog should set 
+    center-on-child-focus property
+  * Fixes: NB#129219 - connui plugin spamming syslog
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Fri, 31 Jul 2009 15:04:50 +0300
+
+connui-cellular (2.83) unstable; urgency=low
+
+  * Fixes: NB#129228 - Delaying service provider resolving so that init()
+    is done faster.
+
+ -- Jukka Rissanen <jukka.rissanen@nokia.com>  Wed, 29 Jul 2009 15:39:11 +0300
+
+connui-cellular (2.82) unstable; urgency=low
+
+  * Fixes: NB#129853 - Automatic packet data dialog is too small
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Tue, 28 Jul 2009 15:55:21 +0300
+
+connui-cellular (2.80) unstable; urgency=low
+
+  * Fixes: NB#129853 - Automatic packet data dialog is too small
+
+ -- Tomi Majuri <ext-tomi.majuri@nokia.com>  Mon, 27 Jul 2009 16:19:45 +0300
+
+connui-cellular (2.78) unstable; urgency=low
+
+  * Fixes: NB#121314 - Show 'PIN code correct' banner in different 
+    process to speed up startup (about 2 sec)
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Thu, 16 Jul 2009 12:29:09 +0300
+
+connui-cellular (2.77) unstable; urgency=low
+
+  * Fixes: NB#120628 - Show 'SIM locked with PUK' banner and ask 
+    PUK code when SIM gets locked while changing PIN query setting
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 15 Jul 2009 09:50:59 +0300
+
+connui-cellular (2.76) unstable; urgency=low
+
+  * Fixes: NB#123445 - Show 'Select network' note only 
+    if network status has changed
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Tue, 14 Jul 2009 12:30:58 +0300
+
+connui-cellular (2.75) unstable; urgency=low
+
+  * Fixes: NB#124572 - Fixed displaying of both SPN and PLMN operator names
+  * Fixes: NB#107145 - Show 2g/3g in network selection
+  * Fixes: NB#126793 - Don't update operator name if it's not changed
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 08 Jul 2009 15:26:37 +0300
+
+connui-cellular (2.74) unstable; urgency=low
+
+  * Fixes: NB#122449 - Fixed overflow case in datacounter
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 03 Jul 2009 11:15:50 +0300
+
+connui-cellular (2.73) unstable; urgency=low
+
+  * Fixes: NB#124827 - Changing of PIN code fails if PIN query is disabled
+  * Fixes: NB#109362 - Ok button disabling changes reverted
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 01 Jul 2009 13:31:07 +0300
+
+connui-cellular (2.72) unstable; urgency=low
+
+  * Fixes: NB#121620 - 'Invalid number' banner not displayed in 
+    certain situation
+  * Fixes: NB#124287 - Fixed crash in phone settings
+  * Disable OK button in PIN query if modem crashes
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 26 Jun 2009 11:13:56 +0300
+
+connui-cellular (2.71) unstable; urgency=low
+
+  * Fixes: NB#122048 - Fixed showing of PLMN operator name
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 24 Jun 2009 10:24:17 +0300
+
+connui-cellular (2.70) unstable; urgency=low
+
+  * Fixes: NB#123709 - Fixed crash in manual network selection
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 22 Jun 2009 09:09:10 +0300
+
+connui-cellular (2.69) unstable; urgency=low
+
+  * Fixes: NB#121865 - Fixed crash in phone settings when automatic 
+    NW selected after cancelling manual NW search dialog
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 17 Jun 2009 14:23:56 +0300
+
+connui-cellular (2.68) unstable; urgency=low
+
+  * Fixes: NB#120647 - Cannot select any network after 
+    'no access' note 
+  * Fixes: NB#122412 - Size of signal strength and connection 
+    type icons fixed
+  * Fixes: NB#117426 - Operator name fixed for virtual operators
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 15 Jun 2009 15:19:24 +0300
+
+connui-cellular (2.67) unstable; urgency=low
+
+  * Fixes: NB#120907 - Fixed crash in phone settings
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 10 Jun 2009 14:10:24 +0300
+
+connui-cellular (2.66) unstable; urgency=low
+
+  * Updated to match with changed libcsnet Network API
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 08 Jun 2009 15:29:54 +0300
+
+connui-cellular (2.65) unstable; urgency=low
+
+  * Fixes: NB#118420 - Control panel UI crashed under mentioned scenario
+  * Fixes: NB#115283 - Connectivity, incorrect information banner shown 
+    when roaming
+  * Fixes: NB#121044 - Cellular network selection's network list cache 
+    invalidate period too long
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Sat, 06 Jun 2009 12:43:57 +0300
+
+connui-cellular (2.64) unstable; urgency=low
+
+  * Fixes: NB#119449 - Show 'Incorrect PIN' banner after
+    incorrect PIN
+  * Fixes: NB#118419 - Save only changed settings in phone applet
+  * Fixes: NB#120319 - States when user is asked to select
+    network manually updated
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 03 Jun 2009 09:13:11 +0300
+
+connui-cellular (2.63) unstable; urgency=low
+
+  * Added localized note about incorrect PIN code
+    to OMA PIN query
+  * Fixes: NB#119521 - Allow OMA PIN codes shorter than 4 digits
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 29 May 2009 13:57:27 +0300
+
+connui-cellular (2.62) unstable; urgency=low
+
+  * Fixes: NB#105344 - Roaming SIM does not connect to 
+    network if manual network mode selected 
+  * Fixes: NB#118924 - Show string "Never" as reset date
+    when timer has been never reset
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 27 May 2009 08:16:56 +0300
+
+connui-cellular (2.61) unstable; urgency=low
+
+  * Fixes: NB#117741 - Close network mode selection list 
+    when call arrives
+  * Fixes: NB#117605 - UI stays dimmed when IAP selection dialog 
+    PIN dialog appears 
+  * SIM status timeout increased to 60 seconds
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 25 May 2009 10:27:32 +0300
+
+connui-cellular (2.60) unstable; urgency=low
+
+  * Fixes: NB#116482 - Device doesn't return to original network, 
+    if  tried to selected NW without permission
+  * Fixes: NB#113700 - User has to enter new PIN code twice
+    after PUK lock
+  * Change to match new mc-account manager API
+  * Added libmcclient-dev to build dependencies
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 18 May 2009 11:31:19 +0300
+
+connui-cellular (2.59) unstable; urgency=low
+
+  * Fixes: NB#112956 - Network selection mode was changed to automatic
+    when manual network was selected second time
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 13 May 2009 10:03:04 +0300
+
+connui-cellular (2.58) unstable; urgency=low
+
+  * Fixes: NB#111426 - Operator name margins on home view incorrect
+  * Removed duplicate code from connui-cellular-operator-home-item.c.
+  * Accept only minimum 4 digit PINs.
+  * Fixes: NB#110440 - SIM card plugin is not shown when dialled 
+    without SIM card.
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Tue, 12 May 2009 15:50:39 +0300
+
+connui-cellular (2.57) unstable; urgency=low
+
+  * Fixes: NB#113707 - Phone settings: missing string 'Call'
+  * Fixes: NB#115466 - PIN code request cannot be enabled/disabled
+  * Fixes: NB#114263 - Control Panel crashes when Call forwading 
+    number is an invalid number
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Fri, 08 May 2009 13:07:31 +0300
+
+connui-cellular (2.56) unstable; urgency=low
+
+  * Fixes: NB#104608 - 'SIM card registration failed' note not displayed
+  * Fixes: NB#92628 - Network search does not filter 
+    GSM networks in GSM network mode 
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 04 May 2009 08:21:58 +0300
+
+connui-cellular (2.55) unstable; urgency=low
+
+  * Fixes: NB#113105 - Operator should not be shown if phone is deactivated.
+  * Fixes: NB#111404 - Text doesnt contain black shadow for the operator name
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Wed, 29 Apr 2009 10:10:06 +0300
+
+connui-cellular (2.54) unstable; urgency=low
+
+  * Removed 10 s wait for SIM when SIM is not inserted in bootup
+  * Added NULL pointer check to SIM stataus callback
+  * Fixes: NB#112817 - If CMT doesn't go to network during startup, 
+    "No SIM" icon is displayed.
+  * Disable 'Network mode' selection while PDP 
+    context is active
+  * Fixes: NB#112956 - Selecting 'Manual' for network selection 
+    another time, should initiate network search 
+  * Hide PIN query dialog while showing 'PIN code correct'
+    banner instead of dimming it
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Mon, 27 Apr 2009 11:15:17 +0300
+
+connui-cellular (2.53) unstable; urgency=low
+
+  * Fixes: NB#104616 - No 'Correct PIN code' -note displayed
+  * Key used to save CLIR changed
+  * Disable 'Network mode' selection while call is active
+  * Fixes: NB#111279 - PIN query is skipped during bootup
+
+ -- Mikko Mehtonen <ext-mikko.j.mehtonen@nokia.com>  Tue, 21 Apr 2009 14:02:24 +0300
+
+connui-cellular (2.52) unstable; urgency=low
+
+  * Fixes: NB#109886 - 'Invalid number' note displayed after entering
+    PUK code and new PIN in Phone settings
+  * Fixes: NB#107147 - The set of available network operators
+    should be cached
+  * Fixes: NB#110930 - Changing between dual and 3G modes crashes controlpanel
+  * Fixes: NB#110757 - Call forward should not display VoIP contacts
+  * Fixes: NB#106638 - FT_GEN: Manual network selection doesnt work
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 15 Apr 2009 15:19:43 +0300
+
+connui-cellular (2.51) unstable; urgency=low
+
+  * Fixes: NB#107380 - Unable to select the contact in Call forwarding.
+  * Fixes: NB#106399 - Call forwarding icon should not be 
+    displayed in Status area
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon,  6 Apr 2009 14:58:52 +0300
+
+connui-cellular (2.50) unstable; urgency=low
+
+  * Fixes: NB#107649 - Phone applet freezes after certain repeating usage
+  * Fixes: NB#107417 - PUK code query is missing after the first wrong 
+    PUK entry when changing PIN
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 01 Apr 2009 10:58:08 +0300
+
+connui-cellular (2.49) unstable; urgency=low
+
+  * Fixes: NB#105899 - Startup pin query freezes when PUK while SIM is
+    permanently blocked
+  * Added 'Invalid call forward number' banner.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 25 Mar 2009 13:46:34 +0200
+
+connui-cellular (2.48) unstable; urgency=low
+
+  * Fixes: NB#106627 - connui-cellular: com.nokia.oma_cp_ui.pin_query_req
+    only works once
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 19 Mar 2009 13:13:58 +0200
+
+connui-cellular (2.47) unstable; urgency=low
+
+  * Fixes: NB#105226 - No note SIM rejected
+  * Fixes: NB#94777 - Indifferent behaviour in PIN query state.
+  * Fixes: NB#106474 - Send caller id (CLIR) selections is inverted 
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 18 Mar 2009 15:57:12 +0200
+
+connui-cellular (2.46) unstable; urgency=low
+
+  * Show no SIM icon when booted up without CS in service.
+  * Avoid crash in Phone applet by closing flightmode callback later.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 16 Mar 2009 15:24:56 +0200
+
+connui-cellular (2.45) unstable; urgency=low
+
+  * Implemented SIM not accepted and SIM rejected error notes.
+  * Implemented new PSD auto connect dialog.
+  * Implemented new PSD roaming dialog.
+  * Implemented new style phone settings.
+  * Close flightmode callback when requested state has been received.
+  * Fixes: NB#105582 - Status bar do not show the SIM icon when blocked
+  * Fixes: NB#105929 - Phone applet starts busylooping with Glib 
+    critical in special scenario
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 16 Mar 2009 12:36:04 +0200
+
+connui-cellular (2.44) unstable; urgency=low
+
+  * Fixes: NB#96154 - Cannot make emergency call with locked SIM-card
+  * Fixes: NB#104516 - Connection name should not be blank for PSD access point
+  * Fixes: NB#105121 - Operator name shown even phone was NOT properly
+    registered to NW
+  * Fixes: NB#102532 - Customized Elisa operator logo is not shown MNC
+    is defined as 05
+  * Fixed OMA CP UI info banners to work correctly with conndlgs FW.
+  * Fixes: NB#101998 - SIM is not locked after 10 wrong PUK entrys
+  * Fixes: NB#105282 - Status area signal strength icon is not in 
+    customized sw
+  * Fixes: NB#105178 connui packages shouldn't depend on libhildonhelp0
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 13 Mar 2009 08:55:38 +0200
+
+connui-cellular (2.43) unstable; urgency=low
+
+  * Coverity fixes.
+  * Removed unuseful connui_cell_code_ui_get_code() function.
+  * Removed test script for OMA CP notifications. Added python tests.
+  * Added choice 'Let network choose' to CLIR.
+  * Implemented SMS provisioning PIN query dialog.
+  * Recognize 3.5g from hsdpa_allocated byte. Fixes: NB#102309
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu,  5 Mar 2009 14:59:25 +0200
+
+connui-cellular (2.42) unstable; urgency=low
+
+  * Transparent background to operator logo. Fixes: NB#101508
+  * Handle MNC always as a 2 or 3 digit value. Fixes: NB#102532
+  * Use libmcclient for CLIR. Fixes: NB#90924
+  * Added SMS provisioning IAP selection dialog.
+  * Don't close dialog if network selection rejected. Fixes: NB#101927
+  * Fixed unit tests to pass.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 20 Feb 2009 14:23:10 +0200
+
+connui-cellular (2.41) unstable; urgency=low
+
+  * Changed matchbox startup script to improve input. Fixes: NB#101868
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 16 Feb 2009 15:53:11 +0200
+
+connui-cellular (2.40) unstable; urgency=low
+
+  * Localization ids from new specification version.
+  * Hide operator name in offline mode. Fixes: NB#101073
+  * Call Phone.Net.select_network if registration fails. Fixes: NB#100806
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 13 Feb 2009 12:35:58 +0200
+
+connui-cellular (2.39) unstable; urgency=low
+
+  * Implemented SMS provisioning notifications.
+  * Added matchbox start/stop scripts to Xsession.d.
+  * Added logical IDs to roaming combobox.
+  * Fixed automake file and includes. Fixes: NB#100597
+  * Show an information banner when call forwarding is set on but the number
+    field is  left empty
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri,  6 Feb 2009 13:40:42 +0200
+
+connui-cellular (2.38) unstable; urgency=low
+
+  * Allow empty access point name. Fixes: NB#92934
+  * Changed prefix of Xsession script connui-conndlgs-cellular from 5 to 05.
+  * Applied patch for bug 97245.
+  * Do not install desktop file for home applet. Fixes: NB#99710
+  * Do not cancel phone applet dialog while saving. Fixes: NB#97607
+  * libcsnet MCC/MNC are not BCD encoded change updated to home applet.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 30 Jan 2009 12:23:15 +0200
+
+connui-cellular (2.37) unstable; urgency=low
+
+  * Changed size and orientation of status area icon. Fixes: NB#98289
+  * Show network country code & network code for networks with no name. 
+    Fixes: NB#98157
+  * Enable sim request temporarily while changing sim code. Fixes: NB#97623
+  * Fixed status area indication to work with current set of icons.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 23 Jan 2009 16:20:39 +0200
+
+connui-cellular (2.36) unstable; urgency=low
+
+  * Reverted patch for bug 97245.
+  * Restrict GPRS password field to 256 characters. Fixes: NB#92251
+  * Check for empty IAP name in wizard. Fixes: NB#92862
+  * Check for offline mode before network selection. Fixes: NB#95620
+  * Use maemo-launcher to launch PIN query. Fixes: NB#96863
+  * Depend on individual CSD plugins instead of csd-base.
+  * Fix phone CPA desktop file. Fixes: NB#97761
+  * Updated PIN query to use xsession.
+  * Set only DIVERT_NO_AVAIL when enabling forwarding. Fixes: NB#96466
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 15 Jan 2009 13:29:56 +0200
+
+connui-cellular (2.35) unstable; urgency=low
+
+  * Use telephony headers from relevant dev packages. Fixes: NB#97245
+  * Fixed debian dependencies.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 14 Jan 2009 10:27:18 +0200
+
+connui-cellular (2.34) unstable; urgency=low
+
+  * Handle offline mode in startup pin query. Fixes: NB#91635
+  * Remove "Enter dial-up number first" banner. Fixes: NB#92934
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 13 Jan 2009 09:09:20 +0200
+
+connui-cellular (2.33) unstable; urgency=low
+
+  * Implemented new roaming dialog logic.
+  * Use GObject finalize instead of dispose. Fixes: NB#95150
+  * Use HILDON_GTK_INPUT_MODE_TELE in call forward. Fixes: NB#96077
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri,  9 Jan 2009 10:43:31 +0200
+
+connui-cellular (2.32) unstable; urgency=low
+
+  * Removed OK-button from data counter dialog.
+  * Updated logical IDs to match UI specification.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon,  5 Jan 2009 15:04:22 +0200
+
+connui-cellular (2.31) unstable; urgency=low
+
+  * Update packetdata icon name. Fixes: NB#96769
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 29 Dec 2008 08:12:57 +0200
+
+connui-cellular (2.30) unstable; urgency=low
+
+  * Call hildon_gtk_init() in startup-pin-query startup.
+  * Added info banner when new codes in PIN change do not match.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 23 Dec 2008 09:12:02 +0200
+
+connui-cellular (2.29) unstable; urgency=low
+
+  * Fixed l10n issues.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 15 Dec 2008 08:49:21 +0200
+
+connui-cellular (2.28) unstable; urgency=low
+
+  * Fixed to build with the new dbus-binding-tool. 
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 11 Dec 2008 17:01:31 +0200
+
+connui-cellular (2.27) unstable; urgency=low
+
+  * Always show "Skip" button during startup. Fixes: NB#93304
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri,  5 Dec 2008 13:07:01 +0200
+
+connui-cellular (2.26) unstable; urgency=low
+
+  * Added NULL check to net_get_operator_name(). Fixes: NB#92075
+  * Updated to use the new libss DBUS API. Fixes: NB#92045
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue,  2 Dec 2008 14:58:50 +0200
+
+connui-cellular (2.25) unstable; urgency=low
+
+  * Use code lock widget from libcodelockui.
+  * Fixed to track the current code. Fixes: NB#93666
+  * Do not bail out on emergency call. Fixes: NB#92500
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 26 Nov 2008 14:34:34 +0200
+
+connui-cellular (2.24) unstable; urgency=low
+
+  * Updated to use icon names without sizes.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 25 Nov 2008 08:38:35 +0200
+
+connui-cellular (2.23) unstable; urgency=low
+
+  * Changed SS API parameter type from byte to uint32.
+  * Call asynchronous SS functions sequentially. Fixes: NB#92045
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 17 Nov 2008 14:42:00 +0200
+
+connui-cellular (2.22) unstable; urgency=low
+
+  * Quick fix to get compile against newer libosso-abook.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 14 Nov 2008 14:19:13 +0200
+
+connui-cellular (2.21) unstable; urgency=low
+
+  * Fremantle close/cancel button removal
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 13 Nov 2008 13:37:02 +0200
+
+connui-cellular (2.20) unstable; urgency=low
+
+  * Removed call barring setting.
+  * Implemented new call forwarding.
+  * Removed PIN2 setting from phone applet.
+  * Removed PIN2 and PUK2 queries from cell code UI.
+  * Added incorrect PUK code info banner.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed,  5 Nov 2008 08:04:35 +0200
+
+connui-cellular (2.19) unstable; urgency=low
+
+  * Return in connui_cell_end_function() macro. Fixes: NB#90987
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 29 Oct 2008 10:55:25 +0200
+
+connui-cellular (2.18) unstable; urgency=low
+
+  * Updated to use new icon names.
+  * Updated to use new libosso-abook pkg-config file.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 29 Oct 2008 09:18:14 +0200
+
+connui-cellular (2.17) unstable; urgency=low
+
+  * Asynchronously fetch network settings.
+  * Updated to use PIN code widget from libcodelockui1.
+  * React on delete-event. Fixes: NB#88284
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 23 Oct 2008 13:53:51 +0300
+
+connui-cellular (2.16) unstable; urgency=low
+
+  * Remove PIN query init.d script, upstart + system services handle it.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 17 Oct 2008 10:20:10 +0300
+
+connui-cellular (2.15) unstable; urgency=low
+
+  * Added debug package for cellular operator name home applet.
+  * Fixed GPRS IAP disconnect to work correctly in data counter.
+  * Fixed cellular settings to write and read roaming information.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu,  9 Oct 2008 12:49:31 +0300
+
+connui-cellular (2.14) unstable; urgency=low
+
+  * Remove unnecessary localization defines.
+  * Fallback to hardcoded latin network operator name on error.
+  * Implemented: NR#190774
+  * Handle MNC and MCC as BCD in telephony_stub (like real thing).
+  * Implemented customized operator logos for operator home applet.
+  * Updated unit tests to use connectivity-test-stubs package.
+  * Implemented cellular data counter.
+  * Fixed GConf schema to have icon and animations names for GPRS.
+  * Implemented GPRS auto-connect confirmation note.
+  * Implemented GPRS roaming confirmation note.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue,  7 Oct 2008 15:01:37 +0300
+
+connui-cellular (2.13) unstable; urgency=low
+
+  * Fixed get_service_provider_name() output param to be string.
+  * Provide longer timeout for get_available_network() and
+    select_network() functionality.
+  * Implemented: NR#191116
+  * Fixed makefile for building libconnui-cellular.
+  * Fixed banners and PUK query in connui_cell_code_ui.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue,  9 Sep 2008 10:23:40 +0300
+
+connui-cellular (2.12) unstable; urgency=low
+
+  * Fixed build dependency to correct libhildondesktop1-dev.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon,  8 Sep 2008 09:04:42 +0300
+
+connui-cellular (2.11) unstable; urgency=low
+
+  * Added implementation for querying emergency numbers.
+  * Added implementation for calling emergency call.
+  * Implemented: NR#191683
+  * Added call icon to emergency call button.
+  * Updated network signal strength to contain bars instead of rssi.
+  * Implemented: NR#190772, NR#190773
+  * Changed call forwarding to use libss instead of libsim.
+  * Implemented call forwarding indication.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri,  5 Sep 2008 14:03:43 +0300
+
+connui-cellular (2.10) unstable; urgency=low
+
+  * Fixed GConf schema to have correct values.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 29 Aug 2008 07:37:12 +0300
+
+connui-cellular (2.9) unstable; urgency=low
+
+  * Removed component-based gettext workarounds.
+  * Moved PIN query to a later phase in startup.
+  * Wait for few secs for a better sim state in startup.
+  * Implemented: NR#192270
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 22 Aug 2008 14:00:49 +0300
+
+connui-cellular (2.8) unstable; urgency=low
+
+  * Depend on csd-base instead of telephony-adaptation.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 20 Aug 2008 08:42:22 +0300
+
+connui-cellular (2.7) unstable; urgency=low
+
+  * Implemented: NR#191084, NR#190751
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Thu, 14 Aug 2008 10:33:52 +0300
+
+connui-cellular (2.6) unstable; urgency=low
+
+  * Implemented: NR#190756, NR#190758, NR#190760, NR#190764, NR#190572
+  * Implemented: NR#190905
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Mon, 11 Aug 2008 14:45:29 +0300
+
+connui-cellular (2.5) unstable; urgency=low
+
+  * Implemented code dialog class to represent H22 style code dialog.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Wed, 16 Jul 2008 13:37:20 +0300
+
+connui-cellular (2.4) unstable; urgency=low
+
+  * Implemented: NR#190762
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri,  4 Jul 2008 09:57:47 +0300
+
+connui-cellular (2.3) unstable; urgency=low
+
+  * Use osso-abook-tree-model.
+  * Partial: NR#191116, NR#190770, NR#190769, NR#190764, NR#190766
+  * Partial: NR#190765, NR#190763, NR#190760, NR#190759, NR#190758
+  * Partial: NR#190757, NR#190756
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 24 Jun 2008 15:19:42 +0300
+
+connui-cellular (2.2) unstable; urgency=low
+
+  * Disabled osso-addressbook usage.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 17 Jun 2008 10:44:33 +0300
+
+connui-cellular (2.1) unstable; urgency=low
+
+  * Added conndlgs plugin for showing various cellular error notes.
+  * Updated Cellular Connectivity UI Spec 1.0 changes to Phone CPA.
+  * Updated to build depend on libconnui-dev instead of libconnui.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Tue, 17 Jun 2008 09:51:44 +0300
+
+connui-cellular (2.0) unstable; urgency=low
+
+  * initial release.
+
+ -- Aapo Makela <aapo.makela@nokia.com>  Fri, 28 Mar 2008 15:51:48 +0300
+
