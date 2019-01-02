@@ -1,3 +1,3 @@
-SUBDIRS = data wizard
+SUBDIRS = lib data wizard
 
 MAINTAINERCLEANFILES = Makefile.in

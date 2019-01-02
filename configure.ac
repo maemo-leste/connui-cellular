@@ -16,6 +16,7 @@ AM_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([
 	Makefile
 	data/Makefile
+	lib/Makefile
 	wizard/Makefile
 ])
 
@@ -51,12 +52,25 @@ PKG_CHECK_MODULES(IAPSETTINGS, connui-iapsettings)
 AC_SUBST(IAPSETTINGS_CFLAGS)
 AC_SUBST(IAPSETTINGS_LIBS)
 
+PKG_CHECK_MODULES(LIBHILDON, libhildondesktop-1)
+AC_SUBST(LIBHILDON_CFLAGS)
+AC_SUBST(LIBHILDON_LIBS)
+
+PKG_CHECK_MODULES(ICD2, icd2)
+AC_SUBST(ICD2_CFLAGS)
+AC_SUBST(ICD2_LIBS)
+
 dnl Localization
 GETTEXT_PACKAGE=osso-connectivity-ui
 AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "${GETTEXT_PACKAGE}", [gettext package])
 
 dnl Installation directories
+hildondesktoplibdir="`$PKG_CONFIG --variable=hildondesktoplibdir osso-af-settings`"
+AC_SUBST(hildondesktoplibdir)
+
+hildonstatusmenudesktopentrydir="`$PKG_CONFIG --variable=hildonstatusmenudesktopentrydir libhildondesktop-1`"
+AC_SUBST(hildonstatusmenudesktopentrydir)
 
 conndlgslibdir=$libdir/conndlgs
 AC_SUBST(conndlgslibdir)
