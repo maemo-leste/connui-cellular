@@ -18,6 +18,7 @@ AC_CONFIG_FILES([
 	data/Makefile
 	lib/Makefile
 	wizard/Makefile
+	status-menu-item/Makefile
 ])
 
 AC_ISC_POSIX
@@ -27,6 +28,8 @@ AC_HEADER_STDC
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 AM_GCONF_SOURCE_2
+
+AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 
 PKG_CHECK_MODULES(OSSO_AF_SETTINGS, osso-af-settings)
 localedir=`pkg-config osso-af-settings --variable=localedir`

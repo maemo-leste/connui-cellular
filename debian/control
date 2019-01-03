@@ -2,8 +2,8 @@ Source: connui-cellular
 Section: x11
 Priority: optional
 Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
-Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88), libconbtui0-dev (>= 2.88.10), connui-iapsettings-dev (>= 2.78.2),
- osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev
+Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88), connui-iapsettings-dev (>= 2.78.2),
+ osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev, libhildondesktop1-dev, osso-af-settings
 Standards-Version: 3.7.2
 
 Package: connui-iapsettings-gprs
@@ -14,3 +14,11 @@ Description: Internet Settings UI for GPRS IAPs
  This package provides the Internet Settings UI plugin that allows you to
  create, edit and delete GPRS Internet Access Point configurations.
 
+Package: connui-statusbar-cellular
+Architecture: any
+Section: x11
+Replaces: osso-connectivity-ui-statusbar
+Depends: ${shlibs:Depends}, ${misc:Depends}, osso-icons-default | osso-icons, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Conflicts: osso-connectivity-ui-statusbar
+Description: Cellular Connectivity statusbar plugin
+ This package provides the Cellular Connectivity statusbar plugin.
