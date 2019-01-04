@@ -166,7 +166,7 @@ connui_cell_context_destroy(connui_cell_context *ctx)
 {
   if (ctx->sim_status_cbs || ctx->security_code_register_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
-      ctx->cs_status_cbs || ctx->field_80 || ctx->field_8C ||
+      ctx->cs_status_cbs || ctx->service_calls || ctx->clir_cb ||
       ctx->ssc_state_cbs)
   {
     return;

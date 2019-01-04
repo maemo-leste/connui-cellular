@@ -172,7 +172,7 @@ get_radio_access_technology_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                         G_TYPE_INVALID);
 
   ((net_get_rat_cb_f)data->cb)(proxy, network_rat_name, error_value, error,
-                               data->ctx);
+                               data->data);
 }
 
 static void
@@ -234,7 +234,7 @@ get_registration_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                                       network_operator_code,
                                       network_country_code, network_type,
                                       network_supported_services, error_value,
-                                      error, data->ctx);
+                                      error, data->data);
 }
 
 static void
@@ -264,7 +264,7 @@ net_get_signal_strength_cb(DBusGProxy *proxy, uint8_t network_signals_bar,
     sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)net_get_rat_cb;
-    data->ctx = ctx;
+    data->data = ctx;
     ctx->get_registration_status_call =
         dbus_g_proxy_begin_call(ctx->phone_net_proxy,
                                 "get_radio_access_technology",
@@ -296,7 +296,7 @@ get_signal_strength_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
 
   ((net_get_signal_strength_cb_f)data->cb)(proxy, network_signals_bar,
                                            network_rssi_in_dbm, error_value,
-                                           error, data->ctx);
+                                           error, data->data);
 }
 
 static void
@@ -346,7 +346,7 @@ net_get_reg_status_cb(DBusGProxy *proxy, uint8_t reg_status,
     }
 
     data->cb = cb;
-    data->ctx = ctx;
+    data->data = ctx;
     ctx->get_registration_status_call =
         dbus_g_proxy_begin_call(ctx->phone_net_proxy, method, notify,
                                 data, destroy_sim_status_data, G_TYPE_INVALID);
@@ -391,7 +391,7 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
     sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)net_get_reg_status_cb;
-    data->ctx = ctx;
+    data->data = ctx;
     ctx->get_registration_status_call =
         dbus_g_proxy_begin_call(ctx->phone_net_proxy, "get_registration_status",
                                 get_registration_status_cb, data,

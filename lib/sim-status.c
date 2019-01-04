@@ -67,7 +67,7 @@ get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
                         G_TYPE_INT, &error_value,
                         G_TYPE_INVALID);
   ((get_sim_status_cb_f)data->cb)(proxy, sim_status, error_value, error,
-                                  data->ctx);
+                                  data->data);
 }
 
 gboolean
@@ -90,7 +90,7 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
     sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)sim_status_cb;
-    data->ctx = ctx;
+    data->data = ctx;
     ctx->get_sim_status_call =
         dbus_g_proxy_begin_call(ctx->phone_sim_proxy, "get_sim_status",
                                 (DBusGProxyCallNotify)get_sim_status_cb, data,
