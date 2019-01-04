@@ -35,7 +35,7 @@ typedef void (*call_status_cb) (gboolean calls, gpointer user_data);
 typedef void (*cs_status_cb) (gchar state, gpointer user_data);
 typedef void (*cell_network_state_cb) (const cell_network_state *state,
                                        gpointer user_data);
-typedef void (*sim_status_cb) (guint status, gpointer user_data);
+typedef void (*cell_sim_status_cb) (guint status, gpointer user_data);
 typedef void (*ssc_state_cb) (gchar *state, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
@@ -67,5 +67,8 @@ enum net_registration_status
 
 gboolean connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data);
 void connui_cell_net_status_close(cell_network_state_cb cb);
+
+gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
+void connui_cell_sim_status_close(cell_sim_status_cb cb);
 
 #endif /* __CONNUI_CELLULAR_H__ */

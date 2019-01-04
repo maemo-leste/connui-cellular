@@ -6,14 +6,6 @@
 
 #include "context.h"
 
-struct _sim_status_data
-{
-  GCallback cb;
-  connui_cell_context *ctx;
-};
-
-typedef struct _sim_status_data sim_status_data;
-
 static void
 net_signal_strength_change_notify(connui_cell_context *ctx)
 {
@@ -160,12 +152,6 @@ connui_cell_net_status_close(cell_network_state_cb cb)
   }
 
   connui_cell_context_destroy(ctx);
-}
-
-static void
-destroy_sim_status_data(gpointer mem_block)
-{
-  g_slice_free(sim_status_data, mem_block);
 }
 
 typedef void (*net_get_rat_cb_f)(DBusGProxy *, uint8_t, int32_t, GError *,
@@ -407,12 +393,9 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
     data->cb = (GCallback)net_get_reg_status_cb;
     data->ctx = ctx;
     ctx->get_registration_status_call =
-        dbus_g_proxy_begin_call(ctx->phone_net_proxy,
-                                "get_registration_status",
-                                get_registration_status_cb,
-                                data,
-                                (GDestroyNotify)destroy_sim_status_data,
-                                0);
+        dbus_g_proxy_begin_call(ctx->phone_net_proxy, "get_registration_status",
+                                get_registration_status_cb, data,
+                                destroy_sim_status_data, G_TYPE_INVALID);
   }
 
   connui_cell_context_destroy(ctx);
