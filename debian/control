@@ -38,3 +38,13 @@ Depends: libconnui-cellular (= ${binary:Version})
 Description: Description: libconnui-cellular development files
  This package contains the files needed for developing applications that
  use libconnui-cellular.
+
+Package: connui-home-cellular
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: operator-name-cbs-widget (<< 3.0)
+Description: Cellular UI operator name home plugin
+ Home plugin for showing the current cellular operator.
+ .
+ It has additional support for Cell Broadcast SMS
+ which show for example Cellular network info.
