@@ -1,3 +1,9 @@
+connui-cellular (3.0) unstable; urgency=medium
+
+  * First RE release
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sat, 05 Jan 2019 10:10:11 +0200
+
 connui-cellular (2.118+0m5) unstable; urgency=low
 
   * This entry has been added by BIFH queue processor
