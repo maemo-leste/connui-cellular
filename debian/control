@@ -7,7 +7,6 @@ Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88.12), con
 Standards-Version: 3.7.2
 
 Package: connui-iapsettings-gprs
-Section: x11
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Internet Settings UI for GPRS IAPs
@@ -16,9 +15,26 @@ Description: Internet Settings UI for GPRS IAPs
 
 Package: connui-statusbar-cellular
 Architecture: any
-Section: x11
 Replaces: osso-connectivity-ui-statusbar
 Depends: ${shlibs:Depends}, ${misc:Depends}, osso-icons-default | osso-icons, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
 Conflicts: osso-connectivity-ui-statusbar
 Description: Cellular Connectivity statusbar plugin
  This package provides the Cellular Connectivity statusbar plugin.
+
+Package: libconnui-cellular
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Common cellular functionality for Connectivity UI
+ This library provides common cellular functionality for Connectivity UI
+ components. Such functionality includes:
+  * PIN handling
+  * Cellular network status
+  * Cellular network listing and selection
+  * Supplementary Services
+
+Package: libconnui-cellular-dev
+Architecture: any
+Depends: libconnui-cellular (= ${binary:Version})
+Description: Description: libconnui-cellular development files
+ This package contains the files needed for developing applications that
+ use libconnui-cellular.

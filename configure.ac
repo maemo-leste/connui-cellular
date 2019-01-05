@@ -19,6 +19,7 @@ AC_CONFIG_FILES([
 	lib/Makefile
 	wizard/Makefile
 	status-menu-item/Makefile
+	connui-cellular.pc
 ])
 
 AC_ISC_POSIX

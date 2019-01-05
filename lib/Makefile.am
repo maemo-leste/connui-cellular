@@ -4,14 +4,14 @@ AM_CFLAGS = -Wall -Werror $(HILDON_CFLAGS) $(CONNUI_CFLAGS) \
 AM_LDFLAGS = -Wl,--as-needed $(HILDON_LIBS) $(CONNUI_LIBS) $(IAPSETTINGS_LIBS) \
 	     -Wl, no-undefined
 
-lib_LTLIBRARIES = libconnui_cellular.la
+lib_LTLIBRARIES = libconnui_cell.la
 
-libconnui_cellular_la_SOURCES = connui-cell-note.c \
-				context.c \
-				connui-cell-marshal.c \
-				network.c \
-				net-status.c \
-				sim-status.c
+libconnui_cell_la_SOURCES = connui-cell-note.c \
+			    context.c \
+			    connui-cell-marshal.c \
+			    network.c \
+			    net-status.c \
+			    sim-status.c
 
 BUILT_SOURCES = connui-cell-marshal.c connui-cell-marshal.h
 

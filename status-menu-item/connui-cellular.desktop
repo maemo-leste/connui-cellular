@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Connui Cellular
+Comment=Cellular Status item
+Type=default
+X-Path=connui-cellular-status-item.so
