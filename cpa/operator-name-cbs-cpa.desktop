@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.1
+Name=Operator Name Widget
+Comment=Operator Name Widget with Cell Broadcast SMS Messages
+Type=HildonControlPanelPlugin
+Icon=general_call
+X-control-panel-plugin=operator-name-cbs-cpa.so
+Categories=personalisation
