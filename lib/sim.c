@@ -111,7 +111,6 @@ connui_cell_sim_is_network_in_service_provider_info(gint *error_value,
   gboolean rv = FALSE;
   GArray *provider_info = NULL;
   GError *error = NULL;
-
   connui_cell_context *ctx = connui_cell_context_get();
 
   g_return_val_if_fail(ctx != NULL, FALSE);
@@ -155,3 +154,38 @@ connui_cell_sim_is_network_in_service_provider_info(gint *error_value,
   return rv;
 }
 
+gchar *
+connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
+{
+  GError *error = NULL;
+  guint unk2;
+  guint unk1;
+  gchar *service_provider_name = NULL;
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (dbus_g_proxy_call(
+        ctx->phone_sim_proxy, "get_service_provider_name", &error,
+        G_TYPE_INVALID,
+        G_TYPE_STRING, &service_provider_name,
+        G_TYPE_UINT, &unk1,
+        G_TYPE_UINT, &unk2,
+        G_TYPE_INT, error_value,
+        G_TYPE_INVALID))
+  {
+    *name_type = unk1 | 2 * unk2;
+    connui_cell_context_destroy(ctx);
+    return service_provider_name;
+  }
+
+  CONNUI_ERR("Error with DBUS: %s", error->message);
+  g_clear_error(&error);
+
+  if (error_value)
+    *error_value = 1;
+
+  connui_cell_context_destroy(ctx);
+
+  return NULL;
+}

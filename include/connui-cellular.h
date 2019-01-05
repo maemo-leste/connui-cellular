@@ -55,6 +55,32 @@ enum net_registration_status
     NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW // CS is not in service due to missing subscription
 };
 
+enum network_alpha_tag_name_type
+{
+// The operator name contains only 'ordinary' characters. The operator name is
+// from the hard-coded operator name list
+    NETWORK_HARDCODED_LATIN_OPER_NAME = 0,
+// The operator name contains some language specific characters (like Chinese).
+// The operator name is from the hard-coded operator name list
+    NETWORK_HARDCODED_USC2_OPER_NAME,
+// The operator name is received from the cellular network in a special message
+// containing the operator name. The network has indicated that this name is a
+// short name.
+    NETWORK_NITZ_SHORT_OPER_NAME,
+// The operator name is received from the cellular network in a special message
+// containing the operator name. The network has indicated that this is a full
+// name operator name.
+    NETWORK_NITZ_FULL_OPER_NAME,
+// The operator name from SIM card
+    NETWORK_SIM_OPER_NAME = 0x08,
+// The operator name is received from the SIM and it is mapped to certain LAC.
+// The SIM has indicated that this name is a short name.
+    NETWORK_EONS_SHORT_OPER_NAME,
+// The operator name is received from the SIM and it is mapped to certain LAC.
+// The SIM has indicated that this is a full name
+    NETWORK_EONS_FULL_OPER_NAME
+};
+
 #define NETWORK_RAT_NAME_UNKNOWN         0x00
 #define NETWORK_GSM_RAT                  0x01
 #define NETWORK_UMTS_RAT                 0x02
@@ -67,9 +93,11 @@ enum net_registration_status
 
 gboolean connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data);
 void connui_cell_net_status_close(cell_network_state_cb cb);
+gchar *connui_cell_net_get_operator_name(cell_network *network, gboolean long_name, gint *error_value);
 
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
 void connui_cell_sim_status_close(cell_sim_status_cb cb);
 gboolean connui_cell_sim_is_network_in_service_provider_info(gint *error_value, guchar *code);
+gchar *connui_cell_sim_get_service_provider(guint *name_type, gint *error_value);
 
 #endif /* __CONNUI_CELLULAR_H__ */

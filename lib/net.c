@@ -402,3 +402,85 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
 
   return ctx->get_registration_status_call != NULL;
 }
+
+gchar *
+connui_cell_net_get_operator_name(cell_network *network, gboolean long_name,
+                                  gint *error_value)
+{
+  guchar network_oper_name_type;
+  gchar *network_display_tag = NULL;
+  GError *error = NULL;
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, NULL);
+
+  if (!network)
+  {
+    CONNUI_ERR("Network is null");
+    goto err_out;
+  }
+
+  if (long_name)
+    network_oper_name_type = NETWORK_NITZ_FULL_OPER_NAME;
+  else
+    network_oper_name_type = NETWORK_NITZ_SHORT_OPER_NAME;
+
+  if (!dbus_g_proxy_call(
+        ctx->phone_net_proxy, "get_operator_name", &error,
+        G_TYPE_UCHAR, network_oper_name_type,
+        G_TYPE_UINT, (guint)g_ascii_strtod(network->operator_code, NULL),
+        G_TYPE_UINT, (guint)g_ascii_strtod(network->country_code, NULL),
+        G_TYPE_INVALID,
+        G_TYPE_STRING, &network_display_tag,
+        G_TYPE_INT, error_value,
+        G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+    goto err_out;
+  }
+
+  if (network_display_tag && *network_display_tag)
+  {
+    connui_cell_context_destroy(ctx);
+    return network_display_tag;
+  }
+
+  g_free(network_display_tag);
+
+  network_display_tag = NULL;
+
+  if (!dbus_g_proxy_call(
+        ctx->phone_net_proxy, "get_operator_name", &error,
+        G_TYPE_UCHAR, NETWORK_HARDCODED_LATIN_OPER_NAME,
+        G_TYPE_UINT, (guint)g_ascii_strtod(network->operator_code, NULL),
+        G_TYPE_UINT, (guint)g_ascii_strtod(network->country_code, NULL),
+        G_TYPE_INVALID,
+        G_TYPE_STRING, &network_display_tag,
+        G_TYPE_INT, error_value,
+        G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+    goto err_out;
+  }
+
+  if (network_display_tag && !*network_display_tag)
+  {
+    g_free(network_display_tag);
+    network_display_tag = NULL;
+  }
+
+  connui_cell_context_destroy(ctx);
+
+  return network_display_tag;
+
+err_out:
+
+  if (error_value)
+    *error_value = 1;
+
+  connui_cell_context_destroy(ctx);
+
+  return NULL;
+}
