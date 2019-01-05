@@ -17,6 +17,7 @@ connui_cellular_operator_home_item_la_LDFLAGS = \
 			$(HILDON_LIBS) $(CONNUI_LIBS) $(OSSO_LIBS) -module \
 			-avoid-version -Wl, no-undefined
 
-connui_cellular_operator_home_item_la_LIBADD = $(OPERATORNAMECBSHOMEITEM_LIBS)
+connui_cellular_operator_home_item_la_LIBADD = \
+			$(top_builddir)/lib/libconnui_cell.la
 
 MAINTAINERCLEANFILES = Makefile.in
