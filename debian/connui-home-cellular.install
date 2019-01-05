@@ -1,1 +1,3 @@
 usr/lib/hildon-desktop/connui-cellular-operator-home-item.so
+usr/lib/hildon-control-panel/*.so
+usr/share/applications/hildon-control-panel/*

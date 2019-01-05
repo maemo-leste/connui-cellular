@@ -3,7 +3,7 @@ Section: x11
 Priority: optional
 Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
 Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88.12), connui-iapsettings-dev (>= 2.78.2),
- osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev, libhildondesktop1-dev, osso-af-settings
+ osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev, libhildondesktop1-dev, osso-af-settings, hildon-control-panel-dev
 Standards-Version: 3.7.2
 
 Package: connui-iapsettings-gprs
