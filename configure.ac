@@ -19,6 +19,7 @@ AC_CONFIG_FILES([
 	lib/Makefile
 	wizard/Makefile
 	status-menu-item/Makefile
+	home-item/Makefile
 	connui-cellular.pc
 ])
 
@@ -70,7 +71,7 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "${GETTEXT_PACKAGE}", [gettext package])
 
 dnl Installation directories
-hildondesktoplibdir="`$PKG_CONFIG --variable=hildondesktoplibdir osso-af-settings`"
+hildondesktoplibdir="`$PKG_CONFIG --variable=hildondesktoplibdir libhildondesktop-1`"
 AC_SUBST(hildondesktoplibdir)
 
 hildonstatusmenudesktopentrydir="`$PKG_CONFIG --variable=hildonstatusmenudesktopentrydir libhildondesktop-1`"

@@ -15,3 +15,5 @@ connui_cellular_status_item_la_LIBADD = $(top_builddir)/lib/libconnui_cell.la
 
 hildonstatusmenudesktopentry_DATA = connui-cellular.desktop
 EXTRA_DIST = $(hildonstatusmenudesktopentry_DATA)
+
+MAINTAINERCLEANFILES = Makefile.in

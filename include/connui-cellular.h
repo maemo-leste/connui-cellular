@@ -70,5 +70,6 @@ void connui_cell_net_status_close(cell_network_state_cb cb);
 
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
 void connui_cell_sim_status_close(cell_sim_status_cb cb);
+gboolean connui_cell_sim_is_network_in_service_provider_info(gint *error_value, guchar *code);
 
 #endif /* __CONNUI_CELLULAR_H__ */

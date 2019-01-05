@@ -10,8 +10,8 @@ libconnui_cell_la_SOURCES = connui-cell-note.c \
 			    context.c \
 			    connui-cell-marshal.c \
 			    network.c \
-			    net-status.c \
-			    sim-status.c
+			    net.c \
+			    sim.c
 
 BUILT_SOURCES = connui-cell-marshal.c connui-cell-marshal.h
 

@@ -4,6 +4,8 @@
 #include <connui/connui-utils.h>
 #include <connui/connui-log.h>
 
+#include <string.h>
+
 #include "context.h"
 
 static void
@@ -101,3 +103,55 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 
   return ctx->get_sim_status_call != NULL;
 }
+
+gboolean
+connui_cell_sim_is_network_in_service_provider_info(gint *error_value,
+                                                    guchar *code)
+{
+  gboolean rv = FALSE;
+  GArray *provider_info = NULL;
+  GError *error = NULL;
+
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (dbus_g_proxy_call(
+        ctx->phone_sim_proxy, "get_service_provider_info", &error,
+        G_TYPE_INVALID,
+        dbus_g_type_get_collection("GArray", G_TYPE_UCHAR), &provider_info,
+        G_TYPE_INT, error_value,
+        G_TYPE_INVALID))
+  {
+    if (provider_info)
+    {
+      int i;
+
+      for (i = 0; i < provider_info->len; i += 4)
+      {
+        if (!memcmp(&provider_info->data[i], code, 3))
+        {
+          rv = TRUE;
+          break;
+        }
+      }
+
+      g_array_free(provider_info, TRUE);
+    }
+
+    connui_cell_context_destroy(ctx);
+  }
+  else
+  {
+    CONNUI_ERR("Error with DBUS in: %s", error->message);
+    g_clear_error(&error);
+
+    if (error_value )
+      *error_value = 1;
+
+    connui_cell_context_destroy(ctx);
+  }
+
+  return rv;
+}
+

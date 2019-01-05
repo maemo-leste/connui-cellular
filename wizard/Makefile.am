@@ -7,3 +7,5 @@ AM_LDFLAGS = -Wl,--as-needed $(HILDON_LIBS) $(CONNUI_LIBS) $(IAPSETTINGS_LIBS) \
 iapsettingslib_LTLIBRARIES = libiap_wizard_gprs.la
 
 libiap_wizard_gprs_la_SOURCES = gprs.c
+
+MAINTAINERCLEANFILES = Makefile.in
