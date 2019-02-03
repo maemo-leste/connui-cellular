@@ -56,7 +56,7 @@ sim_status_cb(DBusGProxy *proxy, guint sim_status, gint error_value,
 
 typedef void (*get_sim_status_cb_f)(DBusGProxy *, guint, gint, GError *,
                                     connui_cell_context *);
-static void
+__attribute__((visibility("hidden"))) void
 get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
 {
   sim_status_data *data = (sim_status_data *)user_data;

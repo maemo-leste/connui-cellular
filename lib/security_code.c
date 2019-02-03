@@ -93,6 +93,71 @@ verify_code_requested_cb(DBusGProxy *proxy, int status,
   g_free(new_code);
 }
 
+static void
+sec_code_status_cb(DBusGProxy *proxy, guint sec_code_status, gint error_value,
+                   GError *error, connui_cell_context *ctx)
+{
+  ctx->get_sim_status_call_1 = NULL;
+
+  if (error)
+  {
+    CONNUI_ERR("DBUS error: %s\n", error->message);
+    g_clear_error(&error);
+  }
+  else
+  {
+    if (error_value)
+      CONNUI_ERR("Error in method return: %d\n", error_value);
+
+    if (sec_code_status == 7)
+      verify_code_requested_cb(ctx->phone_sim_security_proxy, 2, ctx);
+    else if (sec_code_status == 8)
+      verify_code_requested_cb(ctx->phone_sim_security_proxy, 3, ctx);
+  }
+}
+
+/* in sim.c */
+void get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data);
+
+gboolean
+connui_cell_security_code_register(cell_sec_code_query_cb cb,
+                                   gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (!ctx->sec_code_cbs)
+  {
+    dbus_g_proxy_connect_signal(ctx->phone_sim_security_proxy,
+                                "verify_code_requested",
+                                (GCallback)verify_code_requested_cb, ctx, NULL);
+  }
+
+  ctx->sec_code_cbs = connui_utils_notify_add(ctx->sec_code_cbs, cb, user_data);
+
+  if (!ctx->get_sim_status_call_1)
+  {
+    sim_status_data *data = g_slice_new(sim_status_data);
+
+    data->cb = (GCallback)sec_code_status_cb;
+    data->data = ctx;
+
+    ctx->get_sim_status_call_1 =
+        dbus_g_proxy_begin_call(ctx->phone_sim_proxy, "get_sim_status",
+                                get_sim_status_cb, data,
+                                destroy_sim_status_data, G_TYPE_INVALID);
+  }
+
+  if (ctx->get_sim_status_call_1)
+    rv = TRUE;
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
 void
 connui_cell_security_code_close(void (*cb)())
 {
