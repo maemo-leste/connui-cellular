@@ -12,6 +12,7 @@ libconnui_cell_la_SOURCES = connui-cell-note.c \
 			    network.c \
 			    net.c \
 			    sim.c \
+			    emergency.c \
 			    security_code.c \
 			    code-ui.c \
 			    ssc.c \

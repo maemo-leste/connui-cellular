@@ -1,6 +1,8 @@
 #ifndef __CONNUI_CELLULAR_H__
 #define __CONNUI_CELLULAR_H__
 
+#include <hildon/hildon.h>
+
 struct _cell_network
 {
   guchar service_status;
@@ -142,5 +144,10 @@ void connui_cell_call_status_close(cell_call_status_cb cb);
 gboolean connui_cell_code_ui_cancel_dialog();
 gboolean connui_cell_code_ui_is_sim_locked_with_error();
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
+gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);
+
+/* EMERGENCY */
+GStrv connui_cell_emergency_get_numbers();
+gboolean connui_cell_emergency_call();
 
 #endif /* __CONNUI_CELLULAR_H__ */
