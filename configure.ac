@@ -16,10 +16,12 @@ AM_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([
 	Makefile
 	data/Makefile
+	conndlgs/Makefile
 	lib/Makefile
 	wizard/Makefile
 	status-menu-item/Makefile
 	home-item/Makefile
+	cpa/Makefile
 	connui-cellular.pc
 ])
 
@@ -65,6 +67,10 @@ PKG_CHECK_MODULES(ICD2, icd2)
 AC_SUBST(ICD2_CFLAGS)
 AC_SUBST(ICD2_LIBS)
 
+PKG_CHECK_MODULES([CPL], [hildon-control-panel])
+AC_SUBST([CPL_CFLAGS])
+AC_SUBST([CPL_LIBS])
+
 dnl Localization
 GETTEXT_PACKAGE=osso-connectivity-ui
 AC_SUBST(GETTEXT_PACKAGE)
@@ -76,6 +82,12 @@ AC_SUBST(hildondesktoplibdir)
 
 hildonstatusmenudesktopentrydir="`$PKG_CONFIG --variable=hildonstatusmenudesktopentrydir libhildondesktop-1`"
 AC_SUBST(hildonstatusmenudesktopentrydir)
+
+controlpanelpluginlibdir=`pkg-config hildon-control-panel --variable=pluginlibdir`
+AC_SUBST([controlpanelpluginlibdir])
+
+controlpanelplugindesktopentrydir=`pkg-config hildon-control-panel --variable=plugindesktopentrydir`
+AC_SUBST([controlpanelplugindesktopentrydir])
 
 conndlgslibdir=$libdir/conndlgs
 AC_SUBST(conndlgslibdir)

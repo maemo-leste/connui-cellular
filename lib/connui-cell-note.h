@@ -27,7 +27,7 @@ struct _ConnuiCellNoteClass
   HildonNoteClass parent_class;
 };
 
-ConnuiCellNote *connui_cell_note_new_information(GtkWindow *parent,
-                                                 const gchar *text);
+GtkWidget *connui_cell_note_new_information(GtkWindow *parent,
+                                            const gchar *text);
 
 #endif // CONNUICELLNOTE_H

@@ -9,7 +9,7 @@
 #include "context.h"
 
 static void
-sim_status_changed_cb(DBusGProxy *proxy, uint32_t status,
+sim_status_changed_cb(DBusGProxy *proxy, guint status,
                       connui_cell_context *ctx)
 {
   g_return_if_fail(ctx != NULL && ctx->sim_status_cbs != NULL);
@@ -34,7 +34,7 @@ connui_cell_sim_status_close(cell_sim_status_cb cb)
 }
 
 static void
-sim_status_cb(DBusGProxy *proxy, uint32_t sim_status, int error_value,
+sim_status_cb(DBusGProxy *proxy, guint sim_status, gint error_value,
               GError *error, connui_cell_context *ctx)
 {
   ctx->get_sim_status_call = NULL;
@@ -54,14 +54,14 @@ sim_status_cb(DBusGProxy *proxy, uint32_t sim_status, int error_value,
   }
 }
 
-typedef void (*get_sim_status_cb_f)(DBusGProxy *, uint32_t, int32_t, GError *,
+typedef void (*get_sim_status_cb_f)(DBusGProxy *, guint, gint, GError *,
                                     connui_cell_context *);
 static void
 get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
 {
   sim_status_data *data = (sim_status_data *)user_data;
-  int32_t error_value;
-  uint32_t sim_status;
+  gint error_value;
+  guint sim_status;
   GError *error = NULL;
 
   dbus_g_proxy_end_call(proxy, call_id, &error,

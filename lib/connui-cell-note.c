@@ -118,10 +118,10 @@ connui_cell_note_class_init(ConnuiCellNoteClass *klass)
   widget_class->unmap = connui_cell_note_unmap;
 }
 
-ConnuiCellNote *
+GtkWidget *
 connui_cell_note_new_information(GtkWindow *parent, const gchar *text)
 {
-  ConnuiCellNote *note;
+  GtkWidget *note;
 
   g_return_val_if_fail(text != NULL, NULL);
 

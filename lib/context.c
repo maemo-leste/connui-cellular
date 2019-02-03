@@ -150,7 +150,7 @@ connui_cell_context_get()
 
   context.ssc_state_cbs = NULL;
   context.sim_status_cbs = NULL;
-  context.security_code_register_cbs = NULL;
+  context.sec_code_cbs = NULL;
   context.net_status_cbs = NULL;
   context.net_list_cbs = NULL;
   context.net_select_cbs = NULL;
@@ -164,7 +164,7 @@ connui_cell_context_get()
 __attribute__((visibility("hidden"))) void
 connui_cell_context_destroy(connui_cell_context *ctx)
 {
-  if (ctx->sim_status_cbs || ctx->security_code_register_cbs ||
+  if (ctx->sim_status_cbs || ctx->sec_code_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
       ctx->cs_status_cbs || ctx->service_calls || ctx->clir_cb ||
       ctx->ssc_state_cbs)
