@@ -131,6 +131,8 @@ void connui_cell_cs_status_close(cell_cs_status_cb cb);
 gboolean connui_cell_net_is_activated(gint *error_value);
 guint connui_cell_net_set_call_forwarding_enabled(gboolean enabled, const gchar *phone_number, service_call_cb_f cb, gpointer user_data);
 guint connui_cell_net_get_call_forwarding_enabled(guint type, service_call_cb_f cb, gpointer user_data);
+guint connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb, gpointer user_data);
+guint connui_cell_net_get_call_waiting_enabled(service_call_cb_f cb, gpointer user_data);
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
