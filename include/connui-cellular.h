@@ -118,6 +118,8 @@ enum network_alpha_tag_name_type
 #define NET_GSS_UMTS_SELECTED_RAT            0x02
 #define NET_GSS_UNKNOWN_SELECTED_RAT         0x03
 
+typedef void (*service_call_cb_f)(gboolean call_forwarding_enabled, int error_value, const gchar *phone_number, gpointer user_data);
+
 /* NET */
 gboolean connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data);
 void connui_cell_net_status_close(cell_network_state_cb cb);
@@ -127,6 +129,8 @@ guchar connui_cell_net_get_radio_access_mode(gint *error_value);
 void connui_cell_net_cancel_service_call(guint call_id);
 void connui_cell_cs_status_close(cell_cs_status_cb cb);
 gboolean connui_cell_net_is_activated(gint *error_value);
+guint connui_cell_net_set_call_forwarding_enabled(gboolean enabled, const gchar *phone_number, service_call_cb_f cb, gpointer user_data);
+guint connui_cell_net_get_call_forwarding_enabled(guint type, service_call_cb_f cb, gpointer user_data);
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);

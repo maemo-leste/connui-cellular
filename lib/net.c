@@ -4,13 +4,15 @@
 #include <connui/connui-utils.h>
 #include <connui/connui-log.h>
 
+#include <string.h>
+
 #include "context.h"
 
 struct _service_call
 {
   DBusGProxy *proxy;
   DBusGProxyCall *proxy_call;
-  GCallback cb;
+  service_call_cb_f cb;
   gpointer data;
   int unk;
 };
@@ -182,7 +184,7 @@ static void
 get_radio_access_technology_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                                void *user_data)
 {
-  sim_status_data *data = (sim_status_data *)user_data;
+  sim_status_data *data = user_data;
   GError *error = NULL;
   int32_t error_value;
   guchar network_rat_name;
@@ -227,7 +229,7 @@ static void
 get_registration_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                            void *user_data)
 {
-  sim_status_data *data = (sim_status_data *)user_data;
+  sim_status_data *data = user_data;
   int32_t error_value;
   guint network_country_code;
   guint network_operator_code;
@@ -304,7 +306,7 @@ static void
 get_signal_strength_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                        void *user_data)
 {
-  sim_status_data *data = (sim_status_data *)user_data;
+  sim_status_data *data = user_data;
   GError *error = NULL;
   guchar network_rssi_in_dbm;
   guchar network_signals_bar;
@@ -566,6 +568,26 @@ connui_cell_net_get_radio_access_mode(gint *error_value)
 }
 
 static service_call *
+add_service_call(connui_cell_context *ctx, guint call_id, DBusGProxy *proxy,
+                 DBusGProxyCall *proxy_call, service_call_cb_f cb,
+                 gpointer user_data)
+{
+  service_call *call = g_new0(service_call, 1);
+
+  call->proxy = proxy;
+  call->proxy_call = proxy_call;
+  call->cb = cb;
+  call->data = user_data;
+
+  if (!ctx->service_calls)
+    ctx->service_calls = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+  g_hash_table_insert(ctx->service_calls, GUINT_TO_POINTER(call_id), call);
+
+  return call;
+}
+
+static service_call *
 find_service_call_for_removal(connui_cell_context *ctx, guint call_id,
                               gboolean reset)
 {
@@ -708,4 +730,251 @@ connui_cell_net_is_activated(gint *error_value)
   connui_cell_context_destroy(ctx);
 
   return rv;
+}
+
+static guint
+get_next_call_id(connui_cell_context *ctx)
+{
+  ctx->service_call_id++;
+
+  return ctx->service_call_id;
+}
+
+typedef void (*net_divert_reply_f)(DBusGProxy *, GError *, gpointer);
+
+static void
+divert_activate_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
+{
+  sim_status_data *data = user_data;
+  GError *error = NULL;
+
+  dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
+  ((net_divert_reply_f)data->cb)(proxy, error, data->data);
+}
+
+static void
+connui_cell_net_divert_activate_reply(DBusGProxy *proxy, GError *error,
+                                      const void *user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  guint call_id = GPOINTER_TO_UINT(user_data);
+  service_call *service_call;
+
+  g_return_if_fail(ctx != NULL);
+
+  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
+  {
+     CONNUI_ERR("Unable to get call ID %u", call_id);
+     return;
+  }
+
+  if ( error )
+  {
+    const char *err_msg = error->message;
+    int error_value;
+
+    CONNUI_ERR("Error in call: %s", err_msg);
+
+    if (err_msg &&
+        (!strcmp(err_msg, "CALL BARRED") || !strcmp(err_msg, "DATA MISSING") ||
+         !strcmp(err_msg, "Invalid Parameter") ||
+         !strcmp(err_msg, "UNEXPECTED DATA VALUE") ||
+         !strcmp(err_msg, "UNSPECIFIED REASON")))
+    {
+      error_value = 10001;
+    }
+    else
+      error_value = 1;
+
+    if (service_call->cb)
+      service_call->cb(FALSE, error_value, NULL, service_call->data);
+  }
+  else
+  {
+    if (service_call->cb)
+      service_call->cb(TRUE, 0, NULL, service_call->data);
+
+  }
+
+  remove_service_call(ctx, (guint)call_id);
+  connui_cell_context_destroy(ctx);
+}
+
+static void
+divert_cancel_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
+{
+  sim_status_data *data = user_data;
+  GError *error = NULL;
+
+  dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
+  ((net_divert_reply_f)data->cb)(proxy, error, data->data);
+}
+
+static void
+connui_cell_net_divert_cancel_reply(DBusGProxy *proxy, GError *error,
+                                    const void *user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  guint call_id = GPOINTER_TO_UINT(user_data);
+  service_call *service_call;
+
+  g_return_if_fail(ctx != NULL);
+
+  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
+  {
+     CONNUI_ERR("Unable to get call ID %u", call_id);
+     return;
+  }
+
+  if (error)
+  {
+    CONNUI_ERR("Error in call: %s", error->message);
+
+    if (service_call->cb)
+      service_call->cb(FALSE, 1, NULL, service_call->data);
+  }
+  else
+  {
+    if (service_call->cb)
+      service_call->cb(FALSE, 0, NULL, service_call->data);
+  }
+
+  remove_service_call(ctx, call_id);
+  connui_cell_context_destroy(ctx);
+}
+
+guint
+connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
+                                            const gchar *phone_number,
+                                            service_call_cb_f cb,
+                                            gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  DBusGProxy *proxy;
+  DBusGProxyCall *proxy_call;
+  guint call_id;
+  sim_status_data *data;
+
+  if (!phone_number)
+    phone_number = "";
+
+  g_return_val_if_fail(ctx != NULL, 0);
+
+  call_id = get_next_call_id(ctx);
+  data = g_slice_new(sim_status_data);
+  data->data = GUINT_TO_POINTER(call_id);
+
+  if (enabled)
+  {
+    proxy = ctx->csd_ss_proxy;
+    data->cb = (GCallback)connui_cell_net_divert_activate_reply;
+    proxy_call = dbus_g_proxy_begin_call(proxy, "DivertActivate",
+                                         divert_activate_cb,
+                                         data,
+                                         destroy_sim_status_data,
+                                         G_TYPE_UINT, 5,
+                                         G_TYPE_STRING, phone_number,
+                                         G_TYPE_UINT, 20, G_TYPE_INVALID);
+  }
+  else
+  {
+    proxy = ctx->csd_ss_proxy;
+    data->cb = (GCallback)connui_cell_net_divert_cancel_reply;
+    proxy_call = dbus_g_proxy_begin_call(proxy, "DivertCancel",
+                                         divert_cancel_cb, data,
+                                         destroy_sim_status_data,
+                                         G_TYPE_UINT, 5, G_TYPE_INVALID);
+  }
+
+  add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
+
+  connui_cell_context_destroy(ctx);
+
+  return call_id;
+}
+
+typedef void (*divert_check_reply_cb_f)(DBusGProxy *, gboolean, gchar *, GError *, gpointer);
+
+static void
+divert_check_reply_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
+{
+  sim_status_data *data = user_data;
+  gchar *phone_number;
+  gboolean enabled;
+  GError *error = NULL;
+
+  dbus_g_proxy_end_call(proxy, call, &error,
+                        G_TYPE_BOOLEAN, &enabled,
+                        G_TYPE_STRING, &phone_number,
+                        G_TYPE_INVALID);
+  ((divert_check_reply_cb_f)(data->cb))(proxy, enabled, phone_number, error,
+                                        data->data);
+
+  g_free(phone_number);
+}
+
+static void
+connui_cell_net_divert_check_reply(DBusGProxy *proxy, gboolean enabled,
+                                   const gchar *phone_number, GError *error,
+                                   gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  guint call_id = GPOINTER_TO_UINT(user_data);
+  service_call *service_call;
+
+  g_return_if_fail(ctx != NULL);
+
+  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
+  {
+    CONNUI_ERR("Unable to get call ID %d", call_id);
+    return;
+  }
+
+  if (error)
+  {
+    CONNUI_ERR("Error in call: %s", error->message);
+
+    if (service_call->cb)
+      service_call->cb(FALSE, 1, NULL, service_call->data);
+  }
+  else
+  {
+    if (phone_number && !*phone_number)
+        phone_number = NULL;
+
+    if (service_call->cb)
+      service_call->cb(enabled, 0, phone_number, service_call->data);
+  }
+
+  remove_service_call(ctx, (guint)call_id);
+  connui_cell_context_destroy(ctx);
+}
+
+/* see https://wiki.maemo.org/Phone_control for values of type */
+guint
+connui_cell_net_get_call_forwarding_enabled(guint type, service_call_cb_f cb,
+                                            gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  guint call_id;
+  DBusGProxy *proxy;
+  sim_status_data *data;
+  DBusGProxyCall *proxy_call;
+
+  g_return_val_if_fail(ctx != NULL, 0);
+
+  call_id = get_next_call_id(ctx);
+  proxy = ctx->csd_ss_proxy;
+  data = g_slice_new(sim_status_data);
+  data->data = GUINT_TO_POINTER(call_id);
+  data->cb = (GCallback)connui_cell_net_divert_check_reply;
+
+  proxy_call = dbus_g_proxy_begin_call(proxy, "DivertCheck",
+                                       divert_check_reply_cb, data,
+                                       destroy_sim_status_data,
+                                       G_TYPE_UINT, type, G_TYPE_INVALID);
+  add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
+  connui_cell_context_destroy(ctx);
+
+  return call_id;
 }
