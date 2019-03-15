@@ -1107,8 +1107,7 @@ connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb,
   return call_id;
 }
 
-typedef void (*net_waiting_check_reply)(DBusGProxy *, gboolean, GError *, gpointer);
-
+typedef void (*net_waiting_check_reply_f)(DBusGProxy *, gboolean, GError *, gpointer);
 
 static void
 waiting_check_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
@@ -1118,7 +1117,7 @@ waiting_check_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
   GError *error = NULL;
 
   dbus_g_proxy_end_call(proxy, call_id, &error, 0x14u, &enabled, 0);
-  ((net_waiting_check_reply)data->cb)(proxy, enabled, error, data->data);
+  ((net_waiting_check_reply_f)data->cb)(proxy, enabled, error, data->data);
 }
 
 static void
@@ -1179,4 +1178,130 @@ connui_cell_net_get_call_waiting_enabled(service_call_cb_f cb,
   connui_cell_context_destroy(ctx);
 
   return call_id;
+}
+
+static void
+net_list_cb(DBusGProxy *proxy, GArray *status_array,
+            GArray *operator_code_array, GArray *country_code_array,
+            GArray *operator_name_array, GArray *network_type_array,
+            GArray *umts_avail_array, int error_value, GError *error,
+            void *user_data)
+{
+  connui_cell_context *ctx = user_data;
+  int i;
+  GSList *l = NULL;
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->get_available_network_call = NULL;
+
+  if (error)
+  {
+    connui_utils_notify_notify_POINTER(ctx->net_list_cbs, l);
+    CONNUI_ERR("Error %s\n", error->message);
+    g_clear_error(&error);
+    return;
+
+  }
+
+  if (error_value)
+    CONNUI_ERR("Error in method return: %d\n", error_value);
+
+  if (status_array && operator_code_array && country_code_array &&
+      operator_name_array && network_type_array && umts_avail_array)
+  {
+    g_return_if_fail(status_array->len == umts_avail_array->len &&
+                     status_array->len == network_type_array->len);
+
+    for(i = 0; i < status_array->len; i++)
+    {
+      cell_network *net = g_new0(cell_network, 1);
+
+      net->service_status = g_array_index(status_array, guchar, i);
+      net->network_type = g_array_index(network_type_array, guchar, i);
+      net->country_code = g_array_index(country_code_array, gchar *, i);
+      net->operator_code = g_array_index(operator_code_array, gchar *, i);
+      net->operator_name = g_array_index(operator_name_array, gchar *, i);
+      net->umts_avail = g_array_index(umts_avail_array, guchar, i);
+      l = g_slist_append(l, net);
+    }
+
+    g_array_free(status_array, TRUE);
+    g_array_free(network_type_array, TRUE);
+    g_array_free(umts_avail_array, TRUE);
+
+    g_free(operator_code_array);
+    g_free(country_code_array);
+    g_free(operator_name_array);
+  }
+
+  connui_utils_notify_notify_POINTER(ctx->net_list_cbs, l);
+  g_slist_foreach(ctx->net_list_cbs, (GFunc)g_free, NULL);
+  g_slist_free(ctx->net_list_cbs);
+  ctx->net_list_cbs = NULL;
+}
+
+typedef void (*available_network_cb_f)(DBusGProxy *, GArray *, GArray *, GArray *, GArray *, GArray *, GArray *, int, GError *, gpointer);
+
+static void
+get_available_network_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
+{
+  sim_status_data *data = user_data;
+  GType g_array_uchar = dbus_g_type_get_collection("GArray", G_TYPE_UCHAR);
+  GType g_array_str = G_TYPE_STRV;
+  int error_value;
+  GArray *umts_avail_array;
+  GArray *network_type_array;
+  GArray *operator_name_array;
+  GArray *country_code_array;
+  GArray *operator_code_array;
+  GArray *network_status_array;
+  GError *error = NULL;
+
+  dbus_g_proxy_end_call(proxy, call, &error,
+                        g_array_uchar, &network_status_array,
+                        g_array_str, &operator_code_array,
+                        g_array_str, &country_code_array,
+                        g_array_str, &operator_name_array,
+                        g_array_uchar, &network_type_array,
+                        g_array_uchar, &umts_avail_array,
+                        G_TYPE_INT, &error_value,
+                        G_TYPE_INVALID);
+  ((available_network_cb_f)data->cb)(proxy, network_status_array,
+                                     operator_code_array, country_code_array,
+                                     operator_name_array, network_type_array,
+                                     umts_avail_array, error_value, error,
+                                     data->data);
+}
+
+gboolean
+connui_cell_net_list(cell_net_list_cb cb, gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (!ctx->get_available_network_call)
+  {
+    sim_status_data *data = g_slice_new(sim_status_data);
+
+    data->cb = (GCallback)net_list_cb;
+    data->data = ctx;
+    ctx->get_available_network_call =
+        dbus_g_proxy_begin_call_with_timeout(ctx->phone_net_proxy,
+                                             "get_available_network",
+                                             get_available_network_cb, data,
+                                             destroy_sim_status_data, 500000,
+                                             G_TYPE_INVALID);
+  }
+
+  ctx->net_list_cbs = connui_utils_notify_add(ctx->net_list_cbs, cb, user_data);
+
+  if (ctx->get_available_network_call)
+    rv = TRUE;
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
 }
