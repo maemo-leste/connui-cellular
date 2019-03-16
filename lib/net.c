@@ -674,6 +674,28 @@ connui_cell_cs_status_change_cb(DBusGProxy *proxy, guchar network_cs_state,
   connui_utils_notify_notify_BOOLEAN(ctx->cs_status_cbs, active);
 }
 
+gboolean
+connui_cell_cs_status_register(cell_cs_status_cb cb, gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (!ctx->cs_status_cbs)
+  {
+    dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
+                                "cellular_system_state_change",
+                                (GCallback)connui_cell_cs_status_change_cb,
+                                ctx, NULL);
+  }
+
+  ctx->cs_status_cbs =
+      connui_utils_notify_add(ctx->cs_status_cbs, cb, user_data);
+  connui_cell_context_destroy(ctx);
+
+  return TRUE;
+}
+
 void
 connui_cell_cs_status_close(cell_cs_status_cb cb)
 {
@@ -1537,4 +1559,23 @@ connui_cell_net_cancel_list(cell_net_list_cb cb)
   }
 
   connui_cell_context_destroy(ctx);
+}
+
+const cell_network *
+connui_cell_net_get_current()
+{
+  static cell_network current_network;
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, NULL);
+
+  current_network.operator_code = ctx->network.operator_code;
+  current_network.country_code = ctx->network.country_code;
+
+  connui_cell_context_destroy(ctx);
+
+  if (ctx->network.country_code && !ctx->select_network_call)
+    return &current_network;
+
+  return NULL;
 }

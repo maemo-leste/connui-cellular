@@ -129,6 +129,7 @@ gchar *connui_cell_net_get_operator_name(cell_network *network, gboolean long_na
 guchar connui_cell_net_get_network_selection_mode(gint *error_value);
 guchar connui_cell_net_get_radio_access_mode(gint *error_value);
 void connui_cell_net_cancel_service_call(guint call_id);
+gboolean connui_cell_cs_status_register(cell_cs_status_cb cb, gpointer user_data);
 void connui_cell_cs_status_close(cell_cs_status_cb cb);
 gboolean connui_cell_net_is_activated(gint *error_value);
 guint connui_cell_net_set_call_forwarding_enabled(gboolean enabled, const gchar *phone_number, service_call_cb_f cb, gpointer user_data);
@@ -140,6 +141,7 @@ gboolean connui_cell_net_select(cell_network *network, cell_net_select_cb cb, gp
 void connui_cell_net_cancel_select(cell_net_select_cb cb);
 void connui_cell_reset_network();
 void connui_cell_net_cancel_list(cell_net_list_cb cb);
+const cell_network *connui_cell_net_get_current();
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
