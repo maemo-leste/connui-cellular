@@ -1305,3 +1305,161 @@ connui_cell_net_list(cell_net_list_cb cb, gpointer user_data)
 
   return rv;
 }
+
+static void
+net_select_cb(DBusGProxy *proxy, guchar network_reject_code, gint error_value,
+              GError *error, gpointer user_data)
+{
+  connui_cell_context *ctx = user_data;
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->select_network_call = NULL;
+
+  if (error)
+  {
+    CONNUI_ERR("Error %s\n", error->message);
+    g_clear_error(&error);
+    return;
+  }
+
+  if (error_value)
+    CONNUI_ERR("Error in method return: %d\n", error_value);
+
+  connui_utils_notify_notify_BOOLEAN_UINT(ctx->net_select_cbs, error_value == 0,
+                                          network_reject_code);
+  g_slist_foreach(ctx->net_select_cbs, (GFunc)&g_free, NULL);
+  g_slist_free(ctx->net_select_cbs);
+  ctx->net_select_cbs = NULL;
+}
+
+static void
+net_select_mode_cb(DBusGProxy *proxy, gint error_value, GError *error,
+                   gpointer user_data)
+{
+  net_select_cb(proxy, 0, error_value, error, user_data);
+}
+
+void
+connui_cell_net_cancel_select(cell_net_select_cb cb)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->net_select_cbs = connui_utils_notify_remove(ctx->net_select_cbs, cb);
+
+  if (!ctx->net_select_cbs && ctx->select_network_call)
+  {
+    GError *error = NULL;
+
+    dbus_g_proxy_cancel_call(ctx->phone_net_proxy, ctx->select_network_call);
+    ctx->select_network_call = NULL;
+
+    if (!dbus_g_proxy_call(ctx->phone_net_proxy, "cancel_select_network",
+                           &error, G_TYPE_INVALID,
+                           G_TYPE_INT, NULL,
+                           G_TYPE_INVALID))
+    {
+      CONNUI_ERR("Error %s", error->message);
+      g_clear_error(&error);
+    }
+  }
+
+  connui_cell_context_destroy(ctx);
+}
+
+typedef void (*network_cb_f)(DBusGProxy *, guchar, gint, GError *, gpointer);
+
+static void
+select_network_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
+{
+  sim_status_data *data = user_data;
+  gint error_value;
+  GError *error = NULL;
+  guchar reject_code;
+
+  dbus_g_proxy_end_call(proxy, call_id, &error,
+                        G_TYPE_UCHAR, &reject_code,
+                        G_TYPE_INT, &error_value,
+                        G_TYPE_INVALID);
+  ((network_cb_f)data->cb)(proxy, reject_code, error_value, error,data->data);
+}
+
+typedef void (*network_mode_cb_f)(DBusGProxy *, int, GError *, gpointer);
+
+static void
+select_network_mode_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
+                       void *user_data)
+{
+  sim_status_data *data = user_data;
+  gint error_value;
+  GError *error = NULL;
+
+  dbus_g_proxy_end_call(proxy, call_id, &error,
+                        G_TYPE_INT, &error_value,
+                        G_TYPE_INVALID);
+  ((network_mode_cb_f)data->cb)(proxy, error_value, error, data->data);
+}
+
+gboolean
+connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
+                       gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+  sim_status_data *data;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (ctx->select_network_call)
+    connui_cell_net_cancel_select(NULL);
+
+  if (network && !ctx->select_network_call)
+  {
+    data = g_slice_new(sim_status_data);
+
+    ctx->network.operator_code = network->operator_code;
+    ctx->network.country_code = network->country_code;
+    data->cb = (GCallback)net_select_cb;
+    data->data = ctx;
+    ctx->select_network_call = dbus_g_proxy_begin_call_with_timeout(
+          ctx->phone_net_proxy, "select_network", select_network_cb, data,
+          destroy_sim_status_data, 500000,
+          G_TYPE_UCHAR, NETWORK_SELECT_MODE_MANUAL,
+          G_TYPE_UCHAR, NETWORK_RAT_NAME_UNKNOWN,
+          G_TYPE_STRING, network->operator_code,
+          G_TYPE_STRING, network->country_code,
+          G_TYPE_INVALID);
+  }
+  else
+  {
+    if (network || ctx->select_network_call)
+    {
+      connui_cell_context_destroy(ctx);
+      return FALSE;
+    }
+
+    ctx->network.operator_code = NULL;
+    ctx->network.country_code = NULL;
+
+    data = g_slice_new(sim_status_data);
+    data->cb = (GCallback)net_select_mode_cb;
+    data->data = ctx;
+    ctx->select_network_call =
+        dbus_g_proxy_begin_call(ctx->phone_net_proxy, "select_network_mode",
+                                select_network_mode_cb, data,
+                                destroy_sim_status_data,
+                                G_TYPE_UCHAR, NETWORK_SELECT_MODE_AUTOMATIC,
+                                G_TYPE_INVALID);
+  }
+
+  if (ctx->select_network_call)
+    rv = TRUE;
+
+  ctx->net_select_cbs =
+      connui_utils_notify_add(ctx->net_select_cbs, cb, user_data);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
