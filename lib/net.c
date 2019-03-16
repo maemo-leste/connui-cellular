@@ -1463,3 +1463,78 @@ connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
 
   return rv;
 }
+
+static void
+net_reset_cb(DBusGProxy *proxy, guchar network_reject_code, gint error_value,
+             GError *error, gpointer user_data)
+{
+  connui_cell_context *ctx = user_data;
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->select_network_call = NULL;
+
+  if (error)
+  {
+    CONNUI_ERR("Error %s\n", error->message);
+    g_clear_error(&error);
+  }
+  else if (error_value)
+    CONNUI_ERR("Error in method return %d\n", error_value);
+}
+
+void
+connui_cell_reset_network()
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_if_fail(ctx != NULL);
+
+  if (ctx->select_network_call)
+    connui_cell_net_cancel_select(NULL);
+
+  if (!ctx->select_network_call)
+  {
+    sim_status_data *data = g_slice_new(sim_status_data);
+
+    data->cb = (GCallback)net_reset_cb;
+    data->data = ctx;
+    ctx->select_network_call = dbus_g_proxy_begin_call_with_timeout(
+          ctx->phone_net_proxy, "select_network", select_network_cb, data,
+          destroy_sim_status_data, 500000,
+          G_TYPE_UCHAR, NETWORK_SELECT_MODE_NO_SELECTION,
+          G_TYPE_UCHAR, NETWORK_RAT_NAME_UNKNOWN,
+          G_TYPE_STRING, NULL, G_TYPE_STRING, NULL, G_TYPE_INVALID);
+  }
+
+  connui_cell_context_destroy(ctx);
+}
+
+void
+connui_cell_net_cancel_list(cell_net_list_cb cb)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->net_list_cbs = connui_utils_notify_remove(ctx->net_list_cbs, cb);
+
+  if (!ctx->net_list_cbs && ctx->get_available_network_call)
+  {
+    GError *error = NULL;
+
+    dbus_g_proxy_cancel_call(ctx->phone_net_proxy,
+                             ctx->get_available_network_call);
+    ctx->get_available_network_call = NULL;
+
+    if (!dbus_g_proxy_call(ctx->phone_net_proxy, "cancel_get_available_network",
+                           &error, G_TYPE_INVALID, G_TYPE_INT, NULL,
+                           G_TYPE_INVALID))
+    {
+      CONNUI_ERR("Error %s", error->message);
+      g_clear_error(&error);
+    }
+  }
+
+  connui_cell_context_destroy(ctx);
+}

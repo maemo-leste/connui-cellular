@@ -138,6 +138,8 @@ guint connui_cell_net_get_call_waiting_enabled(service_call_cb_f cb, gpointer us
 gboolean connui_cell_net_list(cell_net_list_cb cb, gpointer user_data);
 gboolean connui_cell_net_select(cell_network *network, cell_net_select_cb cb, gpointer user_data);
 void connui_cell_net_cancel_select(cell_net_select_cb cb);
+void connui_cell_reset_network();
+void connui_cell_net_cancel_list(cell_net_list_cb cb);
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
