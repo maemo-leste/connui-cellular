@@ -1579,3 +1579,31 @@ connui_cell_net_get_current()
 
   return NULL;
 }
+
+gboolean
+connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  GError *error = NULL;
+  gint err_val = 1;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (!dbus_g_proxy_call(ctx->phone_net_proxy,
+                         "set_selected_radio_access_technology", &error,
+                         G_TYPE_UCHAR, selected_rat, G_TYPE_INVALID,
+                         G_TYPE_INT, &err_val, G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS %s", error->message);
+    g_clear_error(&error);
+    err_val = 1;
+  }
+
+  if (error_value)
+    *error_value = err_val;
+
+  connui_cell_context_destroy(ctx);
+
+  return err_val == 0;
+
+}

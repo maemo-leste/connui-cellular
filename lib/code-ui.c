@@ -1,6 +1,7 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-glib.h>
 #include <connui/connui-log.h>
+#include <X11/Xlib.h>
 
 #include <libintl.h>
 
@@ -44,7 +45,8 @@ struct _cell_code_ui
 
 typedef struct _cell_code_ui cell_code_ui;
 
-cell_code_ui *_code_ui = NULL;
+static cell_code_ui *_code_ui = NULL;
+static guint code_ui_filters_count = 0;
 
 static void connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data);
 
@@ -458,4 +460,55 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
 
   connui_cell_code_ui_destroy();
   return FALSE;
+}
+
+static GdkFilterReturn
+gdk_filter(GdkXEvent *xevent, GdkEvent *event, gpointer data)
+{
+
+  XEvent *xev = xevent;
+
+  if (xev->type == ButtonRelease)
+    gtk_dialog_response(GTK_DIALOG(_code_ui->dialog), GTK_RESPONSE_CANCEL);
+
+  return GDK_FILTER_CONTINUE;
+}
+
+void
+connui_cell_code_ui_destroy()
+{
+  if (_code_ui)
+  {
+    connui_cell_sim_status_close(connui_cell_code_ui_sim_status_cb);
+    connui_cell_security_code_close(connui_cell_code_ui_code_cb);
+
+    if (_code_ui->emcall_timeout)
+      g_source_remove(_code_ui->emcall_timeout);
+
+    if (_code_ui->unused_timeout)
+      g_source_remove(_code_ui->unused_timeout);
+
+    if (_code_ui->dialog)
+    {
+      gtk_widget_destroy(_code_ui->dialog);
+      _code_ui->dialog = NULL;
+
+      if (code_ui_filters_count > 0)
+      {
+        gdk_window_remove_filter(
+              gdk_get_default_root_window(), gdk_filter, NULL);
+        code_ui_filters_count--;
+      }
+    }
+
+    if (_code_ui->note)
+      gtk_widget_destroy(_code_ui->note);
+
+    g_free(_code_ui->code);
+    g_free(_code_ui->pin_message);
+    g_free(_code_ui->clui_em_number);
+    g_strfreev(_code_ui->emergency_numbers);
+    g_free(_code_ui);
+    _code_ui = NULL;
+  }
 }

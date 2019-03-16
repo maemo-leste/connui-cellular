@@ -159,7 +159,7 @@ connui_cell_security_code_register(cell_sec_code_query_cb cb,
 }
 
 void
-connui_cell_security_code_close(void (*cb)())
+connui_cell_security_code_close(cell_sec_code_query_cb cb)
 {
   connui_cell_context *ctx = connui_cell_context_get();
 

@@ -142,6 +142,7 @@ void connui_cell_net_cancel_select(cell_net_select_cb cb);
 void connui_cell_reset_network();
 void connui_cell_net_cancel_list(cell_net_list_cb cb);
 const cell_network *connui_cell_net_get_current();
+gboolean connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value);
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);
@@ -161,6 +162,7 @@ gboolean connui_cell_code_ui_cancel_dialog();
 gboolean connui_cell_code_ui_is_sim_locked_with_error();
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
 gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);
+void connui_cell_code_ui_destroy();
 
 /* EMERGENCY */
 GStrv connui_cell_emergency_get_numbers();
@@ -168,5 +170,6 @@ gboolean connui_cell_emergency_call();
 
 /* security code */
 gboolean connui_cell_security_code_register(cell_sec_code_query_cb cb, gpointer user_data);
+void connui_cell_security_code_close(cell_sec_code_query_cb cb);
 
 #endif /* __CONNUI_CELLULAR_H__ */
