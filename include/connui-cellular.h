@@ -33,13 +33,12 @@ typedef struct _cell_network_state cell_network_state;
 
 typedef void (*cell_call_status_cb) (gboolean calls, gpointer user_data);
 typedef void (*cell_cs_status_cb) (gboolean active, gpointer user_data);
-typedef void (*cell_network_state_cb) (const cell_network_state *state,
-                                       gpointer user_data);
+typedef void (*cell_network_state_cb) (const cell_network_state *state, gpointer user_data);
 typedef void (*cell_sim_status_cb) (guint status, gpointer user_data);
 typedef void (*cell_ssc_state_cb) (const gchar *state, gpointer user_data);
 typedef void (*cell_sec_code_query_cb) (guint code_type, gchar **old_code, gchar **new_code, GCallback query_cb, gpointer query_user_data, gpointer user_data);
 typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
-typedef void (*cell_net_select_cb) (gboolean sucess, guint network_reject_code, gpointer user_data);
+typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
 cell_network *connui_cell_network_dup(const cell_network *network);
@@ -163,6 +162,7 @@ gboolean connui_cell_code_ui_is_sim_locked_with_error();
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
 gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);
 void connui_cell_code_ui_destroy();
+GtkWidget *connui_cell_code_ui_create_dialog(gchar *title, int code_min_len);
 
 /* EMERGENCY */
 GStrv connui_cell_emergency_get_numbers();

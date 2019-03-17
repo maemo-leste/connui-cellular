@@ -1,6 +1,7 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-glib.h>
 #include <connui/connui-log.h>
+#include <clui-code-dialog.h>
 #include <X11/Xlib.h>
 
 #include <libintl.h>
@@ -9,6 +10,10 @@
 
 #include "context.h"
 #include "connui-cell-note.h"
+
+#include "config.h"
+
+#define _(s) dgettext(GETTEXT_PACKAGE, s)
 
 typedef enum {
   CONNUI_CELL_CODE_UI_STATE_NONE = 0x0,
@@ -58,29 +63,29 @@ connui_cell_code_ui_error_note_type_to_text(const char *note_type)
   g_return_val_if_fail(note_type != NULL, NULL);
 
   if (!strcmp(note_type, "no_sim"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_no_sim_card_in");
+    text = _("conn_ni_no_sim_card_in");
   else if (!strcmp(note_type, "no_pin"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_no_pin_for_sim");
+    text = _("conn_ni_no_pin_for_sim");
   else if (!strcmp(note_type, "no_network"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_no_cell_network");
+    text = _("conn_ni_no_cell_network");
   else if (!strcmp(note_type, "sim_locked"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_sim_lock");
+    text = _("conn_ni_sim_lock");
   else if (!strcmp(note_type, "req_autoconn_confirmation_dlg"))
-    text = dgettext("osso-connectivity-ui", "conn_nc_use_device_psd_auto");
+    text = _("conn_nc_use_device_psd_auto");
   else if (!strcmp(note_type, "sim_rejected"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_sim_rejected");
+    text = _("conn_ni_sim_rejected");
   else if (!strcmp(note_type, "sim_reg_fail"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_sim_reg_fail");
+    text = _("conn_ni_sim_reg_fail");
   else if (!strcmp(note_type, "sim_select_network"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_select_network");
+    text = _("conn_ni_select_network");
   else if (!strcmp(note_type, "modem_failure"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_modem_failure");
+    text = _("conn_ni_modem_failure");
   else if (!strcmp(note_type, "modem_poweroff"))
-    text = dgettext("osso-connectivity-ui", "conn_ni_sim_failure");
+    text = _("conn_ni_sim_failure");
   else if (!strcmp(note_type, "home_notification"))
-    text = dgettext("osso-connectivity-ui", "conn_fi_phone_limit_dialog_home");
+    text = _("conn_fi_phone_limit_dialog_home");
   else if (!strcmp(note_type, "roaming_notification"))
-    text = dgettext("osso-connectivity-ui", "conn_fi_phone_limit_dialog_roaming");
+    text = _("conn_fi_phone_limit_dialog_roaming");
   else
     text = NULL;
 
@@ -511,4 +516,101 @@ connui_cell_code_ui_destroy()
     g_free(_code_ui);
     _code_ui = NULL;
   }
+}
+
+static gboolean
+connui_cell_code_ui_emcall_timeout(gpointer user_data)
+{
+  cell_code_ui *code_ui = user_data;
+
+  g_return_val_if_fail(code_ui != NULL, FALSE);
+
+  code_ui->emcall_timeout = 0;
+
+  if (GTK_IS_WIDGET(code_ui->dialog))
+    gtk_widget_set_sensitive(code_ui->dialog, TRUE);
+
+  return FALSE;
+}
+
+static void
+connui_cell_code_ui_dialog_response(GtkDialog *dialog, gint response_id,
+                                    cell_code_ui *code_ui)
+{
+  if (response_id == 100)
+  {
+    g_signal_stop_emission_by_name(dialog, "response");
+
+    if (connui_cell_emergency_call())
+    {
+      if (code_ui->show_pin_code_correct)
+      {
+        code_ui->emcall_timeout =
+            g_timeout_add(5000, connui_cell_code_ui_emcall_timeout, code_ui);
+        gtk_widget_set_sensitive(code_ui->dialog, FALSE);
+      }
+      else
+        gtk_dialog_response(GTK_DIALOG(code_ui->dialog), GTK_RESPONSE_CANCEL);
+    }
+    else
+      g_warning("Unable to start emergency call!");
+  }
+}
+
+GtkWidget *
+connui_cell_code_ui_create_dialog(gchar *title, int code_min_len)
+{
+  GtkWidget *dialog;
+  char *cancel_button_label;
+
+  if (!_code_ui)
+    _code_ui = g_new0(cell_code_ui, 1);
+
+  g_return_val_if_fail(_code_ui->dialog == NULL, NULL);
+
+  dialog = clui_code_dialog_new(TRUE);
+  clui_code_dialog_set_max_code_length(CLUI_CODE_DIALOG(dialog), 8);
+
+  if (_code_ui->show_pin_code_correct)
+  {
+    GdkWindow *root_window = gdk_get_default_root_window();
+    GdkEventMask mask = gdk_window_get_events(root_window);
+
+    cancel_button_label = _("conn_bd_dialog_skip");
+    gdk_window_set_events(root_window, mask | GDK_BUTTON_RELEASE_MASK);
+    gdk_window_add_filter(root_window, gdk_filter, NULL);
+    code_ui_filters_count++;
+  }
+  else
+    cancel_button_label = dgettext("hildon-libs", "wdgt_bd_back");
+
+  _code_ui->code_min_len = code_min_len;
+  gtk_window_set_title(GTK_WINDOW(dialog), title);
+  gtk_widget_show(dialog);
+
+  if (cancel_button_label)
+  {
+    clui_code_dialog_set_cancel_button_with_label(CLUI_CODE_DIALOG(dialog),
+                                                  cancel_button_label);
+    gtk_widget_show_all(dialog);
+  }
+
+  if (_code_ui->pin_message)
+  {
+    hildon_banner_show_information(dialog, NULL, _code_ui->pin_message);
+    g_free(_code_ui->pin_message);
+    _code_ui->pin_message = NULL;
+  }
+
+  if ( !_code_ui->emergency_numbers )
+    _code_ui->emergency_numbers = connui_cell_emergency_get_numbers();
+
+  g_signal_connect_swapped(G_OBJECT(dialog), "input",
+                           (GCallback)connui_cell_code_ui_dialog_input, _code_ui);
+  g_signal_connect(G_OBJECT(dialog), "response",
+                   (GCallback)connui_cell_code_ui_dialog_response, _code_ui);
+
+  _code_ui->dialog = dialog;
+
+  return dialog;
 }
