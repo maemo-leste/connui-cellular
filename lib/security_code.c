@@ -207,7 +207,7 @@ connui_cell_security_code_get_active(gint *error_value)
   return rv;
 }
 
-typedef void (*sc_set_active_f)(guint, gint, gpointer);
+typedef void (*sc_pin_f)(guint, gint, gpointer);
 
 static void
 sec_code_fail(security_code_type code_type, gint *error_value,
@@ -219,7 +219,7 @@ sec_code_fail(security_code_type code_type, gint *error_value,
     *error_value = 3;
 
   if (data->cb)
-    ((sc_set_active_f)data->cb)(code_type, 3, data->data);
+    ((sc_pin_f)data->cb)(code_type, 3, data->data);
 }
 
 gboolean
@@ -238,9 +238,11 @@ connui_cell_security_code_set_active(security_code_type code_type,
   if (error_value)
     *error_value = 3;
 
-  g_return_val_if_fail(ctx->sec_code_cbs != NULL, FALSE);
+  g_return_val_if_fail(ctx->sec_code_cbs != NULL,
+                       (connui_cell_context_destroy(ctx), FALSE));
   g_return_val_if_fail(code_type == SIM_SECURITY_CODE_PIN ||
-                       code_type == SIM_SECURITY_CODE_UPIN, FALSE);
+                       code_type == SIM_SECURITY_CODE_UPIN,
+                       (connui_cell_context_destroy(ctx), FALSE));
 
   if (error_value)
     *error_value = 0;
@@ -261,7 +263,7 @@ connui_cell_security_code_set_active(security_code_type code_type,
     }
 
     if (data.cb)
-      ((sc_set_active_f)data.cb)(code_type, err_val, data.data);
+      ((sc_pin_f)data.cb)(code_type, err_val, data.data);
 
     if (error_value)
       *error_value = err_val;
@@ -270,6 +272,176 @@ connui_cell_security_code_set_active(security_code_type code_type,
   }
   else
     sec_code_fail(code_type, error_value, &data);
+
+  g_free(code);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+gboolean
+connui_cell_security_code_get_enabled(gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv;
+  GError *error = NULL;
+  guint enabled = 0;
+  gint err_val;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "get_code_state",
+                         &error,
+                         G_TYPE_UINT, SIM_SECURITY_CODE_PIN,
+                         G_TYPE_INVALID,
+                         G_TYPE_UINT, &enabled,
+                         G_TYPE_INT, &err_val,
+                         G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+    err_val = 1;
+  }
+
+  if (error_value)
+    *error_value = err_val;
+
+  rv = enabled == 1;
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+/* export if somebody outside this file needs it */
+static gboolean
+connui_cell_security_code_set_enabled_internal(connui_cell_context *ctx,
+                                               guint active, gint *error_value,
+                                               guint code_type,
+                                               const gchar *code)
+{
+  GError *error = NULL;
+
+  if (active)
+    active = 1;
+
+  if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "set_code_state",
+                        &error,
+         G_TYPE_UINT, code_type,
+         G_TYPE_UINT, active,
+         G_TYPE_STRING, code,
+         G_TYPE_INVALID,
+         G_TYPE_INT, error_value,
+         G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+
+    if (error_value)
+      *error_value = 1;
+
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+gboolean
+connui_cell_security_code_change(security_code_type code_type,
+                                 gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+  sim_status_data data = {NULL, NULL};
+  gchar *new_code = NULL;
+  gchar *old_code = NULL;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (error_value)
+    *error_value = 3;
+
+  g_return_val_if_fail(ctx->sec_code_cbs != NULL,
+                       (connui_cell_context_destroy(ctx), FALSE));
+  g_return_val_if_fail(code_type == SIM_SECURITY_CODE_PIN ||
+                       code_type == SIM_SECURITY_CODE_PIN2 ||
+                       code_type == SIM_SECURITY_CODE_UPIN,
+                       (connui_cell_context_destroy(ctx), FALSE));
+
+  if (error_value)
+    *error_value = 0;
+
+  if (sec_code_query(ctx, code_type, &old_code, &new_code, &data) &&
+      new_code && *new_code)
+  {
+    if (connui_cell_security_code_get_enabled(error_value) ||
+        code_type != SIM_SECURITY_CODE_PIN)
+    {
+      rv = verify_code(ctx, code_type, old_code, new_code, error_value, &data);
+    }
+    else if (connui_cell_security_code_set_enabled_internal(
+               ctx, 1, error_value, SIM_SECURITY_CODE_PIN, old_code))
+    {
+      rv = verify_code(ctx, SIM_SECURITY_CODE_PIN, old_code, new_code,
+                       error_value, &data);
+
+      if (rv)
+      {
+        connui_cell_security_code_set_enabled_internal(ctx, 0, error_value,
+                                                       SIM_SECURITY_CODE_PIN,
+                                                       new_code);
+      }
+      else
+      {
+        connui_cell_security_code_set_enabled_internal(ctx, 0, error_value,
+                                                       SIM_SECURITY_CODE_PIN,
+                                                       old_code);
+      }
+    }
+    else
+    {
+      if (data.cb)
+        ((sc_pin_f)data.cb)(SIM_SECURITY_CODE_PIN, 1, data.data);
+
+      rv = TRUE;
+    }
+  }
+  else
+    sec_code_fail(code_type, error_value, &data);
+
+  g_free(old_code);
+  g_free(new_code);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+gboolean
+connui_cell_security_code_set_enabled(gboolean active, gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+  sim_status_data data = {NULL, NULL};
+  gchar *code = NULL;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (sec_code_query(ctx, SIM_SECURITY_CODE_PIN, &code, NULL, &data))
+  {
+    gint err_val;
+    connui_cell_security_code_set_enabled_internal(ctx, active, &err_val,
+                                                   SIM_SECURITY_CODE_PIN, code);
+
+    if (data.cb)
+      ((sc_pin_f)data.cb)(SIM_SECURITY_CODE_PIN, err_val, data.data);
+
+    if (error_value)
+      *error_value = err_val;
+
+    rv = err_val == 0;
+  }
+  else
+    sec_code_fail(SIM_SECURITY_CODE_PIN, error_value, &data);
 
   g_free(code);
   connui_cell_context_destroy(ctx);

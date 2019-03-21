@@ -175,12 +175,16 @@ gboolean connui_cell_emergency_call();
 typedef enum
 {
   SIM_SECURITY_CODE_PIN = 2,
+  SIM_SECURITY_CODE_PIN2 = 4,
   SIM_SECURITY_CODE_UPIN = 7
 } security_code_type;
 
 gboolean connui_cell_security_code_register(cell_sec_code_query_cb cb, gpointer user_data);
 void connui_cell_security_code_close(cell_sec_code_query_cb cb);
 guint connui_cell_security_code_get_active(gint *error_value);
+gboolean connui_cell_security_code_get_enabled(gint *error_value);
 gboolean connui_cell_security_code_set_active(security_code_type code_type,gint *error_value);
+gboolean connui_cell_security_code_change(security_code_type code_type, gint *error_value);
+gboolean connui_cell_security_code_set_enabled(gboolean active, gint *error_value);
 
 #endif /* __CONNUI_CELLULAR_H__ */
