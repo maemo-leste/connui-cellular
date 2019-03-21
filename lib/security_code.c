@@ -176,3 +176,103 @@ connui_cell_security_code_close(cell_sec_code_query_cb cb)
 
   connui_cell_context_destroy(ctx);
 }
+
+guint
+connui_cell_security_code_get_active(gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  guint rv = SIM_SECURITY_CODE_PIN;
+  gint err_val;
+  GError *error = NULL;
+
+  g_return_val_if_fail(ctx != NULL, SIM_SECURITY_CODE_PIN);
+
+  if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "get_active_pin",
+                         &error,
+                         G_TYPE_INVALID,
+                         G_TYPE_UINT, &rv,
+                         G_TYPE_INT, &err_val,
+                         G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS in: %s", error->message);
+    g_clear_error(&error);
+    err_val = 1;
+  }
+
+  if (error_value)
+    *error_value = err_val;
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+typedef void (*sc_set_active_f)(guint, gint, gpointer);
+
+static void
+sec_code_fail(security_code_type code_type, gint *error_value,
+              sim_status_data *data)
+{
+  CONNUI_ERR("PIN code entering failure");
+
+  if (error_value)
+    *error_value = 3;
+
+  if (data->cb)
+    ((sc_set_active_f)data->cb)(code_type, 3, data->data);
+}
+
+gboolean
+connui_cell_security_code_set_active(security_code_type code_type,
+                                     gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+  sim_status_data data = {NULL, NULL};
+  gint err_val;
+  GError *error = NULL;
+  gchar *code = NULL;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (error_value)
+    *error_value = 3;
+
+  g_return_val_if_fail(ctx->sec_code_cbs != NULL, FALSE);
+  g_return_val_if_fail(code_type == SIM_SECURITY_CODE_PIN ||
+                       code_type == SIM_SECURITY_CODE_UPIN, FALSE);
+
+  if (error_value)
+    *error_value = 0;
+
+  if (sec_code_query(ctx, code_type, &code, NULL, &data))
+  {
+    if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "set_active_pin",
+                           &error,
+           G_TYPE_UINT, (guint)code_type,
+           G_TYPE_STRING, code,
+           G_TYPE_INVALID,
+           G_TYPE_INT, &err_val,
+           G_TYPE_INVALID) )
+    {
+      CONNUI_ERR("Error with DBUS: %s", error->message);
+      g_clear_error(&error);
+      err_val = 1;
+    }
+
+    if (data.cb)
+      ((sc_set_active_f)data.cb)(code_type, err_val, data.data);
+
+    if (error_value)
+      *error_value = err_val;
+
+    rv = err_val == 0;
+  }
+  else
+    sec_code_fail(code_type, error_value, &data);
+
+  g_free(code);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}

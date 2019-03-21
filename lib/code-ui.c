@@ -23,7 +23,7 @@ typedef enum {
   CONNUI_CELL_CODE_UI_STATE_4 = 0x4,
   CONNUI_CELL_CODE_UI_STATE_5 = 0x5,
   CONNUI_CELL_CODE_UI_STATE_6 = 0x6,
-  CONNUI_CELL_CODE_UI_STATE_7 = 0x7,
+  CONNUI_CELL_CODE_UI_SIM_UNLOCK = 0x7,
   CONNUI_CELL_CODE_UI_STATE_8 = 0x8
 } connui_cell_code_ui_state;
 
@@ -51,7 +51,7 @@ struct _cell_code_ui
 typedef struct _cell_code_ui cell_code_ui;
 
 static cell_code_ui *_code_ui = NULL;
-static guint code_ui_filters_count = 0;
+static gint code_ui_filters_count = 0;
 
 static void connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data);
 
@@ -189,42 +189,6 @@ connui_cell_code_ui_is_sim_locked_with_error()
   g_warning("Reading simlock status failed");
 
   return FALSE;
-}
-
-gboolean
-connui_cell_sim_is_locked(gboolean *has_error)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-  gboolean rv;
-  GError *error = NULL;
-  gint status = 0;
-
-  g_return_val_if_fail(ctx != NULL, FALSE);
-
-  rv = dbus_g_proxy_call(ctx->phone_sim_proxy, "read_simlock_status", &error,
-                         G_TYPE_INVALID,
-                         G_TYPE_INT, &status,
-                         G_TYPE_INVALID);
-
-  if (rv)
-  {
-    if (has_error)
-      *has_error = status == 0 || status == 8 || status == 7 || status == 5;
-
-    rv = (status == 2 || status == 3 || status == 4);
-  }
-  else
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
-
-    if (has_error)
-      *has_error = TRUE;
-  }
-
-  connui_cell_context_destroy(ctx);
-
-  return rv;
 }
 
 static void
@@ -613,4 +577,42 @@ connui_cell_code_ui_create_dialog(gchar *title, int code_min_len)
   _code_ui->dialog = dialog;
 
   return dialog;
+}
+
+gboolean
+connui_cell_code_ui_deactivate_simlock()
+{
+  gboolean rv = FALSE;
+  gchar *pin_code;
+  int has_error = 0;
+
+  g_return_val_if_fail(_code_ui != NULL, FALSE);
+
+  if (!connui_cell_sim_is_locked(&has_error) && !has_error)
+    return TRUE;
+
+  if (has_error)
+  {
+    g_warning("Reading simlock status failed");
+    return FALSE;
+  }
+
+  connui_cell_code_ui_launch_sim_locked_note(_code_ui);
+
+  do
+  {
+    _code_ui->state = CONNUI_CELL_CODE_UI_SIM_UNLOCK;
+    pin_code = get_code(0xFFFF, _code_ui);
+
+    if (!pin_code)
+      break;
+
+    rv = connui_cell_sim_deactivate_lock(pin_code, &has_error);
+
+    if (has_error)
+      g_warning("Error %d occurred while deactivating simlock", has_error);
+  }
+  while (!rv);
+
+  return rv;
 }

@@ -189,3 +189,108 @@ connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
 
   return NULL;
 }
+
+gboolean
+connui_cell_sim_is_locked(gboolean *has_error)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv;
+  GError *error = NULL;
+  gint status = 0;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  rv = dbus_g_proxy_call(ctx->phone_sim_proxy, "read_simlock_status", &error,
+                         G_TYPE_INVALID,
+                         G_TYPE_INT, &status,
+                         G_TYPE_INVALID);
+
+  if (rv)
+  {
+    if (has_error)
+      *has_error = status == 0 || status == 8 || status == 7 || status == 5;
+
+    rv = (status == 2 || status == 3 || status == 4);
+  }
+  else
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+
+    if (has_error)
+      *has_error = TRUE;
+  }
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+gboolean
+connui_cell_sim_deactivate_lock(const gchar *pin_code, gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  gboolean rv = FALSE;
+  GError *error = NULL;
+  gint err_val = 0;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (dbus_g_proxy_call(ctx->phone_sim_security_proxy, "deactivate_simlock",
+                        &error,
+                        G_TYPE_UCHAR, 7, /* no idea what is this */
+                        G_TYPE_STRING, pin_code,
+                        G_TYPE_INVALID,
+                        G_TYPE_INT, &err_val,
+                        G_TYPE_INVALID))
+  {
+    if (error_value)
+      *error_value = err_val;
+
+    rv = err_val == 0;
+  }
+  else
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+
+    if (error_value)
+      *error_value = 1;
+  }
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+guint
+connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
+{
+  connui_cell_context *ctx = connui_cell_context_get();
+  GError *error = NULL;
+  gint err_val;
+  guint attempts_left;
+
+  g_return_val_if_fail(ctx != NULL, 0);
+
+  if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "verify_attempts_left",
+                         &error,
+                         G_TYPE_UINT, code_type,
+                         G_TYPE_INVALID,
+                         G_TYPE_UINT, &attempts_left,
+                         G_TYPE_INT, &err_val,
+                         G_TYPE_INVALID))
+  {
+    CONNUI_ERR("Error with DBUS: %s", error->message);
+    g_clear_error(&error);
+    err_val = 1;
+    attempts_left = 0;
+  }
+
+  if (error_value)
+    *error_value = err_val;
+
+  connui_cell_context_destroy(ctx);
+
+  return attempts_left;
+}
