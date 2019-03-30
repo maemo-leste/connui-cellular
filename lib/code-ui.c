@@ -521,6 +521,91 @@ connui_cell_code_ui_dialog_response(GtkDialog *dialog, gint response_id,
   }
 }
 
+static GtkWidget *
+find_done_button(GtkWidget *parent)
+{
+  GList *l = gtk_container_get_children(GTK_CONTAINER(parent));
+
+  for (; l; l = l->next)
+  {
+    gpointer child = l->data;
+
+    if (GTK_IS_CONTAINER(child))
+    {
+      child = find_done_button(child);
+
+      if (child)
+        return child;
+    }
+    else if (GTK_IS_BUTTON(child))
+    {
+      const gchar *label = gtk_button_get_label(GTK_BUTTON(child));
+
+      if (label && !strcmp(label, dgettext("hildon-libs", "wdgt_bd_done")))
+          return child;
+    }
+  }
+
+  return NULL;
+}
+
+static gboolean
+get_em_mode(cell_code_ui *code_ui)
+{
+  GStrv em_numbers = code_ui->emergency_numbers;
+  int i = 0;
+
+  if (!code_ui->clui_em_number)
+    return FALSE;
+
+  while (em_numbers[i])
+  {
+    if (!strcmp(code_ui->clui_em_number, em_numbers[i]))
+      return TRUE;
+
+    i++;
+  }
+
+  return FALSE;
+}
+
+static void
+connui_cell_code_ui_dialog_input(cell_code_ui *code_ui, gchar *digit_str,
+                                 CluiCodeDialog *code_dialog)
+{
+  GtkWidget *done_button = NULL;
+
+  g_return_if_fail(code_ui != NULL && code_ui->dialog != NULL &&
+      code_ui->emergency_numbers != NULL && digit_str != NULL);
+
+  if (strcmp(digit_str, "BSP")) /* BackSPace ;) */
+  {
+    gchar *code = clui_code_dialog_get_code(CLUI_CODE_DIALOG(code_ui->dialog));
+
+    g_free(code_ui->clui_em_number);
+    code_ui->clui_em_number = g_strconcat(code, digit_str, NULL);
+  }
+  else if (*code_ui->clui_em_number)
+      code_ui->clui_em_number[strlen(code_ui->clui_em_number) - 1] = '\0';
+
+  clui_code_dialog_set_emergency_mode(CLUI_CODE_DIALOG(code_ui->dialog),
+                                      get_em_mode(code_ui));
+
+  if (GTK_IS_DIALOG(code_ui->dialog))
+    done_button = find_done_button(GTK_DIALOG(code_ui->dialog)->action_area);
+
+  if (done_button)
+  {
+    if (code_ui->clui_em_number &&
+        strlen(code_ui->clui_em_number) >= code_ui->code_min_len)
+    {
+      gtk_widget_set_sensitive(done_button, TRUE);
+    }
+    else
+      gtk_widget_set_sensitive(done_button, FALSE);
+  }
+}
+
 GtkWidget *
 connui_cell_code_ui_create_dialog(gchar *title, int code_min_len)
 {

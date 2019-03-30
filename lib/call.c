@@ -70,7 +70,6 @@ conn_cell_get_call_instances_cb(DBusGProxy *proxy, GPtrArray *instances,
 
   if (proxy)
     connui_utils_notify_notify_BOOLEAN(ctx->call_status_cbs, calls);
-
 }
 
 typedef void (*call_instances_cb_f)(DBusGProxy *, GPtrArray *, GError *, gpointer);
