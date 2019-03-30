@@ -157,6 +157,7 @@ void connui_cell_ssc_state_close(cell_ssc_state_cb cb);
 
 /* CALL */
 void connui_cell_call_status_close(cell_call_status_cb cb);
+gboolean connui_cell_call_status_register(cell_call_status_cb cb, gpointer user_data);
 
 /* CODE UI */
 gboolean connui_cell_code_ui_cancel_dialog();
