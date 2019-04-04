@@ -721,3 +721,82 @@ connui_cell_code_ui_pin_correct(cell_code_ui *code_ui)
   code_ui->sim_status = 1;
   code_ui->state = CONNUI_CELL_CODE_UI_STATE_OK;
 }
+
+gboolean
+connui_cell_code_ui_change_code(security_code_type code_type)
+{
+  gboolean rv = FALSE;
+  gint error_value = 0;
+
+  g_return_val_if_fail(_code_ui != NULL, FALSE);
+
+  _code_ui->unk_bool = FALSE;
+
+  if (connui_cell_code_ui_update_sim_status())
+    g_warning("Unable to get sim status");
+
+  if (_code_ui->state != CONNUI_CELL_CODE_UI_STATE_SIM_ERROR &&
+      _code_ui->state != CONNUI_CELL_CODE_UI_STATE_PIN_ERROR)
+  {
+    if (_code_ui->unk_bool)
+      rv = TRUE;
+    else
+    {
+      _code_ui->unk_bool = FALSE;
+      _code_ui->current_pin_entered = TRUE;
+
+      do
+      {
+        connui_cell_security_code_change(code_type, &error_value);
+
+        while (_code_ui->sim_status != 1)
+        {
+          if (_code_ui->state == CONNUI_CELL_CODE_UI_STATE_SIM_ERROR ||
+              _code_ui->state == CONNUI_CELL_CODE_UI_STATE_PIN_ERROR)
+          {
+            break;
+          }
+
+          g_main_context_iteration(NULL, TRUE);
+        }
+      }
+      while (error_value &&
+             _code_ui->state != CONNUI_CELL_CODE_UI_STATE_SIM_ERROR &&
+             _code_ui->state != CONNUI_CELL_CODE_UI_STATE_PIN_ERROR &&
+             !_code_ui->unk_bool);
+
+      rv = error_value == 0;
+      _code_ui->current_pin_entered = FALSE;
+    }
+  }
+
+  return rv;
+}
+
+gboolean
+connui_cell_code_ui_update_sim_status()
+{
+  gboolean rv = FALSE;
+
+  g_return_val_if_fail(_code_ui != NULL, FALSE);
+
+  if (connui_cell_sim_status_register(connui_cell_code_ui_sim_status_cb,
+                                      _code_ui))
+  {
+    _code_ui->state = CONNUI_CELL_CODE_UI_STATE_STARTUP;
+
+    do
+    {
+      g_main_context_iteration(0, 1);
+    }
+    while (_code_ui->state != CONNUI_CELL_CODE_UI_STATE_SIM_ERROR &&
+           _code_ui->state != CONNUI_CELL_CODE_UI_STATE_PIN_ERROR &&
+           _code_ui->state != CONNUI_CELL_CODE_UI_STATE_OK);
+
+    rv = TRUE;
+  }
+  else
+    g_warning("Unable to register SIM status callback");
+
+  return rv;
+}
