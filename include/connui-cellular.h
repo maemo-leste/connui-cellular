@@ -124,6 +124,7 @@ typedef void (*service_call_cb_f)(gboolean call_forwarding_enabled, int error_va
 typedef enum
 {
   SIM_SECURITY_CODE_PIN = 2,
+  SIM_SECURITY_CODE_PUK = 3,
   SIM_SECURITY_CODE_PIN2 = 4,
   SIM_SECURITY_CODE_UPIN = 7
 } security_code_type;
@@ -172,10 +173,11 @@ gboolean connui_cell_code_ui_is_sim_locked_with_error();
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
 gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);
 void connui_cell_code_ui_destroy();
-GtkWidget *connui_cell_code_ui_create_dialog(gchar *title, int code_min_len);
+GtkWidget *connui_cell_code_ui_create_dialog(const gchar *title, int code_min_len);
 gboolean connui_cell_code_ui_deactivate_simlock();
 gboolean connui_cell_code_ui_change_code(security_code_type code_type);
 gboolean connui_cell_code_ui_update_sim_status();
+gboolean connui_cell_code_ui_set_current_code_active(gboolean active);
 
 /* EMERGENCY */
 GStrv connui_cell_emergency_get_numbers();
