@@ -27,7 +27,8 @@ typedef enum {
   CONNUI_CELL_CODE_UI_STATE_CONFIRM_PIN = 0x8
 } connui_cell_code_ui_state;
 
-#define STATE_IS_ERROR(s) (((s) == CONNUI_CELL_CODE_UI_STATE_SIM_ERROR) || ((s) == CONNUI_CELL_CODE_UI_STATE_PIN_ERROR))
+#define STATE_IS_ERROR(s) (((s) == CONNUI_CELL_CODE_UI_STATE_SIM_ERROR) || \
+  ((s) == CONNUI_CELL_CODE_UI_STATE_PIN_ERROR))
 
 struct _cell_code_ui
 {
@@ -37,7 +38,7 @@ struct _cell_code_ui
   GtkWindow *parent;
   gchar *pin_message;
   gchar *code;
-  gint pin_count;
+  gint wrong_pin_count;
   guint sim_status_timeout;
   gboolean current_pin_entered;
   gboolean show_pin_code_correct;
@@ -46,7 +47,7 @@ struct _cell_code_ui
   guint emcall_timeout;
   guint unused_timeout;
   gint sim_status;
-  gboolean unk_bool;
+  gboolean unk_bool; /* Can't grok what this is used for :( */
   gint code_min_len;
 };
 
@@ -56,6 +57,22 @@ static cell_code_ui *_code_ui = NULL;
 static gint code_ui_filters_count = 0;
 
 static void connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data);
+static void
+connui_cell_code_ui_code_cb(security_code_type code_type, gchar **old_code,
+                            gchar **new_code, GCallback *query_cb,
+                            gpointer *query_user_data, gpointer user_data);
+
+static GdkFilterReturn
+gdk_filter(GdkXEvent *xevent, GdkEvent *event, gpointer data)
+{
+
+  XEvent *xev = xevent;
+
+  if (xev->type == ButtonRelease)
+    gtk_dialog_response(GTK_DIALOG(_code_ui->dialog), GTK_RESPONSE_CANCEL);
+
+  return GDK_FILTER_CONTINUE;
+}
 
 const char *
 connui_cell_code_ui_error_note_type_to_text(const char *note_type)
@@ -210,6 +227,324 @@ sim_status_timeout_cb(cell_code_ui *code_ui)
   return FALSE;
 }
 
+static gchar *
+connui_cell_code_ui_get_code(security_code_type code_type,
+                             cell_code_ui *code_ui)
+{
+  const char *clui_title = NULL;
+
+  if (code_ui->dialog)
+  {
+    gtk_widget_destroy(code_ui->dialog);
+    code_ui->dialog = NULL;
+
+    if (code_ui_filters_count > 0)
+    {
+      gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
+      code_ui_filters_count--;
+    }
+  }
+
+  if (code_type == SIM_SECURITY_CODE_UPIN || code_type == SIM_SECURITY_CODE_PIN)
+  {
+    switch (code_ui->state)
+    {
+      case CONNUI_CELL_CODE_UI_STATE_NEW_PIN:
+      {
+        clui_title = _("conn_ti_enter_new_pin_code");
+        break;
+      }
+      case CONNUI_CELL_CODE_UI_STATE_CONFIRM_PIN:
+      {
+        clui_title = _("conn_ti_re_enter_new_pin_code");
+        break;
+      }
+      case CONNUI_CELL_CODE_UI_STATE_STARTUP:
+      case CONNUI_CELL_CODE_UI_STATE_PIN:
+      {
+        if (code_ui->current_pin_entered)
+        {
+          clui_title = _("conn_ti_enter_current_pin_code");
+          break;
+        }
+      } /* fallthrough */
+      default:
+        clui_title = _("conn_ti_enter_pin_code");
+        break;
+    }
+  }
+  else if (code_ui->state == CONNUI_CELL_CODE_UI_SIM_UNLOCK)
+    clui_title = _("conn_ti_enter_sim_unlock_code");
+  else if (code_type == SIM_SECURITY_CODE_PUK)
+    clui_title = _("conn_ti_enter_puk_code");
+
+  connui_cell_code_ui_create_dialog(clui_title, 4);
+
+  while (1)
+  {
+    GtkWidget *dialog = code_ui->dialog;
+    gint res = 0;
+
+    if (!GTK_IS_DIALOG(dialog))
+      break;
+
+    if (res == GTK_RESPONSE_DELETE_EVENT || res == GTK_RESPONSE_CANCEL)
+      break;
+
+    res = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (res == GTK_RESPONSE_OK)
+      return clui_code_dialog_get_code(CLUI_CODE_DIALOG(dialog));
+  }
+
+  if (!GTK_IS_WIDGET(code_ui->dialog))
+    return NULL;
+
+  gtk_widget_destroy(code_ui->dialog);
+  code_ui->dialog = NULL;
+
+  if (code_ui_filters_count <= 0)
+    return NULL;
+
+  gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
+  code_ui_filters_count--;
+
+  return NULL;
+}
+
+static gchar *
+connui_cell_code_ui_code_get_new_code(security_code_type code_type,
+                                      cell_code_ui *code_ui)
+{
+  gchar *new_code = NULL;
+
+  if (code_type == SIM_SECURITY_CODE_PUK)
+    code_type = SIM_SECURITY_CODE_PIN;
+  else if (code_type == SIM_SECURITY_CODE_UPUK)
+    code_type = SIM_SECURITY_CODE_UPIN;
+
+  while (1)
+  {
+    gchar *confirm_code = NULL;
+
+    code_ui->state = CONNUI_CELL_CODE_UI_STATE_NEW_PIN;
+    g_free(new_code);
+
+    new_code = g_strdup(connui_cell_code_ui_get_code(code_type, code_ui));
+
+    if (new_code)
+    {
+      code_ui->state = CONNUI_CELL_CODE_UI_STATE_CONFIRM_PIN;
+      confirm_code = g_strdup(connui_cell_code_ui_get_code(code_type, code_ui));
+    }
+
+    if (!new_code || !confirm_code)
+    {
+      g_free(new_code);
+      g_free(confirm_code);
+      code_ui->state = CONNUI_CELL_CODE_UI_STATE_PIN_ERROR;
+      return NULL;
+    }
+
+    if (!strcmp(new_code, confirm_code))
+    {
+      g_free(confirm_code);
+      break;
+    }
+
+    g_free(confirm_code);
+    g_free(code_ui->pin_message);
+    code_ui->pin_message = g_strdup(_("conn_ib_incorrect_pin_change"));
+  }
+
+  return new_code;
+}
+
+static void
+connui_cell_code_ui_pin_correct(cell_code_ui *code_ui)
+{
+  g_return_if_fail(code_ui != NULL);
+
+  if (GTK_IS_WIDGET(code_ui->dialog))
+  {
+    gtk_widget_destroy(code_ui->dialog);
+    code_ui->dialog = NULL;
+
+    if (code_ui_filters_count > 0)
+    {
+      gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
+      code_ui_filters_count = 0;
+    }
+  }
+  code_ui->sim_status = 1;
+  code_ui->state = CONNUI_CELL_CODE_UI_STATE_OK;
+}
+
+static void
+connui_cell_code_ui_verify_code_cb(security_code_type code_type,
+                                   gint error_value, cell_code_ui *code_ui)
+{
+  g_return_if_fail(code_ui != NULL);
+
+  if (!error_value)
+  {
+    if (code_ui->show_pin_code_correct)
+    {
+      static gchar *argv[] = {"pin-code-correct", NULL};
+      GPid pid = 0;
+      GError *error = NULL;
+
+      if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL,
+                         &pid, &error))
+      {
+        CONNUI_ERR("%s", error->message);
+        g_clear_error(&error);
+      }
+
+      g_spawn_close_pid(pid);
+      connui_cell_code_ui_pin_correct(code_ui);
+    }
+    else
+    {
+      code_ui->unk_bool = TRUE;
+      connui_cell_code_ui_pin_correct(code_ui);
+    }
+
+    return;
+  }
+
+  if (code_ui->dialog)
+  {
+    gtk_widget_destroy(code_ui->dialog);
+    code_ui->dialog = NULL;
+
+    if (code_ui_filters_count > 0)
+    {
+      gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
+      code_ui_filters_count--;
+    }
+  }
+
+  code_ui->wrong_pin_count++;
+  code_ui->sim_status = 0;
+
+  if (code_type == SIM_SECURITY_CODE_PIN || code_type == SIM_SECURITY_CODE_PUK)
+  {
+    g_free(code_ui->code);
+    code_ui->code = NULL;
+  }
+
+  g_free(code_ui->pin_message);
+
+  code_ui->pin_message = NULL;
+
+  if (code_type == SIM_SECURITY_CODE_UPIN ||
+      code_type == SIM_SECURITY_CODE_PIN)
+  {
+    gint err_val = 0;
+    guint left = connui_cell_sim_verify_attempts_left(code_type, &err_val);
+
+    if (left == 1 || err_val)
+      code_ui->pin_message = g_strdup(_("conn_ib_incorrect_pin_1_tries"));
+    else if ( (signed int)left > 1 )
+    {
+      code_ui->pin_message =
+          g_strdup_printf(_("conn_ib_incorrect_pin_2_tries"));
+    }
+    else if ( !left )
+      code_ui->pin_message = g_strdup(_("conn_ib_incorrect_pin_0_tries"));
+  }
+  else if (code_type == SIM_SECURITY_CODE_UPUK ||
+           code_type == SIM_SECURITY_CODE_PUK)
+  {
+    gint err_val = 0;
+    guint left = connui_cell_sim_verify_attempts_left(code_type, &err_val);
+
+    if (!err_val)
+    {
+      code_ui->pin_message =
+          g_strdup_printf(dngettext("osso-connectivity-ui",
+                                    "conn_ib_incorrect_puk_final",
+                                    "conn_ib_incorrect_puk", left));
+    }
+  }
+
+  connui_cell_security_code_close(connui_cell_code_ui_code_cb);
+
+  if (!connui_cell_sim_status_register(connui_cell_code_ui_sim_status_cb,
+                                       code_ui))
+  {
+    g_warning("Unable to register SIM status callback");
+    connui_cell_code_ui_launch_no_sim_note(code_ui);
+  }
+}
+
+static void
+connui_cell_code_ui_code_cb(security_code_type code_type, gchar **old_code,
+                            gchar **new_code, GCallback *query_cb,
+                            gpointer *query_user_data, gpointer user_data)
+{
+  cell_code_ui *code_ui = user_data;
+  gchar *code;
+
+  g_return_if_fail(code_ui != NULL &&
+      code_ui->state != CONNUI_CELL_CODE_UI_STATE_NONE);
+
+  if (code_ui->state != CONNUI_CELL_CODE_UI_STATE_STARTUP)
+    code_ui->state = CONNUI_CELL_CODE_UI_STATE_PIN;
+
+  if (old_code && code_type == SIM_SECURITY_CODE_PIN && code_ui->code)
+    *old_code = g_strdup(code_ui->code);
+  else
+  {
+    code = connui_cell_code_ui_get_code(code_type, code_ui);
+
+    if (!code)
+    {
+      code_ui->state = CONNUI_CELL_CODE_UI_STATE_PIN_ERROR;
+      return;
+    }
+
+    *old_code = g_strdup(code);
+  }
+
+  if (new_code)
+  {
+    code = connui_cell_code_ui_code_get_new_code(code_type, code_ui);
+
+    if (!code)
+    {
+      g_free(*old_code);
+      *old_code = NULL;
+      return;
+    }
+
+    *new_code = code;
+  }
+  else
+    code = NULL;
+
+  if (code_type == SIM_SECURITY_CODE_PIN || code_type == SIM_SECURITY_CODE_PUK)
+  {
+    g_free(code_ui->code);
+
+    if (code_type == SIM_SECURITY_CODE_PUK)
+      code_ui->code = g_strdup(code);
+    else
+    {
+      if (!code)
+        code_ui->code = g_strdup(*old_code);
+      else
+        code_ui->code = g_strdup(code);
+    }
+  }
+
+  *query_user_data = code_ui;
+  *query_cb = (GCallback)connui_cell_code_ui_verify_code_cb;
+
+  return;
+}
+
 static void
 connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data)
 {
@@ -235,7 +570,7 @@ connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data)
       if (!note)
         goto sc_register;
 
-      gtk_dialog_response(GTK_DIALOG(note), -5);
+      gtk_dialog_response(GTK_DIALOG(note), GTK_RESPONSE_OK);
       return;
     }
     case 4:
@@ -258,7 +593,7 @@ connui_cell_code_ui_sim_status_cb(guint status, gpointer user_data)
       if (code_ui->state == CONNUI_CELL_CODE_UI_STATE_STARTUP)
         goto sc_register;
 
-      if (!code_ui->pin_count)
+      if (!code_ui->wrong_pin_count)
       {
         code_ui->state = CONNUI_CELL_CODE_UI_STATE_SIM_ERROR;
         connui_cell_code_ui_launch_note(code_ui, "no_pin");
@@ -431,18 +766,6 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
   return FALSE;
 }
 
-static GdkFilterReturn
-gdk_filter(GdkXEvent *xevent, GdkEvent *event, gpointer data)
-{
-
-  XEvent *xev = xevent;
-
-  if (xev->type == ButtonRelease)
-    gtk_dialog_response(GTK_DIALOG(_code_ui->dialog), GTK_RESPONSE_CANCEL);
-
-  return GDK_FILTER_CONTINUE;
-}
-
 void
 connui_cell_code_ui_destroy()
 {
@@ -567,91 +890,6 @@ get_em_mode(cell_code_ui *code_ui)
   }
 
   return FALSE;
-}
-
-static gchar *
-connui_cell_code_ui_get_code(security_code_type code_type,
-                             cell_code_ui *code_ui)
-{
-  const char *clui_title = NULL;
-
-  if (code_ui->dialog)
-  {
-    gtk_widget_destroy(code_ui->dialog);
-    code_ui->dialog = NULL;
-
-    if (code_ui_filters_count > 0)
-    {
-      gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
-      code_ui_filters_count--;
-    }
-  }
-
-  if (code_type == SIM_SECURITY_CODE_UPIN || code_type == SIM_SECURITY_CODE_PIN)
-  {
-    switch (code_ui->state)
-    {
-      case CONNUI_CELL_CODE_UI_STATE_NEW_PIN:
-      {
-        clui_title = _("conn_ti_enter_new_pin_code");
-        break;
-      }
-      case CONNUI_CELL_CODE_UI_STATE_CONFIRM_PIN:
-      {
-        clui_title = _("conn_ti_re_enter_new_pin_code");
-        break;
-      }
-      case CONNUI_CELL_CODE_UI_STATE_STARTUP:
-      case CONNUI_CELL_CODE_UI_STATE_PIN:
-      {
-        if (code_ui->current_pin_entered)
-        {
-          clui_title = _("conn_ti_enter_current_pin_code");
-          break;
-        }
-      } /* fallthrough */
-      default:
-        clui_title = _("conn_ti_enter_pin_code");
-        break;
-    }
-  }
-  else if (code_ui->state == CONNUI_CELL_CODE_UI_SIM_UNLOCK)
-    clui_title = _("conn_ti_enter_sim_unlock_code");
-  else if (code_type == SIM_SECURITY_CODE_PUK)
-    clui_title = _("conn_ti_enter_puk_code");
-
-  connui_cell_code_ui_create_dialog(clui_title, 4);
-
-  while (1)
-  {
-    GtkWidget *dialog = code_ui->dialog;
-    gint res = 0;
-
-    if (!GTK_IS_DIALOG(dialog))
-      break;
-
-    if (res == GTK_RESPONSE_DELETE_EVENT || res == GTK_RESPONSE_CANCEL)
-      break;
-
-    res = gtk_dialog_run(GTK_DIALOG(dialog));
-
-    if (res == GTK_RESPONSE_OK)
-      return clui_code_dialog_get_code(CLUI_CODE_DIALOG(dialog));
-  }
-
-  if (!GTK_IS_WIDGET(code_ui->dialog))
-    return NULL;
-
-  gtk_widget_destroy(code_ui->dialog);
-  code_ui->dialog = NULL;
-
-  if (code_ui_filters_count <= 0)
-    return NULL;
-
-  gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
-  code_ui_filters_count--;
-
-  return NULL;
 }
 
 static void
@@ -785,26 +1023,6 @@ connui_cell_code_ui_deactivate_simlock()
   while (!rv);
 
   return rv;
-}
-
-static void
-connui_cell_code_ui_pin_correct(cell_code_ui *code_ui)
-{
-  g_return_if_fail(code_ui != NULL);
-
-  if (GTK_IS_WIDGET(code_ui->dialog))
-  {
-    gtk_widget_destroy(code_ui->dialog);
-    code_ui->dialog = NULL;
-
-    if (code_ui_filters_count > 0)
-    {
-      gdk_window_remove_filter(gdk_get_default_root_window(), gdk_filter, NULL);
-      code_ui_filters_count = 0;
-    }
-  }
-  code_ui->sim_status = 1;
-  code_ui->state = CONNUI_CELL_CODE_UI_STATE_OK;
 }
 
 gboolean

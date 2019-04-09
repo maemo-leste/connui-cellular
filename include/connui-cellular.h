@@ -31,12 +31,22 @@ struct _cell_network_state
 
 typedef struct _cell_network_state cell_network_state;
 
+
+typedef enum
+{
+  SIM_SECURITY_CODE_PIN = 2,
+  SIM_SECURITY_CODE_PUK = 3,
+  SIM_SECURITY_CODE_PIN2 = 4,
+  SIM_SECURITY_CODE_UPIN = 7,
+  SIM_SECURITY_CODE_UPUK = 8 /* not sure about that */
+} security_code_type;
+
 typedef void (*cell_call_status_cb) (gboolean calls, gpointer user_data);
 typedef void (*cell_cs_status_cb) (gboolean active, gpointer user_data);
 typedef void (*cell_network_state_cb) (const cell_network_state *state, gpointer user_data);
 typedef void (*cell_sim_status_cb) (guint status, gpointer user_data);
 typedef void (*cell_ssc_state_cb) (const gchar *state, gpointer user_data);
-typedef void (*cell_sec_code_query_cb) (guint code_type, gchar **old_code, gchar **new_code, GCallback query_cb, gpointer query_user_data, gpointer user_data);
+typedef void (*cell_sec_code_query_cb) (security_code_type code_type, gchar **old_code, gchar **new_code, GCallback *query_cb, gpointer *query_user_data, gpointer user_data);
 typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
 typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
 
@@ -120,14 +130,6 @@ enum network_alpha_tag_name_type
 #define NET_GSS_UNKNOWN_SELECTED_RAT         0x03
 
 typedef void (*service_call_cb_f)(gboolean call_forwarding_enabled, int error_value, const gchar *phone_number, gpointer user_data);
-
-typedef enum
-{
-  SIM_SECURITY_CODE_PIN = 2,
-  SIM_SECURITY_CODE_PUK = 3,
-  SIM_SECURITY_CODE_PIN2 = 4,
-  SIM_SECURITY_CODE_UPIN = 7
-} security_code_type;
 
 /* NET */
 gboolean connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data);
