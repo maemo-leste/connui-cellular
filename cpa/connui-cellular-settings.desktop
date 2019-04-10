@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+X-Text-Domain=osso-connectivity-ui
+Name=conn_ti_phone_cpa
+Icon=general_application_call
+Categories=connectivity
+X-control-panel-plugin=libcellularsettings.so
