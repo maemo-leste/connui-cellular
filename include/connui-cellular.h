@@ -199,5 +199,6 @@ gboolean connui_cell_security_code_set_enabled(gboolean active, gint *error_valu
 void connui_cell_datacounter_close(cell_datacounter_cb cb);
 void connui_cell_datacounter_reset();
 gboolean connui_cell_datacounter_register(cell_datacounter_cb cb, gboolean home, gpointer user_data);
+void connui_cell_datacounter_save(gboolean notification_enabled, const gchar *warning_limit);
 
 #endif /* __CONNUI_CELLULAR_H__ */

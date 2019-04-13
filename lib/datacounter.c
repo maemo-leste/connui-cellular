@@ -18,6 +18,7 @@
 #define HOME_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_warning_limit"
 #define HOME_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_enabled"
 #define HOME_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_last_notification"
+#define HOME_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_period"
 
 #define ROAM_RX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_rx_bytes"
 #define ROAM_TX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_tx_bytes"
@@ -25,6 +26,7 @@
 #define ROAM_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_warning_limit"
 #define ROAM_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_enabled"
 #define ROAM_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_last_notification"
+#define ROAM_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_period"
 
 struct _connui_cell_datacounter
 {
@@ -370,4 +372,108 @@ connui_cell_datacounter_register(cell_datacounter_cb cb, gboolean home,
   connui_cell_datacounter_notify(dc);
 
   return TRUE;
+}
+
+void
+connui_cell_datacounter_save(gboolean notification_enabled,
+                             const gchar *warning_limit)
+{
+  connui_cell_datacounter *dc = connui_cell_datacounter_get(TRUE);
+  GError *error = NULL;
+
+  if (dc->home)
+  {
+    gconf_client_set_bool(dc->gconf, HOME_NTFY_ENABLE, notification_enabled,
+                          &error);
+
+    if (error)
+    {
+      CONNUI_ERR(HOME_NTFY_ENABLE ": %s", error->message);
+      g_clear_error(&error);
+    }
+
+    if (warning_limit)
+    {
+      gconf_client_set_string(dc->gconf, HOME_WARNING_LIMIT, warning_limit,
+                              &error);
+
+      if (error)
+      {
+        CONNUI_ERR(HOME_WARNING_LIMIT ": %s", error->message);
+        g_clear_error(&error);
+      }
+
+      if (notification_enabled)
+      {
+        /* WTF ? */
+        gchar *s = g_strconcat(warning_limit, "000000", NULL);
+
+        gconf_client_set_string(dc->gconf, HOME_NTFY_PERIOD, s, &error);
+
+        if (error)
+        {
+          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          g_clear_error(&error);
+        }
+
+        g_free(s);
+      }
+      else
+      {
+        gconf_client_set_string(dc->gconf, HOME_NTFY_PERIOD, "0", &error);
+
+        if (error)
+        {
+          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          g_clear_error(&error);
+        }
+      }
+    }
+  }
+  else
+  {
+    gconf_client_set_bool(dc->gconf, ROAM_NTFY_ENABLE, notification_enabled,
+                          &error);
+    if (error)
+    {
+      CONNUI_ERR(ROAM_NTFY_ENABLE ": %s", error->message);
+      g_clear_error(&error);
+    }
+
+    if (warning_limit)
+    {
+      gconf_client_set_string(dc->gconf, ROAM_WARNING_LIMIT, warning_limit,
+                              &error);
+      if (error)
+      {
+        CONNUI_ERR(ROAM_WARNING_LIMIT ": %s", error->message);
+        g_clear_error(&error);
+      }
+
+      if (notification_enabled)
+      {
+        gchar *s = g_strconcat(warning_limit, "000000", NULL);
+
+        gconf_client_set_string(dc->gconf, ROAM_NTFY_PERIOD, s, &error);
+
+        if (error)
+        {
+          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          g_clear_error(&error);
+        }
+
+        g_free(s);
+      }
+      else
+      {
+        gconf_client_set_string(dc->gconf, ROAM_NTFY_PERIOD, "0", &error);
+
+        if (error)
+        {
+          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          g_clear_error(&error);
+        }
+      }
+    }
+  }
 }
