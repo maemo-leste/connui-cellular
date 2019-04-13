@@ -858,6 +858,66 @@ init_call_options(cell_settings **settings, GtkWidget *parent,
                    (GCallback)call_divert_contact_clicked_cb, settings);
 }
 
+static void
+network_pin_request_toggled_cb(HildonCheckButton *button, gpointer user_data)
+{
+  cell_settings **settings = user_data;
+
+  if (!(*settings)->user_activated)
+  {
+    gboolean active = hildon_check_button_get_active(button);
+
+    if (!connui_cell_code_ui_set_current_code_active(active))
+    {
+      (*settings)->user_activated = TRUE;
+      hildon_check_button_set_active(button, active == 0);
+      (*settings)->user_activated = FALSE;
+    }
+
+    call_divert_value_changed_cb((HildonPickerButton *)button, settings);
+
+    if ((*settings)->cs_status_inactive)
+      cellular_settings_quit(settings);
+  }
+}
+
+static void
+network_pin_changed_cb(cell_settings **settings)
+{
+  if (!(*settings)->user_activated)
+  {
+    connui_cell_code_ui_change_code(SIM_SECURITY_CODE_PIN);
+
+    (*settings)->user_activated = TRUE;
+    hildon_entry_set_text(HILDON_ENTRY((*settings)->network_pin), "1234");
+    (*settings)->user_activated = FALSE;
+
+    if ((*settings)->cs_status_inactive)
+      cellular_settings_quit(settings);
+  }
+}
+
+static void
+init_sim_options(cell_settings **settings, GtkWidget *parent,
+                 GtkSizeGroup *size_group)
+{
+  (*settings)->network_pin_request = create_widget(
+        parent, size_group, _("conn_fi_phone_network_pin_request"),
+        create_check_button);
+  g_signal_connect(G_OBJECT((*settings)->network_pin_request), "toggled",
+                   G_CALLBACK(network_pin_request_toggled_cb), settings);
+
+  (*settings)->network_pin = create_widget(parent, size_group,
+                                           _("conn_fi_phone_network_pin"),
+                                           create_entry);
+  gtk_entry_set_visibility(GTK_ENTRY((*settings)->network_pin), FALSE);
+  g_signal_connect_swapped(G_OBJECT((*settings)->network_pin), "changed",
+                           G_CALLBACK(network_pin_changed_cb), settings);
+  g_signal_connect_swapped(G_OBJECT((*settings)->network_pin),
+                           "button-press-event",
+                           G_CALLBACK(network_pin_changed_cb), settings);
+}
+
 static osso_return_t
 cellular_settings_show(cell_settings **settings, GtkWindow *parent)
 {
@@ -870,7 +930,7 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   {
     {_("conn_ti_phone_call"), init_call_options},
     {_("conn_ti_phone_network"), init_network_options},
-    /*{_("conn_ti_phone_sim"), init_sim_options}*/
+    {_("conn_ti_phone_sim"), init_sim_options}
   };
   GtkSizeGroup *size_group;
   GtkWidget *vbox;
