@@ -7,6 +7,7 @@
 #include <icd/osso-ic-gconf.h>
 
 #include <stdlib.h>
+#include <time.h>
 
 #include "context.h"
 
@@ -36,7 +37,7 @@ struct _connui_cell_datacounter
   guint gconf_cnid;
   guint64 rx_bytes;
   guint64 tx_bytes;
-  guint reset_time;
+  time_t reset_time;
   gboolean home;
   gchar *warning_limit;
   gboolean notification_enabled;
@@ -51,7 +52,7 @@ connui_cell_datacounter_notify(const connui_cell_datacounter *data)
 {
   if (data && data->initialized)
   {
-    connui_utils_notify_notify_UINT64_UINT64_UINT_BOOLEAN_POINTER(
+    connui_utils_notify_notify_UINT64_UINT64_TIMET_BOOLEAN_POINTER(
           data->notifiers,
           data->rx_bytes,
           data->tx_bytes,

@@ -15,13 +15,13 @@
 #include "connui-cellular.h"
 
 #include "net-selection.h"
+#include "data-counter.h"
 
 #include "config.h"
 
 #define _(msgid) dgettext(GETTEXT_PACKAGE, msgid)
 
 /* #define CONTACT_CHOOSER */
-/* #define DATACOUNTER */
 /* #define CALLER_ID */
 
 struct _cell_settings
@@ -657,6 +657,31 @@ contact_chooser_dialog_response(GtkDialog *dialog, gint response_id,
 #endif
 
 static void
+datacounter_dialog_response(GtkDialog *dialog, gint response_id,
+                            gpointer user_data)
+{
+  cell_settings **settings = user_data;
+
+  switch(response_id)
+  {
+    case 2:
+      cellular_data_counter_save();
+      /* fallthrough */
+    case GTK_RESPONSE_CANCEL:
+    {
+      cellular_data_counter_destroy();
+      (*settings)->datacounter_dialog = NULL;
+      break;
+    }
+    case 1:
+    {
+      cellular_data_counter_reset();
+      break;
+    }
+  }
+}
+
+static void
 cellular_settings_response(GtkDialog *dialog, gint response_id,
                            gpointer user_data)
 {
@@ -738,7 +763,6 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
       return;
     }
 #endif
-#if DATACOUNTER
     case 11:
     case 12:
     {
@@ -752,7 +776,7 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
                        G_CALLBACK(datacounter_dialog_response), settings);
       return;
     }
-#endif
+
     default:
       return;
   }
