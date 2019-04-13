@@ -16,6 +16,7 @@ libconnui_cell_la_SOURCES = connui-cell-note.c \
 			    security_code.c \
 			    ssc.c \
 			    call.c \
+			    datacounter.c \
 			    code-ui.c
 
 BUILT_SOURCES = connui-cell-marshal.c connui-cell-marshal.h

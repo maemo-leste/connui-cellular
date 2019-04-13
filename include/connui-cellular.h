@@ -49,6 +49,7 @@ typedef void (*cell_ssc_state_cb) (const gchar *state, gpointer user_data);
 typedef void (*cell_sec_code_query_cb) (security_code_type code_type, gchar **old_code, gchar **new_code, GCallback *query_cb, gpointer *query_user_data, gpointer user_data);
 typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
 typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
+typedef void (*cell_datacounter_cb) (guint64 rx_bytes, guint64 tx_bytes, guint reset_time, gboolean notification_enabled, const gchar *warning_limit, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
 cell_network *connui_cell_network_dup(const cell_network *network);
@@ -193,5 +194,10 @@ gboolean connui_cell_security_code_get_enabled(gint *error_value);
 gboolean connui_cell_security_code_set_active(security_code_type code_type,gint *error_value);
 gboolean connui_cell_security_code_change(security_code_type code_type, gint *error_value);
 gboolean connui_cell_security_code_set_enabled(gboolean active, gint *error_value);
+
+/* datacounter */
+void connui_cell_datacounter_close(cell_datacounter_cb cb);
+void connui_cell_datacounter_reset();
+gboolean connui_cell_datacounter_register(cell_datacounter_cb cb, gboolean home, gpointer user_data);
 
 #endif /* __CONNUI_CELLULAR_H__ */
