@@ -50,3 +50,9 @@ Description: Cellular UI operator name home plugin
  .
  It has additional support for Cell Broadcast SMS
  which show for example Cellular network info.
+ 
+Package:  connui-cellular-settings
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Description: Cellular UI control panel applet
+ Cellular settings as a control panel applet
