@@ -1,6 +1,7 @@
 #include <hildon/hildon.h>
-#include <connui/connui-pixbuf-cache.h>
+#include <connui/connui.h>
 #include <connui/connui-log.h>
+#include <icd/dbus_api.h>
 
 #include <libintl.h>
 
@@ -243,4 +244,172 @@ cellular_net_selection_hide()
   }
 
   gtk_widget_hide_all(GTK_WIDGET(selection_dialog));
+}
+
+static void
+inetstate_status_cb(enum inetstate_status status, network_entry *network,
+                    gpointer user_data)
+{
+  cell_network *cnet = user_data;
+
+  /* fmg - not really sure about the condition here, please revisit if needed */
+  if (!network ||
+      (status != INETSTATE_STATUS_CONNECTING &&
+       status != INETSTATE_STATUS_CONNECTED) ||
+      g_strcmp0(network->network_type, "GPRS"))
+  {
+    connui_inetstate_close(inetstate_status_cb);
+    cellular_net_selection_select(cnet);
+    connui_cell_network_free(cnet);
+  }
+  else
+    iap_network_entry_disconnect(ICD_CONNECTION_FLAG_UI_EVENT, network);
+}
+
+void
+cellular_net_selection_select_current()
+{
+  GtkTreeSelection *selection;
+  GtkTreeIter iter;
+  GtkTreeModel *model = NULL;
+  cell_network *cnet = NULL;
+
+  g_return_if_fail(selection_dialog != NULL);
+
+  selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view));
+
+  if (gtk_tree_selection_get_selected(selection, &model, &iter))
+    gtk_tree_model_get(model, &iter, 2, &cnet, -1);
+
+  if (!cnet)
+    return;
+
+  cnet = connui_cell_network_dup(cnet);
+  gtk_dialog_set_response_sensitive(GTK_DIALOG(selection_dialog),
+                                    GTK_RESPONSE_OK, FALSE);
+
+  if (banner)
+    gtk_widget_destroy(banner);
+
+  banner = hildon_banner_show_animation(selection_dialog, NULL,
+                                        _("conn_pb_connecting"));
+
+  if (!connui_inetstate_status(inetstate_status_cb, cnet))
+    g_warning("Unable to query inetstate");
+}
+
+static GType connui_cell_network_type()
+{
+  static GType type = 0;
+
+  if (G_UNLIKELY (!type))
+  {
+      type = g_boxed_type_register_static (
+            "ConnuiCellNetwork",
+            (GBoxedCopyFunc) connui_cell_network_dup,
+            (GBoxedFreeFunc) connui_cell_network_free);
+  }
+
+  return type;
+}
+
+GtkDialog *
+cellular_net_selection_show(GtkWindow *parent, GCallback response_cb,
+                            gpointer user_data)
+{
+  if (connecting)
+  {
+    connecting = FALSE;
+    connui_cell_net_cancel_select(connui_cell_net_select_cb);
+  }
+
+  if (!selection_dialog)
+  {
+    GtkTreeViewColumn *col_umts;
+    GtkTreeViewColumn *col_name;
+    GtkWidget *window = gtk_scrolled_window_new(NULL, NULL);
+    GtkListStore *list_store = gtk_list_store_new(3, GDK_TYPE_PIXBUF,
+                                                  G_TYPE_STRING,
+                                                  connui_cell_network_type());
+
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    selection_dialog =
+        gtk_dialog_new_with_buttons(
+          _("conn_ti_phone_sel_cell_network"), parent,
+          GTK_DIALOG_NO_SEPARATOR | GTK_DIALOG_DESTROY_WITH_PARENT |
+          GTK_DIALOG_MODAL, _("conn_bd_dialog_ok"), GTK_RESPONSE_OK, NULL);
+
+    tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(list_store));
+    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(tree_view), FALSE);
+    gtk_tree_selection_set_mode(
+          gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view)),
+          GTK_SELECTION_SINGLE);
+
+    col_umts = gtk_tree_view_column_new_with_attributes(
+          "UMTS", gtk_cell_renderer_pixbuf_new(), "pixbuf", 0, NULL);
+
+    col_name = gtk_tree_view_column_new_with_attributes(
+          "Name", gtk_cell_renderer_text_new(), "text", 1, NULL);
+    gtk_tree_view_column_set_expand(col_name, TRUE);
+
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), col_umts);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), col_name);
+
+    gtk_container_add(GTK_CONTAINER(window), tree_view);
+    gtk_container_add(GTK_CONTAINER(GTK_DIALOG(selection_dialog)->vbox),
+                      window);
+    gtk_widget_set_size_request(GTK_WIDGET(window), 410, 180);
+    gtk_dialog_set_response_sensitive(GTK_DIALOG(selection_dialog),
+                                      GTK_RESPONSE_OK, FALSE);
+    iap_common_set_close_response(selection_dialog, GTK_RESPONSE_CANCEL);
+    g_signal_connect(G_OBJECT(selection_dialog), "response", response_cb,
+                     user_data);
+  }
+
+  unknown_bool_2 = FALSE;
+
+  if (!pixbuf_cache)
+    pixbuf_cache = connui_pixbuf_cache_new();
+
+  if (unknown_bool_1)
+  {
+    struct timespec tp;
+
+    clock_gettime(1, &tp);
+
+    if (tp.tv_sec - net_list_ts.tv_sec <= 20)
+    {
+      gtk_dialog_set_response_sensitive(GTK_DIALOG(selection_dialog),
+                                        GTK_RESPONSE_OK, TRUE);
+    }
+    else
+    {
+      gtk_list_store_clear(
+            GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(tree_view))));
+      unknown_bool_1 = FALSE;
+      gtk_dialog_set_response_sensitive(GTK_DIALOG(selection_dialog),
+                                        GTK_RESPONSE_OK, FALSE);
+    }
+  }
+
+  gtk_widget_show_all(selection_dialog);
+
+  if (!net_list_in_progress && !unknown_bool_1)
+  {
+    net_list_in_progress = TRUE;
+
+    if (connui_cell_net_list(connui_cell_net_list_cb, NULL))
+    {
+      if (banner)
+        gtk_widget_destroy(banner);
+
+      banner = hildon_banner_show_animation(selection_dialog, NULL,
+                                            _("conn_pb_searching"));
+    }
+    else
+      net_list_in_progress = 0;
+  }
+
+  return GTK_DIALOG(selection_dialog);
 }

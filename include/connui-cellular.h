@@ -129,7 +129,7 @@ enum network_alpha_tag_name_type
 #define NET_GSS_UMTS_SELECTED_RAT            0x02
 #define NET_GSS_UNKNOWN_SELECTED_RAT         0x03
 
-typedef void (*service_call_cb_f)(gboolean call_forwarding_enabled, int error_value, const gchar *phone_number, gpointer user_data);
+typedef void (*service_call_cb_f)(gboolean enabled, gint error_value, const gchar *phone_number, gpointer user_data);
 
 /* NET */
 gboolean connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data);

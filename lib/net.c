@@ -790,7 +790,7 @@ connui_cell_net_divert_activate_reply(DBusGProxy *proxy, GError *error,
      return;
   }
 
-  if ( error )
+  if (error)
   {
     const char *err_msg = error->message;
     int error_value;
