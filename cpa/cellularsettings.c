@@ -58,7 +58,7 @@ struct _cell_settings
   guchar selected_net_mode;
   gboolean rat_changed;
   int call_status;
-  int idle_id;
+  guint idle_id;
   gint svc_call_in_progress;
   int caller_id;
   guint call_forwarding_id;
@@ -68,6 +68,7 @@ struct _cell_settings
 typedef struct _cell_settings cell_settings;
 
 static void cellular_settings_quit(cell_settings **settings);
+static void activate_widgets(cell_settings **settings);
 
 static cell_settings **
 get_settings()
@@ -231,6 +232,12 @@ static GtkWidget *
 create_check_button()
 {
   return hildon_check_button_new(HILDON_SIZE_FINGER_HEIGHT);
+}
+
+static GtkWidget *
+create_entry()
+{
+  return hildon_entry_new(HILDON_SIZE_FINGER_HEIGHT);
 }
 
 static GtkWidget *
@@ -431,39 +438,6 @@ init_network_options(cell_settings **settings, GtkWidget *parent,
                    (GCallback)roaming_network_data_counter_clicked_cb,
                    settings);
 }
-#if 0
-static void
-init_call_options(cell_settings **settings, GtkWidget *parent,
-                  GtkSizeGroup *size_group)
-{
-  cell_settings *cs = *settings;
-
-  cs->send_call_id = create_widget(parent, size_group,
-                                          _("conn_fi_phone_send_call_id"),
-                                          send_call_id_create);
-
-  cs->call_waiting = create_widget(parent, size_group,
-                                          _("conn_fi_phone_call_waiting"),
-                                          create_check_button);
-
-  cs->call_divert = create_widget(parent, size_group,
-                                         _("conn_fi_phone_call_divert"),
-                                         call_divert_create_widget);
-  g_signal_connect(G_OBJECT(cs->call_divert), "value-changed",
-                   (GCallback)call_divert_value_changed_cb, settings);
-
-  cs->call_divert_to = create_widget(parent, size_group,
-                                     _("conn_fi_phone_call_divert_to"),
-                                     create_entry);
-  hildon_gtk_entry_set_input_mode(GTK_ENTRY(cs->call_divert_to),
-                                  HILDON_GTK_INPUT_MODE_TELE);
-
-  cs->call_divert_contact = create_button(
-        parent, size_group, _("conn_bd_phone_call_divert_contact"));
-  g_signal_connect(G_OBJECT(cs->call_divert_contact), "clicked",
-                   (GCallback)call_divert_contact_clicked_cb, settings);
-}
-#endif
 
 static void
 cellular_settings_set_call_forwarding_cb(gboolean enabled,
@@ -696,6 +670,7 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
   switch (response_id)
   {
     case GTK_RESPONSE_CANCEL:
+    {
       if (hildon_check_button_get_active(
             HILDON_CHECK_BUTTON((*settings)->network_pin_request)) !=
           (*settings)->security_code_enabled )
@@ -714,8 +689,9 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
         if (err_val)
           CONNUI_ERR("Error while setting radio access mode: %d", err_val);
       }
-      break;
 
+      break;
+    }
     case GTK_RESPONSE_OK:
     {
       const gchar *divert_phone =
@@ -785,6 +761,103 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
   gtk_main_quit();
 }
 
+static GtkWidget *
+send_call_id_create()
+{
+  HildonTouchSelector *selector;
+  HildonTouchSelectorColumn *column;
+  GtkWidget *button;
+  GtkTreeIter iter;
+  GtkListStore *list_store =
+      gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
+
+  gtk_list_store_insert_with_values(list_store, &iter, 0,
+                                    0, dgettext("hildon-libs", "wdgt_bd_yes"),
+                                    1, "no-id",
+                                    -1);
+  gtk_list_store_insert_with_values(list_store, &iter, 1,
+                                    0, dgettext("hildon-libs", "wdgt_bd_no"),
+                                    1, "id",
+                                    -1);
+  gtk_list_store_insert_with_values(list_store, &iter, 2,
+                                    0, _("conn_va_phone_clir_network"),
+                                    1, "",
+                                    -1);
+  selector = HILDON_TOUCH_SELECTOR(hildon_touch_selector_new());
+
+  column = hildon_touch_selector_append_text_column(
+        selector, GTK_TREE_MODEL(list_store), TRUE);
+
+  g_object_unref(G_OBJECT(list_store));
+  g_object_set(G_OBJECT(column), "text-column", 0);
+
+  button = hildon_picker_button_new(HILDON_SIZE_FINGER_HEIGHT,
+                                    HILDON_BUTTON_ARRANGEMENT_VERTICAL);
+
+  hildon_picker_button_set_selector(HILDON_PICKER_BUTTON(button), selector);
+  picker_button_set_inactive(button);
+
+  return button;
+}
+
+static GtkWidget *
+call_divert_create_widget()
+{
+  return create_touch_selector(_("conn_fi_phone_call_divert_note"),
+                               dgettext("hildon-libs", "wdgt_bd_no"),
+                               NULL);
+}
+
+static void
+call_divert_value_changed_cb(HildonPickerButton *widget,
+                             gpointer user_data)
+{
+  cell_settings **settings = user_data;
+
+  if (!(*settings)->user_activated)
+    activate_widgets(settings);
+}
+
+static void
+call_divert_contact_clicked_cb(GtkButton *button, gpointer user_data)
+{
+  cell_settings **settings = user_data;
+
+  gtk_dialog_response(GTK_DIALOG((*settings)->dialog), 10);
+}
+
+static void
+init_call_options(cell_settings **settings, GtkWidget *parent,
+                  GtkSizeGroup *size_group)
+{
+  cell_settings *cs = *settings;
+
+  cs->send_call_id = create_widget(parent, size_group,
+                                   _("conn_fi_phone_send_call_id"),
+                                   send_call_id_create);
+
+  cs->call_waiting = create_widget(parent, size_group,
+                                   _("conn_fi_phone_call_waiting"),
+                                   create_check_button);
+
+  cs->call_divert = create_widget(parent, size_group,
+                                  _("conn_fi_phone_call_divert"),
+                                  call_divert_create_widget);
+  g_signal_connect(G_OBJECT(cs->call_divert), "value-changed",
+                   (GCallback)call_divert_value_changed_cb, settings);
+
+  cs->call_divert_to = create_widget(parent, size_group,
+                                     _("conn_fi_phone_call_divert_to"),
+                                     create_entry);
+  hildon_gtk_entry_set_input_mode(GTK_ENTRY(cs->call_divert_to),
+                                  HILDON_GTK_INPUT_MODE_TELE);
+
+  cs->call_divert_contact = create_button(
+        parent, size_group, _("conn_bd_phone_call_divert_contact"));
+  g_signal_connect(G_OBJECT(cs->call_divert_contact), "clicked",
+                   (GCallback)call_divert_contact_clicked_cb, settings);
+}
+
 static osso_return_t
 cellular_settings_show(cell_settings **settings, GtkWindow *parent)
 {
@@ -795,7 +868,7 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   }
   options[] =
   {
-    /*{_("conn_ti_phone_call"), init_call_options},*/
+    {_("conn_ti_phone_call"), init_call_options},
     {_("conn_ti_phone_network"), init_network_options},
     /*{_("conn_ti_phone_sim"), init_sim_options}*/
   };
