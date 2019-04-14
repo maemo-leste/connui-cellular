@@ -50,6 +50,7 @@ typedef void (*cell_sec_code_query_cb) (security_code_type code_type, gchar **ol
 typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
 typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
 typedef void (*cell_datacounter_cb) (guint64 rx_bytes, guint64 tx_bytes, time_t reset_time, gboolean notification_enabled, const gchar *warning_limit, gpointer user_data);
+typedef void (*cell_clir_cb)(gboolean success, gint error_value, const gchar *presentation, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
 cell_network *connui_cell_network_dup(const cell_network *network);
@@ -153,6 +154,9 @@ void connui_cell_reset_network();
 void connui_cell_net_cancel_list(cell_net_list_cb cb);
 const cell_network *connui_cell_net_get_current();
 gboolean connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value);
+gboolean connui_cell_net_get_caller_id_presentation(cell_clir_cb clir_cb, gpointer clir_cb_data);
+gboolean connui_cell_net_set_caller_id_presentation(const gchar *presentation, cell_clir_cb cb, gpointer user_data);
+void connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id);
 
 /* SIM */
 gboolean connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data);

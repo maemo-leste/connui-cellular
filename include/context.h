@@ -29,7 +29,7 @@ struct _connui_cell_context
   GHashTable *service_calls;
   int service_call_id;
   GSList *call_status_cbs;
-  GCallback clir_cb;
+  cell_clir_cb clir_cb;
   gpointer clir_cb_data;
 };
 

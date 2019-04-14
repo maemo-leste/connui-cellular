@@ -3,6 +3,9 @@
 #include <libosso.h>
 #include <connui/connui-utils.h>
 #include <connui/connui-log.h>
+#include <connui/connui-dbus.h>
+#include <telepathy-glib/telepathy-glib.h>
+#include <gio/gio.h>
 
 #include <string.h>
 
@@ -1605,5 +1608,219 @@ connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value)
   connui_cell_context_destroy(ctx);
 
   return err_val == 0;
+
+}
+
+static gboolean
+connui_cell_order_mc_accounts(GAsyncReadyCallback async_cb,
+                              const gchar *presentation, cell_clir_cb cb,
+                              gpointer cb_data)
+{
+  TpAccountManager *manager;
+  connui_cell_context *ctx = connui_cell_context_get();
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  manager = tp_account_manager_dup();
+
+  if (!manager)
+  {
+    CONNUI_ERR("Can't create TpAccountManager");
+    connui_cell_context_destroy(ctx);
+    return FALSE;
+  }
+
+  ctx->clir_cb = cb;
+  ctx->clir_cb_data = cb_data;
+
+  tp_proxy_prepare_async (manager, NULL, async_cb, (gpointer)presentation);
+  g_object_unref (manager);
+
+  connui_cell_context_destroy(ctx);
+
+  return TRUE;
+}
+
+static TpAccount *
+find_ring_account(TpAccountManager *manager)
+{
+  GList *accounts, *l;
+  TpAccount *rv = NULL;
+
+  accounts = tp_account_manager_dup_valid_accounts(manager);
+
+  for (l = accounts; l != NULL; l = l->next)
+  {
+    TpAccount *account = l->data;
+
+    if (!strcmp(tp_account_get_cm_name(account), "ring"))
+    {
+      g_object_ref(account);
+      rv = account;
+      break;
+    }
+  }
+
+  g_list_free_full(accounts, g_object_unref);
+
+  return rv;
+}
+
+static void
+connui_cell_net_get_caller_id_presentation_cb(GObject *object,
+                                              GAsyncResult *res,
+                                              gpointer user_data)
+{
+  const gchar *privacy = NULL;
+  connui_cell_context *ctx;
+  TpAccountManager *manager = (TpAccountManager *)object;
+  GError *error = NULL;
+  gboolean success = TRUE;
+
+  if (!tp_proxy_prepare_finish(object, res, &error))
+  {
+    CONNUI_ERR("Error preparing TpAccountManager: %s", error->message);
+    g_clear_error(&error);
+    success = FALSE;
+  }
+
+  ctx = connui_cell_context_get();
+
+  g_return_if_fail(ctx != NULL);
+
+  if (success)
+  {
+    TpAccount *ring_account = find_ring_account(manager);
+
+    if (ring_account)
+    {
+      privacy = tp_asv_get_string(
+            tp_account_get_parameters(ring_account),
+            "com.nokia.Telepathy.Connection.Interface.GSM.Privacy");
+      g_object_unref(ring_account);
+    }
+  }
+
+  if (!privacy)
+    privacy = "";
+
+  if (ctx->clir_cb)
+  {
+    ctx->clir_cb(TRUE, 0, privacy, ctx->clir_cb_data);
+    ctx->clir_cb = NULL;
+  }
+  else
+    CONNUI_ERR("CLIR callback is NULL");
+
+  ctx->clir_cb_data = NULL;
+  connui_cell_context_destroy(ctx);
+}
+
+gboolean
+connui_cell_net_get_caller_id_presentation(cell_clir_cb cb,
+                                           gpointer user_data)
+{
+  return connui_cell_order_mc_accounts(
+        connui_cell_net_get_caller_id_presentation_cb, NULL, cb, user_data);
+}
+
+static void
+connui_cell_net_get_caller_id_update_parameter_cb(GObject *object,
+                                                  GAsyncResult *res,
+                                                  gpointer user_data)
+{
+  connui_cell_context *ctx;
+  TpAccount *account = (TpAccount *)object;
+  GError *error = NULL;
+  GStrv reconnect_required = NULL;
+
+  if (!tp_account_update_parameters_finish(account, res, &reconnect_required,
+                                           &error))
+  {
+    CONNUI_ERR("Error updating TpAccount parameter: %s", error->message);
+    g_clear_error(&error);
+  }
+
+  g_strfreev(reconnect_required);
+
+  ctx = connui_cell_context_get();
+
+  g_return_if_fail(ctx != NULL);
+
+  if (ctx->clir_cb)
+  {
+    ctx->clir_cb(FALSE, 0, NULL, ctx->clir_cb_data);
+    ctx->clir_cb = NULL;
+  }
+  else
+    CONNUI_ERR("CLIR callback is NULL");
+
+  ctx->clir_cb_data = NULL;
+  connui_cell_context_destroy(ctx);
+}
+
+static void
+connui_cell_net_set_caller_id_presentation_cb(GObject *object,
+                                              GAsyncResult *res,
+                                              gpointer user_data)
+{
+  TpAccountManager *manager = (TpAccountManager *)object;
+  GError *error = NULL;
+
+  /* Failure should be handled better I guess, like calling the cb, etc. */
+  if (!tp_proxy_prepare_finish(object, res, &error))
+  {
+    CONNUI_ERR("Error preparing TpAccountManager: %s", error->message);
+    g_clear_error(&error);
+    return;
+  }
+
+  TpAccount *ring_account = find_ring_account(manager);
+
+  if (ring_account)
+  {
+    const gchar *unset[] = {NULL};
+    GHashTable *set = tp_asv_new(
+          "com.nokia.Telepathy.Connection.Interface.GSM.Privacy",
+          G_TYPE_STRING, (const gchar *)user_data, NULL);
+
+    tp_account_update_parameters_async(
+          ring_account, set, unset,
+          connui_cell_net_get_caller_id_update_parameter_cb, user_data);
+  }
+}
+
+gboolean
+connui_cell_net_set_caller_id_presentation(const gchar *presentation,
+                                           cell_clir_cb cb, gpointer user_data)
+{
+  return connui_cell_order_mc_accounts(
+        connui_cell_net_set_caller_id_presentation_cb, presentation, cb,
+        user_data);
+}
+
+void
+connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id)
+{
+  DBusMessage *msg;
+
+  g_return_if_fail(caller_id != NULL);
+
+  msg = connui_dbus_create_method_call("org.bluez",
+                                       "/com/nokia/MaemoTelephony",
+                                       "com.nokia.MaemoTelephony",
+                                       "SetCallerId",
+                                       DBUS_TYPE_STRING, &caller_id,
+                                       DBUS_TYPE_INVALID);
+
+  if (msg)
+  {
+    if (!connui_dbus_send_system_mcall(msg, -1, 0, 0, 0))
+      CONNUI_ERR("Unable to send SetCallerId to bluez");
+
+    dbus_message_unref(msg);
+  }
+  else
+    CONNUI_ERR("unable to create dbus message");
 
 }
