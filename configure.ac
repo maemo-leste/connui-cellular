@@ -40,6 +40,12 @@ localedir=`pkg-config osso-af-settings --variable=localedir`
 AC_SUBST(localedir)
 
 PKG_CHECK_MODULES(X11, x11)
+AC_SUBST(X11_CFLAGS)
+AC_SUBST(X11_LIBS)
+
+PKG_CHECK_MODULES(OSSO, libosso)
+AC_SUBST(OSSO_CFLAGS)
+AC_SUBST(OSSO_LIBS)
 
 PKG_CHECK_MODULES(HILDON, hildon-1)
 AC_SUBST(HILDON_CFLAGS)

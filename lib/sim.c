@@ -88,7 +88,6 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 
   if (!ctx->get_sim_status_call)
   {
-
     sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)sim_status_cb;
