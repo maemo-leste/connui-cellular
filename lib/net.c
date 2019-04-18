@@ -1787,6 +1787,7 @@ connui_cell_net_set_caller_id_presentation_cb(GObject *object,
     tp_account_update_parameters_async(
           ring_account, set, unset,
           connui_cell_net_get_caller_id_update_parameter_cb, user_data);
+    g_object_unref(ring_account);
   }
 }
 
@@ -1815,7 +1816,7 @@ connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id)
 
   if (msg)
   {
-    if (!connui_dbus_send_system_mcall(msg, -1, 0, 0, 0))
+    if (!connui_dbus_send_system_mcall(msg, -1, NULL, NULL, NULL))
       CONNUI_ERR("Unable to send SetCallerId to bluez");
 
     dbus_message_unref(msg);
