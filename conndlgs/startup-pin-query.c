@@ -15,7 +15,7 @@
 static gboolean exit_flightmode ;
 
 static gboolean
-query_pin_cb(gpointer user_data)
+initialize_sim_cb(gpointer user_data)
 {
   if (connui_cell_code_ui_init(NULL, TRUE))
   {
@@ -47,15 +47,15 @@ flightmode_status_cb(dbus_bool_t offline, gpointer user_data)
     exit_flightmode = TRUE;
   }
 
-  g_idle_add(query_pin_cb, NULL);
+  g_idle_add(initialize_sim_cb, NULL);
 }
 
 int
 main(int argc, char **argv)
 {
   setlocale(LC_ALL, "");
-  bindtextdomain("osso-connectivity-ui", "/usr/share/locale");
-  textdomain("osso-connectivity-ui");
+  bindtextdomain(GETTEXT_PACKAGE, "/usr/share/locale");
+  textdomain(GETTEXT_PACKAGE);
   hildon_gtk_init(&argc, &argv);
   dbus_g_thread_init();
 
