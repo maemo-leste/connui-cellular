@@ -12,7 +12,8 @@ CONNDLGS_LDFLAGS = -module -avoid-version
 
 conndlgslib_LTLIBRARIES = \
 	libcell_dialog_roaming.la \
-	libcell_dialog_error_note.la
+	libcell_dialog_error_note.la \
+	libcell_dialog_oma_cp_ui.la
 
 libcell_dialog_roaming_la_SOURCES = cell-dialog-roaming.c
 libcell_dialog_roaming_la_CFLAGS =  \
@@ -30,5 +31,15 @@ libcell_dialog_error_note_la_CFLAGS =  \
 
 libcell_dialog_error_note_la_LIBADD = $(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS)
 libcell_dialog_error_note_la_LDFLAGS = $(CONNDLGS_LDFLAGS)
+
+libcell_dialog_oma_cp_ui_la_SOURCES = cell-dialog-oma-cp-ui.c
+libcell_dialog_oma_cp_ui_la_CFLAGS =  \
+			$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CONNUI_CFLAGS) \
+			-DG_LOG_DOMAIN=\"$(PACKAGE)\" -DOSSOLOG_COMPILE=1 \
+			$(CLUI_CFLAGS) -I$(top_builddir)/include
+
+libcell_dialog_oma_cp_ui_la_LIBADD = \
+			$(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS) $(CLUI_LIBS)
+libcell_dialog_oma_cp_ui_la_LDFLAGS = $(CONNDLGS_LDFLAGS)
 
 MAINTAINERCLEANFILES = Makefile.in
