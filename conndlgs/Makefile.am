@@ -1,4 +1,4 @@
-bin_PROGRAMS = pin-code-correct
+bin_PROGRAMS = pin-code-correct startup-pin-query
 
 pin_code_correct_SOURCES = pin-code-correct.c
 pin_code_correct_CFLAGS = \
@@ -7,6 +7,16 @@ pin_code_correct_CFLAGS = \
 		-DOSSOLOG_COMPILE=1
 
 pin_code_correct_LDADD = $(OSSO_LIBS) $(HILDON_LIBS)
+
+startup_pin_query_SOURCES = startup-pin-query.c
+startup_pin_query_CFLAGS = \
+		$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CONNUI_CFLAGS) \
+		$(CONBTUI_GFLAGS) -I$(top_builddir)/include \
+		-DG_LOG_DOMAIN=\"$(PACKAGE)\" -DOSSOLOG_COMPILE=1
+
+startup_pin_query_LDADD = \
+		$(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS) $(CONBTUI_LIBS) \
+		$(top_builddir)/lib/libconnui_cell.la
 
 CONNDLGS_LDFLAGS = -module -avoid-version
 
