@@ -18,7 +18,6 @@
 #define CELLULAR_UI_DBUS_INTERFACE "com.nokia.cellular_ui"
 #define CELLULAR_UI_DBUS_PATH "/com/nokia/cellular_ui"
 #define CELLULAR_UI_SHOW_ERROR_NOTE "show_error_note"
-#define CELLULAR_UI_ROAMING_SIGNAL "roaming"
 
 #undef ICD_UI_DBUS_INTERFACE
 #undef ICD_UI_DBUS_PATH
