@@ -1,6 +1,6 @@
 bin_PROGRAMS = pin-code-correct
 
-pin_code_correct_SOURCES = pin_code_correct.c
+pin_code_correct_SOURCES = pin-code-correct.c
 pin_code_correct_CFLAGS = \
 		$(OSSO_CFLAGS) $(HILDON_CFLAGS) \
 		-DG_LOG_DOMAIN=\"$(PACKAGE)\" \
