@@ -12,8 +12,8 @@
 
 #define CELLULAR_UI_DBUS_INTERFACE "com.nokia.cellular_ui"
 #define CELLULAR_UI_DBUS_PATH "/com/nokia/cellular_ui"
-#define CELLULAR_UI_SHOW_SELECT_METHOD "show_roaming_dlg"
-#define CELLULAR_UI_METHOD_SIGNAL "roaming"
+#define CELLULAR_UI_SHOW_ROAMING_DLG "show_roaming_dlg"
+#define CELLULAR_UI_ROAMING_SIGNAL "roaming"
 
 #undef ICD_UI_DBUS_INTERFACE
 #undef ICD_UI_DBUS_PATH
@@ -21,7 +21,7 @@
 #define ICD_UI_DBUS_INTERFACE CELLULAR_UI_DBUS_INTERFACE
 #define ICD_UI_DBUS_PATH CELLULAR_UI_DBUS_PATH
 
-IAP_DIALOGS_PLUGIN_DEFINE(roaming, CELLULAR_UI_SHOW_SELECT_METHOD);
+IAP_DIALOGS_PLUGIN_DEFINE(roaming, CELLULAR_UI_SHOW_ROAMING_DLG);
 
 static GtkWidget *_dialog;
 static iap_dialogs_done_fn done_fn;
@@ -42,7 +42,7 @@ roaming_send_reply(dbus_bool_t enable, const char *sender)
 {
   DBusMessage *message = dbus_message_new_signal(CELLULAR_UI_DBUS_PATH,
                                                  CELLULAR_UI_DBUS_INTERFACE,
-                                                 CELLULAR_UI_METHOD_SIGNAL);
+                                                 CELLULAR_UI_ROAMING_SIGNAL);
 
   if (!message)
     return FALSE;

@@ -131,6 +131,24 @@ enum network_alpha_tag_name_type
 #define NET_GSS_UMTS_SELECTED_RAT            0x02
 #define NET_GSS_UNKNOWN_SELECTED_RAT         0x03
 
+#define ICD_GCONF_NETWORK_MAPPING_GPRS ICD_GCONF_NETWORK_MAPPING "/GPRS"
+
+#define GPRS_HOME_RX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_rx_bytes"
+#define GPRS_HOME_TX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_tx_bytes"
+#define GPRS_HOME_RST_TIME ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_reset_time"
+#define GPRS_HOME_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_warning_limit"
+#define GPRS_HOME_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_enabled"
+#define GPRS_HOME_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_last_notification"
+#define GPRS_HOME_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_period"
+
+#define GPRS_ROAM_RX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_rx_bytes"
+#define GPRS_ROAM_TX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_tx_bytes"
+#define GPRS_ROAM_RST_TIME ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_reset_time"
+#define GPRS_ROAM_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_warning_limit"
+#define GPRS_ROAM_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_enabled"
+#define GPRS_ROAM_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_last_notification"
+#define GPRS_ROAM_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_period"
+
 typedef void (*service_call_cb_f)(gboolean enabled, gint error_value, const gchar *phone_number, gpointer user_data);
 
 /* NET */
@@ -185,6 +203,7 @@ gboolean connui_cell_code_ui_deactivate_simlock();
 gboolean connui_cell_code_ui_change_code(security_code_type code_type);
 gboolean connui_cell_code_ui_update_sim_status();
 gboolean connui_cell_code_ui_set_current_code_active(gboolean active);
+const char *connui_cell_code_ui_error_note_type_to_text(const char *note_type);
 
 /* EMERGENCY */
 GStrv connui_cell_emergency_get_numbers();

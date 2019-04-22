@@ -11,24 +11,6 @@
 
 #include "context.h"
 
-#define ICD_GCONF_NETWORK_MAPPING_GPRS ICD_GCONF_NETWORK_MAPPING "/GPRS"
-
-#define HOME_RX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_rx_bytes"
-#define HOME_TX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_tx_bytes"
-#define HOME_RST_TIME ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_reset_time"
-#define HOME_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_warning_limit"
-#define HOME_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_enabled"
-#define HOME_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_last_notification"
-#define HOME_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_home_notification_period"
-
-#define ROAM_RX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_rx_bytes"
-#define ROAM_TX_BYTES ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_tx_bytes"
-#define ROAM_RST_TIME ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_reset_time"
-#define ROAM_WARNING_LIMIT ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_warning_limit"
-#define ROAM_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_enabled"
-#define ROAM_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_last_notification"
-#define ROAM_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_period"
-
 struct _connui_cell_datacounter
 {
   gboolean initialized;
@@ -109,40 +91,40 @@ connui_cell_datacounter_gconf_changed(GConfClient *client, guint cnxn_id,
 
   if (dc->home)
   {
-    if (!g_strcmp0(key, HOME_RX_BYTES))
+    if (!g_strcmp0(key, GPRS_HOME_RX_BYTES))
       dc->rx_bytes = counter;
-    else if (!g_strcmp0(key, HOME_TX_BYTES))
+    else if (!g_strcmp0(key, GPRS_HOME_TX_BYTES))
       dc->tx_bytes = counter;
-    else if (!g_strcmp0(key, HOME_RST_TIME))
+    else if (!g_strcmp0(key, GPRS_HOME_RST_TIME))
       dc->reset_time = counter;
-    else if (!g_strcmp0(key, HOME_WARNING_LIMIT))
+    else if (!g_strcmp0(key, GPRS_HOME_WARNING_LIMIT))
     {
       if (dc->warning_limit)
         g_free(dc->warning_limit);
 
       dc->warning_limit = g_strdup_printf("%llu", counter);
     }
-    else if (!g_strcmp0(key, HOME_NTFY_ENABLE))
+    else if (!g_strcmp0(key, GPRS_HOME_NTFY_ENABLE))
     {
       dc->notification_enabled = gconf_value_get_bool(val);
     }
   }
   else
   {
-    if (!g_strcmp0(key, ROAM_RX_BYTES))
+    if (!g_strcmp0(key, GPRS_ROAM_RX_BYTES))
       dc->rx_bytes = counter;
-    else if (g_strcmp0(key, ROAM_TX_BYTES))
+    else if (g_strcmp0(key, GPRS_ROAM_TX_BYTES))
       dc->tx_bytes = counter;
-    else if (!g_strcmp0(key, ROAM_RST_TIME))
+    else if (!g_strcmp0(key, GPRS_ROAM_RST_TIME))
       dc->reset_time = counter;
-    else if (!g_strcmp0(key, ROAM_WARNING_LIMIT))
+    else if (!g_strcmp0(key, GPRS_ROAM_WARNING_LIMIT))
     {
       if (dc->warning_limit)
         g_free(dc->warning_limit);
 
       dc->warning_limit = g_strdup_printf("%llu", counter);
     }
-    else if (!g_strcmp0(key, ROAM_NTFY_ENABLE))
+    else if (!g_strcmp0(key, GPRS_ROAM_NTFY_ENABLE))
     {
       dc->notification_enabled = gconf_value_get_bool(val);
     }
@@ -199,52 +181,52 @@ connui_cell_datacounter_get(gboolean home)
   if (datacounter.home)
   {
     datacounter.rx_bytes =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, HOME_RX_BYTES);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_HOME_RX_BYTES);
     datacounter.tx_bytes =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, HOME_TX_BYTES);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_HOME_TX_BYTES);
     datacounter.reset_time =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, HOME_RST_TIME);
-    s = gconf_client_get_string(datacounter.gconf, HOME_WARNING_LIMIT, &error);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_HOME_RST_TIME);
+    s = gconf_client_get_string(datacounter.gconf, GPRS_HOME_WARNING_LIMIT, &error);
     datacounter.warning_limit = g_strdup(s);
 
     if (error)
     {
-      CONNUI_ERR(HOME_WARNING_LIMIT ": %s", error->message);
+      CONNUI_ERR(GPRS_HOME_WARNING_LIMIT ": %s", error->message);
       g_clear_error(&error);
     }
 
     datacounter.notification_enabled =
-        gconf_client_get_bool(datacounter.gconf, HOME_NTFY_ENABLE, &error);
+        gconf_client_get_bool(datacounter.gconf, GPRS_HOME_NTFY_ENABLE, &error);
 
     if (error)
     {
-      CONNUI_ERR(HOME_NTFY_ENABLE ": %s", error->message);
+      CONNUI_ERR(GPRS_HOME_NTFY_ENABLE ": %s", error->message);
       g_clear_error(&error);
     }
   }
   else
   {
     datacounter.rx_bytes =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, ROAM_RX_BYTES);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_ROAM_RX_BYTES);
     datacounter.tx_bytes =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, ROAM_TX_BYTES);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_ROAM_TX_BYTES);
     datacounter.reset_time =
-        connui_cell_datacounter_read_gconf_setting(&datacounter, ROAM_RST_TIME);
-    s = gconf_client_get_string(datacounter.gconf, ROAM_WARNING_LIMIT, &error);
+        connui_cell_datacounter_read_gconf_setting(&datacounter, GPRS_ROAM_RST_TIME);
+    s = gconf_client_get_string(datacounter.gconf, GPRS_ROAM_WARNING_LIMIT, &error);
     datacounter.warning_limit = g_strdup(s);
 
     if (error)
     {
-      CONNUI_ERR(ROAM_WARNING_LIMIT ": %s", error->message);
+      CONNUI_ERR(GPRS_ROAM_WARNING_LIMIT ": %s", error->message);
       g_clear_error(&error);
     }
 
     datacounter.notification_enabled =
-        gconf_client_get_bool(datacounter.gconf, ROAM_NTFY_ENABLE, &error);
+        gconf_client_get_bool(datacounter.gconf, GPRS_ROAM_NTFY_ENABLE, &error);
 
     if (error)
     {
-      CONNUI_ERR(ROAM_NTFY_ENABLE ": %s", error->message);
+      CONNUI_ERR(GPRS_ROAM_NTFY_ENABLE ": %s", error->message);
       g_clear_error(&error);
     }
   }
@@ -303,8 +285,8 @@ connui_cell_datacounter_reset()
 
   if (dc->home)
   {
-    connui_cell_datacounter_write_gconf_setting(dc, HOME_RST_TIME, time(NULL));
-    gconf_client_unset(dc->gconf, HOME_RX_BYTES, &error);
+    connui_cell_datacounter_write_gconf_setting(dc, GPRS_HOME_RST_TIME, time(NULL));
+    gconf_client_unset(dc->gconf, GPRS_HOME_RX_BYTES, &error);
 
     if (error)
     {
@@ -312,7 +294,7 @@ connui_cell_datacounter_reset()
       g_clear_error(&error);
     }
 
-    gconf_client_unset(dc->gconf, HOME_TX_BYTES, &error);
+    gconf_client_unset(dc->gconf, GPRS_HOME_TX_BYTES, &error);
 
     if (error)
     {
@@ -320,7 +302,7 @@ connui_cell_datacounter_reset()
       g_clear_error(&error);
     }
 
-    gconf_client_unset(dc->gconf, HOME_LAST_NTFY, &error);
+    gconf_client_unset(dc->gconf, GPRS_HOME_LAST_NTFY, &error);
 
     if (error)
     {
@@ -331,8 +313,8 @@ connui_cell_datacounter_reset()
   }
   else
   {
-    connui_cell_datacounter_write_gconf_setting(dc, ROAM_RST_TIME, time(NULL));
-    gconf_client_unset(dc->gconf, ROAM_RX_BYTES, &error);
+    connui_cell_datacounter_write_gconf_setting(dc, GPRS_ROAM_RST_TIME, time(NULL));
+    gconf_client_unset(dc->gconf, GPRS_ROAM_RX_BYTES, &error);
 
     if (error)
     {
@@ -340,7 +322,7 @@ connui_cell_datacounter_reset()
       g_clear_error(&error);
     }
 
-    gconf_client_unset(dc->gconf, ROAM_TX_BYTES, &error);
+    gconf_client_unset(dc->gconf, GPRS_ROAM_TX_BYTES, &error);
 
     if (error)
     {
@@ -348,7 +330,7 @@ connui_cell_datacounter_reset()
       g_clear_error(&error);
     }
 
-    gconf_client_unset(dc->gconf, ROAM_LAST_NTFY, &error);
+    gconf_client_unset(dc->gconf, GPRS_ROAM_LAST_NTFY, &error);
 
     if (error)
     {
@@ -384,23 +366,23 @@ connui_cell_datacounter_save(gboolean notification_enabled,
 
   if (dc->home)
   {
-    gconf_client_set_bool(dc->gconf, HOME_NTFY_ENABLE, notification_enabled,
+    gconf_client_set_bool(dc->gconf, GPRS_HOME_NTFY_ENABLE, notification_enabled,
                           &error);
 
     if (error)
     {
-      CONNUI_ERR(HOME_NTFY_ENABLE ": %s", error->message);
+      CONNUI_ERR(GPRS_HOME_NTFY_ENABLE ": %s", error->message);
       g_clear_error(&error);
     }
 
     if (warning_limit)
     {
-      gconf_client_set_string(dc->gconf, HOME_WARNING_LIMIT, warning_limit,
+      gconf_client_set_string(dc->gconf, GPRS_HOME_WARNING_LIMIT, warning_limit,
                               &error);
 
       if (error)
       {
-        CONNUI_ERR(HOME_WARNING_LIMIT ": %s", error->message);
+        CONNUI_ERR(GPRS_HOME_WARNING_LIMIT ": %s", error->message);
         g_clear_error(&error);
       }
 
@@ -409,11 +391,11 @@ connui_cell_datacounter_save(gboolean notification_enabled,
         /* WTF ? */
         gchar *s = g_strconcat(warning_limit, "000000", NULL);
 
-        gconf_client_set_string(dc->gconf, HOME_NTFY_PERIOD, s, &error);
+        gconf_client_set_string(dc->gconf, GPRS_HOME_NTFY_PERIOD, s, &error);
 
         if (error)
         {
-          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          CONNUI_ERR(GPRS_HOME_NTFY_PERIOD ": %s", error->message);
           g_clear_error(&error);
         }
 
@@ -421,11 +403,11 @@ connui_cell_datacounter_save(gboolean notification_enabled,
       }
       else
       {
-        gconf_client_set_string(dc->gconf, HOME_NTFY_PERIOD, "0", &error);
+        gconf_client_set_string(dc->gconf, GPRS_HOME_NTFY_PERIOD, "0", &error);
 
         if (error)
         {
-          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          CONNUI_ERR(GPRS_HOME_NTFY_PERIOD ": %s", error->message);
           g_clear_error(&error);
         }
       }
@@ -433,21 +415,21 @@ connui_cell_datacounter_save(gboolean notification_enabled,
   }
   else
   {
-    gconf_client_set_bool(dc->gconf, ROAM_NTFY_ENABLE, notification_enabled,
+    gconf_client_set_bool(dc->gconf, GPRS_ROAM_NTFY_ENABLE, notification_enabled,
                           &error);
     if (error)
     {
-      CONNUI_ERR(ROAM_NTFY_ENABLE ": %s", error->message);
+      CONNUI_ERR(GPRS_ROAM_NTFY_ENABLE ": %s", error->message);
       g_clear_error(&error);
     }
 
     if (warning_limit)
     {
-      gconf_client_set_string(dc->gconf, ROAM_WARNING_LIMIT, warning_limit,
+      gconf_client_set_string(dc->gconf, GPRS_ROAM_WARNING_LIMIT, warning_limit,
                               &error);
       if (error)
       {
-        CONNUI_ERR(ROAM_WARNING_LIMIT ": %s", error->message);
+        CONNUI_ERR(GPRS_ROAM_WARNING_LIMIT ": %s", error->message);
         g_clear_error(&error);
       }
 
@@ -455,11 +437,11 @@ connui_cell_datacounter_save(gboolean notification_enabled,
       {
         gchar *s = g_strconcat(warning_limit, "000000", NULL);
 
-        gconf_client_set_string(dc->gconf, ROAM_NTFY_PERIOD, s, &error);
+        gconf_client_set_string(dc->gconf, GPRS_ROAM_NTFY_PERIOD, s, &error);
 
         if (error)
         {
-          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          CONNUI_ERR(GPRS_HOME_NTFY_PERIOD ": %s", error->message);
           g_clear_error(&error);
         }
 
@@ -467,11 +449,11 @@ connui_cell_datacounter_save(gboolean notification_enabled,
       }
       else
       {
-        gconf_client_set_string(dc->gconf, ROAM_NTFY_PERIOD, "0", &error);
+        gconf_client_set_string(dc->gconf, GPRS_ROAM_NTFY_PERIOD, "0", &error);
 
         if (error)
         {
-          CONNUI_ERR(HOME_NTFY_PERIOD ": %s", error->message);
+          CONNUI_ERR(GPRS_HOME_NTFY_PERIOD ": %s", error->message);
           g_clear_error(&error);
         }
       }
