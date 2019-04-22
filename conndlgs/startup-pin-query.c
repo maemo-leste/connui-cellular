@@ -10,9 +10,7 @@
 
 #include "config.h"
 
-#define _(msgid) dgettext(GETTEXT_PACKAGE, msgid)
-
-static gboolean exit_flightmode ;
+static gboolean exit_flightmode;
 
 static gboolean
 initialize_sim_cb(gpointer user_data)
@@ -61,6 +59,7 @@ main(int argc, char **argv)
 
   if (!connui_flightmode_status(flightmode_status_cb, NULL))
     g_warning("Unable to register flightmode status!");
+
   gtk_main();
 
   return 0;
