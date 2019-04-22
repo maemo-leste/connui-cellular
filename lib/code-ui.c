@@ -907,6 +907,7 @@ connui_cell_code_ui_dialog_input(cell_code_ui *code_ui, gchar *digit_str,
 
     g_free(code_ui->clui_em_number);
     code_ui->clui_em_number = g_strconcat(code, digit_str, NULL);
+    g_free(code);
   }
   else if (*code_ui->clui_em_number)
       code_ui->clui_em_number[strlen(code_ui->clui_em_number) - 1] = '\0';
