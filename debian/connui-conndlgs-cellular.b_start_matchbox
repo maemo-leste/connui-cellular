@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Resolve theme name
+THEME=`cat /etc/hildon/theme/index.theme |grep MatchboxTheme |cut -d "=" -f 2`
+if [ "x$THEME" = "x" ]; then
+  unset AF_DEFINES_SOURCED
+  source /etc/osso-af-init/af-defines.sh
+  THEME=$DEFAULTMBTHEME
+fi
+
+# Start matchbox and store PID
+/usr/bin/matchbox-window-manager -theme $THEME -use_dialog_mode static -use_cursor no &
+echo "$!" > /tmp/matchbox-window-manager.pid

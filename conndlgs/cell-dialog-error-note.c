@@ -1,3 +1,4 @@
+#include <hildon/hildon.h>
 #include <connui/connui.h>
 #include <connui/connui-conndlgs.h>
 #include <connui/connui-dbus.h>
@@ -94,7 +95,6 @@ format_data_counter(float val, int pow)
 
   return rv;
 }
-
 
 static void
 cell_dialog_error_note_ssc_state(const gchar *state, gpointer user_data)

@@ -135,4 +135,25 @@ if test "x$ddebug" != "xyes"; then
     CFLAGS="$CFLAGS -DG_DEBUG_DISABLE"
 fi
 
+AC_ARG_ENABLE([maemo-launcher],
+              [AS_HELP_STRING([--enable-maemo-launcher],
+                              [build with maemo-launcher support])],
+                              [case "${enableval}" in
+                               yes) maemo_launcher=true ;;
+                               no)  maemo_launcher=false ;;
+                               *) AC_MSG_ERROR([bad value ${enableval} for --enable-maemo-launcher]) ;;
+                               esac], [maemo_launcher=false])
+
+MAEMO_LAUNCHER_PACKAGE=""
+if test "x$maemo_launcher" = "xtrue"; then
+  MAEMO_LAUNCHER_PACKAGE="maemo-launcher-app"
+  PKG_CHECK_MODULES(LAUNCHER_DEPS, $MAEMO_LAUNCHER_PACKAGE)
+else
+  LAUNCHER_DEPS_CFLAGS=""
+  LAUNCHER_DEPS_LIBS=""
+fi
+
+AC_SUBST(LAUNCHER_DEPS_CFLAGS)
+AC_SUBST(LAUNCHER_DEPS_LIBS)
+
 AC_OUTPUT

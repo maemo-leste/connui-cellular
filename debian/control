@@ -57,3 +57,10 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
 Description: Cellular UI control panel applet
  Cellular settings as a control panel applet
+
+Package: connui-conndlgs-cellular
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${launcher:Depends}, connui-conndlgs, matchbox-window-manager, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Description: Cellular UI Dialogs
+ This package provides the dialogs for cellular that are activated via
+ Conndlgs daemon.

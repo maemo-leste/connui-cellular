@@ -1,0 +1,4 @@
+#!/bin/sh
+
+kill `cat /tmp/matchbox-window-manager.pid`
+rm /tmp/matchbox-window-manager.pid

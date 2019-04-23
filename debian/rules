@@ -2,6 +2,10 @@
 
 #export DH_VERBOSE=1
 
+DEB_CONFIGURE_EXTRA_FLAGS = --enable-maemo-launcher --disable-static --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib
+
+CFLAGS += -Werror
+
 %:
 	dh $@ --with autoreconf
 
@@ -9,7 +13,15 @@ override_dh_autoreconf:
 	dh_autoreconf --as-needed
 
 override_dh_auto_configure:
-	dh_auto_configure -- --libdir=\$${prefix}/lib
+	dh_auto_configure -- $(DEB_CONFIGURE_EXTRA_FLAGS)
 
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/tmp
+
+override_dh_install:
+	dh_install
+	dh_maemolauncher -p connui-conndlgs-cellular
+	dh_installxsession -p connui-conndlgs-cellular -u 'pre 4' -v --init-script=b_start_matchbox
+	dh_installxsession -p connui-conndlgs-cellular -u 'pre 5'
+	dh_installxsession -p connui-conndlgs-cellular -u 'pre 6' -v --init-script=stop_matchbox
+

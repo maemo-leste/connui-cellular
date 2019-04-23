@@ -1,4 +1,4 @@
-SUBDIRS = conndlgs lib data wizard status-menu-item home-item cpa
+SUBDIRS = lib conndlgs data wizard status-menu-item home-item cpa
 
 connuicellinclude_HEADERS = include/connui-cellular.h
 
