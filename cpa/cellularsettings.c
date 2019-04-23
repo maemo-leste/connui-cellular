@@ -22,7 +22,6 @@
 #define _(msgid) dgettext(GETTEXT_PACKAGE, msgid)
 
 /* #define CONTACT_CHOOSER */
-/* #define CALLER_ID */
 
 struct _cell_settings
 {
@@ -48,6 +47,7 @@ struct _cell_settings
   gboolean set_forwarding_has_error;
   gboolean set_call_has_error;
   gboolean security_code_enabled;
+  guint call_forwarding_type;
   gboolean network_select_in_sync;
   gboolean cs_status_inactive;
   gchar *cid_presentation;
@@ -63,6 +63,12 @@ struct _cell_settings
   int caller_id;
   guint call_forwarding_id;
   guint call_wating_id;
+};
+
+struct caller_id_select_cb_data
+{
+  const gchar *caller_id;
+  GtkWidget *button;
 };
 
 typedef struct _cell_settings cell_settings;
@@ -487,8 +493,8 @@ cellular_settings_export(cell_settings **settings)
   gboolean divert_active;
   const gchar *divert_phone = NULL;
   gint radio_access_mode;
-  const gchar *cid_resentation_bluez;
-  char *cid_resentation;
+  const gchar *cid_presentation_bluez;
+  char *cid_presentation;
   GtkTreeIter iter;
   gint roaming_type;
   GConfClient *gconf;
@@ -587,19 +593,19 @@ cellular_settings_export(cell_settings **settings)
     else
       CONNUI_ERR("Unable to get GConfClient!");
 
-    cid_resentation = "";
+    cid_presentation = "";
 
     selector = hildon_picker_button_get_selector(
           HILDON_PICKER_BUTTON((*settings)->send_call_id));
     model = hildon_touch_selector_get_model(selector, 0);
 
     if (hildon_touch_selector_get_selected(selector, 0, &iter))
-      gtk_tree_model_get(model, &iter, 1, &cid_resentation, -1);
-#ifdef CALLER_ID
-    if (strcmp(cid_resentation, (*settings)->cid_presentation))
+      gtk_tree_model_get(model, &iter, 1, &cid_presentation, -1);
+
+    if (strcmp(cid_presentation, (*settings)->cid_presentation))
     {
       if (connui_cell_net_set_caller_id_presentation(
-            cid_resentation, cellular_settings_set_call_cb, settings))
+            cid_presentation, cellular_settings_set_call_cb, settings))
       {
         (*settings)->svc_call_in_progress++;
       }
@@ -607,18 +613,17 @@ cellular_settings_export(cell_settings **settings)
       while ((*settings)->svc_call_in_progress > 0);
           g_main_context_iteration(NULL, TRUE);
 
-      if (!strcmp(cid_resentation, "no-id"))
-        cid_resentation_bluez = "allowed";
-      else if (!strcmp(cid_resentation, "id"))
-        cid_resentation_bluez = "restricted";
-      else if (*cid_resentation == 0)
-          cid_resentation_bluez = "none";
+      if (!strcmp(cid_presentation, "no-id"))
+        cid_presentation_bluez = "allowed";
+      else if (!strcmp(cid_presentation, "id"))
+        cid_presentation_bluez = "restricted";
+      else if (*cid_presentation == 0)
+          cid_presentation_bluez = "none";
       else
-        cid_resentation_bluez = NULL;
+        cid_presentation_bluez = NULL;
 
-      connui_cell_net_set_caller_id_presentation_bluez(cid_resentation_bluez);
+      connui_cell_net_set_caller_id_presentation_bluez(cid_presentation_bluez);
     }
-#endif
   }
 }
 
@@ -1119,6 +1124,159 @@ activate_widgets(cell_settings **settings)
 }
 
 static gboolean
+caller_id_select_cb(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter,
+                    gpointer user_data)
+{
+  struct caller_id_select_cb_data *data = user_data;
+  gboolean rv = FALSE;
+  gchar *caller_id = NULL;
+
+  gtk_tree_model_get(model, iter, 1, &caller_id, -1);
+
+  if (caller_id && data->caller_id && !strcmp(caller_id, data->caller_id))
+  {
+    hildon_touch_selector_select_iter(
+          hildon_picker_button_get_selector(HILDON_PICKER_BUTTON(data->button)),
+          0, iter, FALSE);
+    rv = TRUE;
+  }
+
+  g_free(caller_id);
+
+  return rv;
+}
+
+static void
+cellular_settings_stop_progress_indicator(cell_settings **settings)
+{
+  (*settings)->svc_call_in_progress--;
+
+  if (!(*settings)->svc_call_in_progress)
+  {
+    (*settings)->user_activated = FALSE;
+    (*settings)->exporting_settings = FALSE;
+    hildon_gtk_window_set_progress_indicator(
+          GTK_WINDOW((*settings)->dialog), FALSE);
+    activate_widgets(settings);
+  }
+}
+
+static void
+cellular_settings_get_call_forwarding_cb(gboolean enabled, int error_value,
+                                         const gchar *phone_number,
+                                         gpointer user_data)
+{
+  cell_settings **settings = user_data;
+  gint active_index;
+
+  g_return_if_fail(settings != NULL && *settings != NULL);
+
+  if (error_value)
+    CONNUI_ERR("Error in while fetching call forwarding: %d", error_value);
+
+  if (enabled)
+  {
+    (*settings)->call_forwarding_id = 0;
+    cellular_settings_stop_progress_indicator(settings);
+    active_index = 0;
+    (*settings)->selected_divert = enabled;
+  }
+  else
+  {
+    if ((*settings)->call_forwarding_type <= 3) /* no answer */
+    {
+      (*settings)->call_forwarding_type++;
+
+      (*settings)->call_forwarding_id =
+          connui_cell_net_get_call_forwarding_enabled(
+            (*settings)->call_forwarding_type,
+            cellular_settings_get_call_forwarding_cb, settings);
+
+      if ((*settings)->call_forwarding_id)
+        return;
+    }
+
+    (*settings)->call_forwarding_id = 0;
+    cellular_settings_stop_progress_indicator(settings);
+    active_index = 1;
+    (*settings)->selected_divert = 0;
+  }
+
+  hildon_picker_button_set_active(
+        HILDON_PICKER_BUTTON((*settings)->call_divert), active_index);
+
+  if (phone_number)
+  {
+    (*settings)->divert_phone_number = g_strdup(phone_number);
+    hildon_entry_set_text(HILDON_ENTRY((*settings)->call_divert_to),
+                          phone_number);
+  }
+  else
+    (*settings)->divert_phone_number = NULL;
+}
+
+static void
+cellular_settings_get_call_waiting_cb(gboolean enabled, gint error_value,
+                                      const gchar *phone_number,
+                                      gpointer user_data)
+{
+  cell_settings **settings = user_data;
+
+  g_return_if_fail(settings != NULL && *settings != NULL);
+
+  (*settings)->call_forwarding_type = 2; /* busy */
+
+  (*settings)->call_forwarding_id = connui_cell_net_get_call_forwarding_enabled(
+        2, cellular_settings_get_call_forwarding_cb, settings);
+
+  if ((*settings)->call_forwarding_id)
+    (*settings)->svc_call_in_progress++;
+
+  (*settings)->call_wating_id = 0;
+
+  cellular_settings_stop_progress_indicator(settings);
+
+  if (error_value)
+    CONNUI_ERR("Error while fetching call waiting: %d", error_value);
+
+  (*settings)->call_waiting_enabled = enabled;
+  hildon_check_button_set_active(HILDON_CHECK_BUTTON((*settings)->call_waiting),
+                                 enabled);
+}
+
+static void
+cellular_settings_get_caller_id_cb(gboolean unk, gint error_value,
+                                   const gchar *caller_id, gpointer user_data)
+{
+  cell_settings **settings = user_data;
+  HildonTouchSelector *selector;
+  struct caller_id_select_cb_data data;
+
+  g_return_if_fail(settings != NULL && *settings != NULL);
+
+  (*settings)->call_wating_id = connui_cell_net_get_call_waiting_enabled(
+        cellular_settings_get_call_waiting_cb, user_data);
+
+  if ((*settings)->call_wating_id)
+    (*settings)->svc_call_in_progress++;
+
+  (*settings)->caller_id = 0;
+
+  if (error_value)
+    CONNUI_ERR("Error while fetching caller ID: %d", error_value);
+
+  data.button = (*settings)->send_call_id;
+  data.caller_id = caller_id;
+
+  (*settings)->cid_presentation = g_strdup(caller_id);
+
+  selector = hildon_picker_button_get_selector(
+        HILDON_PICKER_BUTTON((*settings)->send_call_id));
+  gtk_tree_model_foreach(hildon_touch_selector_get_model(selector, 0),
+                         caller_id_select_cb, &data);
+}
+
+static gboolean
 cellular_settings_import(gpointer user_data)
 {
   cell_settings **settings = user_data;
@@ -1228,14 +1386,14 @@ cellular_settings_import(gpointer user_data)
         HILDON_CHECK_BUTTON((*settings)->network_pin_request),
         (*settings)->security_code_enabled);
   hildon_entry_set_text(HILDON_ENTRY((*settings)->network_pin), "1234");
-#ifdef CALLER_ID
+
   (*settings)->caller_id =
       connui_cell_net_get_caller_id_presentation(
         cellular_settings_get_caller_id_cb, settings);
 
   if (!(*settings)->caller_id)
     CONNUI_ERR("Unable to get caller id");
-#endif
+
   return FALSE;
 }
 
