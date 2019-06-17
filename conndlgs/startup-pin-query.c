@@ -5,6 +5,7 @@
 #include <conbtui/gateway/common.h>
 
 #include <libintl.h>
+#include <locale.h>
 
 #include "connui-cellular.h"
 
