@@ -684,7 +684,7 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
         modem_state = 0;
 
         do
-          g_main_context_iteration(0, 1);
+          g_main_context_iteration(NULL, TRUE);
         while (!modem_state);
       }
 
