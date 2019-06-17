@@ -115,7 +115,7 @@ iap_wizard_plugin_gprs_page_create(gpointer user_data)
     GtkWidget *widget = gtk_entry_new();
 
     im = hildon_gtk_entry_get_input_mode(GTK_ENTRY(widget));
-    im &= HILDON_GTK_INPUT_MODE_AUTOCAP;
+    im &= ~HILDON_GTK_INPUT_MODE_AUTOCAP;
     hildon_gtk_entry_set_input_mode(GTK_ENTRY(widget), im);
     g_hash_table_insert(priv->plugin->widgets, g_strdup(fields[i].id), widget);
 
@@ -183,7 +183,7 @@ iap_wizard_plugin_gprs_get_page(gpointer user_data, int index,
   struct iap_wizard *iw = priv->iw;
   const struct stage *s = iap_wizard_get_active_stage(priv->iw);
 
-  if (!s || (s && index == -1))
+  if (!s && index == -1)
     return NULL;
 
   if (index != -1)
