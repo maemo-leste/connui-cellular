@@ -14,7 +14,7 @@ ssc_state_changed_cb(DBusGProxy *proxy, gchar *modem_state,
 {
   g_return_if_fail(ctx != NULL && ctx->ssc_state_cbs != NULL);
 
-  connui_utils_notify_notify_POINTER(ctx->ssc_state_cbs, &modem_state);
+  connui_utils_notify_notify_POINTER(ctx->ssc_state_cbs, modem_state);
 }
 
 gboolean
