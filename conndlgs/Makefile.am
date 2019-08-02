@@ -10,12 +10,12 @@ pin_code_correct_LDFLAGS = -Wl,--as-needed
 
 startup_pin_query_SOURCES = startup-pin-query.c
 startup_pin_query_CFLAGS = \
-		$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CONNUI_CFLAGS) \
+		$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CONNUI_CFLAGS) $(LIBGOFONO_CFLAGS) \
 		$(CONBTUI_GFLAGS) $(LAUNCHER_DEPS_CFLAGS) \
 		-I$(top_builddir)/include -DG_LOG_DOMAIN=\"$(PACKAGE)\" \
 		-DOSSOLOG_COMPILE=1
 startup_pin_query_LDADD = \
-		$(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS) $(CONBTUI_LIBS) \
+		$(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS) $(LIBGOFONO_LIBS) $(CONBTUI_LIBS) \
 		$(LAUNCHER_DEPS_LIBS) $(top_builddir)/lib/libconnui_cell.la
 startup_pin_query_LDFLAGS = -Wl,--as-needed
 
