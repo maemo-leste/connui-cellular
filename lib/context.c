@@ -43,6 +43,109 @@ register_marshallers()
   marshallers_registered = TRUE;
 }
 
+/* TODO: move out of context? */
+void debug_sim(OfonoSimMgr* sim) {
+	CONNUI_ERR("debug_sim");
+	guint i;
+    OfonoObject* obj = ofono_simmgr_object(sim);
+    GPtrArray* keys = ofono_object_get_property_keys(obj);
+	CONNUI_ERR("debug_sim keys len %d", keys->len);
+    for (i=0; i<keys->len; i++) {
+        const char* key = keys->pdata[i];
+        if (1) {
+            GVariant* v = ofono_object_get_property(obj, key, NULL);
+            gchar* text = g_variant_print(v, FALSE);
+            CONNUI_ERR("%s: %s\n", key, text);
+            g_free(text);
+        } else {
+            CONNUI_ERR("%s\n", key);
+        }
+    }
+	CONNUI_ERR("debug_sim_done");
+}
+
+void sim_valid(OfonoSimMgr* sim, void* arg) {
+	CONNUI_ERR("sim_valid");
+	if (sim->intf.object.valid) {
+		debug_sim(sim);
+	}
+}
+
+
+static void
+manager_valid_cb(OfonoManager* manager, void* arg) {
+    /* TODO: get modem list, pick first valid one, and use that for lifetime,
+     * until we can manage modems, and pick up new ones as they appear and also
+     * reconnect to modems if they disappear and reappear */
+    GPtrArray *modems;
+    guint i;
+
+    CONNUI_ERR("ofono manager becomes valid");
+
+    connui_cell_context* ctx = arg;
+
+    modems = ofono_manager_get_modems(ctx->ofono_manager);
+    for (i = 0; i < modems->len; i++) {
+        OfonoModem *modem = (OfonoModem*)modems->pdata[i];
+
+        if (ofono_modem_valid(modem)) {
+			CONNUI_ERR("MODEM2: %p", (void*)modem);
+            CONNUI_ERR("MODEM VALID");
+
+            ctx->ofono_modem = ofono_modem_ref(modem);
+			CONNUI_ERR("MODEM3: %p", (void*)ctx->ofono_modem);
+
+			const char *path = ofono_modem_path(ctx->ofono_modem);
+			CONNUI_ERR("MODEM PATH: %s", path);
+
+            /* TODO: test if the modem supports sim and conn interfaces,
+             * see ofono_modem_has_interface in
+             * example libgofono/tools/ofono-sim/ofono-sim.c */
+
+            ctx->ofono_sim_manager = ofono_simmgr_new(path);
+            ctx->ofono_conn_manager = ofono_connmgr_new(path);
+
+			/* Connext sim valid and connmgr stuff to callbacks */
+
+			if (ctx->ofono_sim_manager->intf.object.valid) {
+				debug_sim(ctx->ofono_sim_manager);
+			} else {
+				// TODO: store result of this id and release it later?
+				ofono_simmgr_add_valid_changed_handler(ctx->ofono_sim_manager, sim_valid, NULL);
+			}
+
+			break;
+        } else {
+			CONNUI_ERR("MODEM NOT VALID");
+		}
+    }
+}
+
+
+
+static gboolean
+register_ofono(connui_cell_context *ctx) {
+    ctx->ofono_manager = NULL;
+    ctx->ofono_modem = NULL;
+    ctx->ofono_sim_manager = NULL;
+    ctx->ofono_conn_manager = NULL;
+    ctx->ofono_manager_valid_id = 0;
+
+    ctx->ofono_manager = ofono_manager_new();
+
+    ctx->ofono_manager_valid_id = ofono_manager_add_valid_changed_handler(
+            ctx->ofono_manager, manager_valid_cb, ctx);
+
+    CONNUI_ERR("ofono manager valid\n");
+
+    return TRUE;
+}
+
+void unregister_ofono(connui_cell_context *ctx) {
+
+    ofono_manager_remove_handler(ctx->ofono_manager, ctx->ofono_manager_valid_id);
+}
+
 static gboolean
 create_proxies(connui_cell_context *ctx)
 {
@@ -142,6 +245,8 @@ connui_cell_context_get()
   context.state.alternative_operator_name = NULL;
 
   register_marshallers();
+
+  register_ofono(&context);
 
   if (!create_proxies(&context))
     return NULL;
