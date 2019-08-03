@@ -3,6 +3,14 @@
 
 #include "connui-cellular.h"
 
+#include <gofono_modem.h>
+#include <gofono_manager.h>
+#include <gofono_simmgr.h>
+
+// XXX: need this to read connection status
+#include <gofono_connmgr.h>
+#include <gofono_connctx.h>
+
 struct _connui_cell_context
 {
   gboolean initialized;
@@ -25,12 +33,22 @@ struct _connui_cell_context
   DBusGProxyCall *select_network_call;
   GSList *cs_status_cbs;
   GSList *ssc_state_cbs;
+  /* Move this above dbus stuff? */
   cell_network network;
+  /* Move this above dbus stuff? */
   GHashTable *service_calls;
+  /* Move this above dbus stuff? */
   int service_call_id;
   GSList *call_status_cbs;
   cell_clir_cb clir_cb;
   gpointer clir_cb_data;
+
+  OfonoManager* ofono_manager;
+  OfonoModem* ofono_modem;
+  OfonoSimMgr* ofono_sim_manager;
+  OfonoConnMgr* ofono_conn_manager;
+  gulong ofono_manager_valid_id;
+
 };
 
 typedef struct _connui_cell_context connui_cell_context;
