@@ -3,6 +3,7 @@
 
 #include "connui-cell-marshal.h"
 #include "context.h"
+#include "ofono-context.h"
 
 __attribute__((visibility("hidden"))) void
 destroy_sim_status_data(gpointer mem_block)

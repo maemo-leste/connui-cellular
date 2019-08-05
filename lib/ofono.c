@@ -3,6 +3,7 @@
 
 #include "connui-cell-marshal.h"
 #include "context.h"
+#include "ofono-context.h"
 
 
 
@@ -20,9 +21,11 @@ static void modem_removed_cb(OfonoManager* manager, const char* path, void* arg)
 
 static void set_modem(connui_cell_context *ctx, OfonoManager* manager, OfonoModem* modem);
 
+void sim_valid_changed_handler(OfonoSimMgr* sim, void* arg);
+#if 0
 void debug_sim(OfonoSimMgr* sim);
-void sim_valid(OfonoSimMgr* sim, void* arg);
 gulong sim_property_changed(OfonoSimMgr* sim, const char* name, GVariant *value, void* arg);
+#endif
 
 gboolean
 register_ofono(connui_cell_context *ctx) {
@@ -76,8 +79,7 @@ static void set_modem(connui_cell_context *ctx, OfonoManager* manager, OfonoMode
 
     /* Connect sim valid and connmgr stuff to callbacks */
 
-    ctx->ofono_sim_manager_valid_id = ofono_simmgr_add_valid_changed_handler(ctx->ofono_sim_manager, sim_valid, ctx);
-    //ctx->ofono_sim_manager_valid_id = ofono_simmgr_add_property_changed_handler(ctx->ofono_sim_manager, sim_property_changed, NULL);
+    ctx->ofono_sim_manager_valid_id = ofono_simmgr_add_valid_changed_handler(ctx->ofono_sim_manager, sim_valid_changed_handler, ctx);
 }
 
 static void
@@ -129,6 +131,8 @@ modem_removed_cb(OfonoManager* manager, const char* path, void* arg) {
         // TODO: turn this into a func
         g_free(ctx->ofono_modem_path);
 
+        release_sim(ctx);
+
         ofono_manager_remove_handler(ctx->ofono_manager, ctx->ofono_sim_manager_valid_id);
 
         ofono_connmgr_unref(ctx->ofono_conn_manager);
@@ -146,39 +150,15 @@ modem_removed_cb(OfonoManager* manager, const char* path, void* arg) {
     /* Match if it is the one we currently use, if so, hurr... reset? */
 }
 
-/* TODO: move out of context? */
-void debug_sim(OfonoSimMgr* sim) {
-	CONNUI_ERR("debug_sim");
-	guint i;
-    OfonoObject* obj = ofono_simmgr_object(sim);
-    GPtrArray* keys = ofono_object_get_property_keys(obj);
-	CONNUI_ERR("debug_sim keys len %d", keys->len);
-    for (i=0; i<keys->len; i++) {
-        const char* key = keys->pdata[i];
-        if (1) {
-            GVariant* v = ofono_object_get_property(obj, key, NULL);
-            gchar* text = g_variant_print(v, FALSE);
-            CONNUI_ERR("%s: %s\n", key, text);
-            g_free(text);
-        } else {
-            CONNUI_ERR("%s\n", key);
-        }
-    }
-	CONNUI_ERR("debug_sim_done");
-}
 
-void sim_valid(OfonoSimMgr* sim, void* arg) {
+void sim_valid_changed_handler(OfonoSimMgr* sim, void* arg) {
     connui_cell_context* ctx = arg;
 
-	CONNUI_ERR("sim_valid");
-    if (ctx->sim_status_cbs) {
-        //connui_utils_notify_notify_UINT(ctx->sim_status_cbs, 1);
-    }
-
 	if (sim->intf.object.valid) {
-		debug_sim(sim);
-    
-	}
+        set_sim(ctx);
+    } else {
+        release_sim(ctx);
+    }
 }
 
 gulong sim_property_changed(OfonoSimMgr* sim, const char* name, GVariant *value, void* arg) {
