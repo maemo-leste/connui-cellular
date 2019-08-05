@@ -44,11 +44,19 @@ struct _connui_cell_context
   gpointer clir_cb_data;
 
   OfonoManager* ofono_manager;
+
+  /* Let's not support multiple modems and sim manager atm, so we don't need
+   * more than a single var either. */
   OfonoModem* ofono_modem;
   OfonoSimMgr* ofono_sim_manager;
   OfonoConnMgr* ofono_conn_manager;
   gulong ofono_manager_valid_id;
+  gulong ofono_sim_manager_valid_id;
+  gulong ofono_modem_added_id;
+  gulong ofono_modem_removed_id;
+  gulong ofono_sim_property_changed;
 
+  gchar* ofono_modem_path;
 };
 
 typedef struct _connui_cell_context connui_cell_context;
@@ -64,5 +72,9 @@ typedef struct _sim_status_data sim_status_data;
 connui_cell_context *connui_cell_context_get();
 void connui_cell_context_destroy(connui_cell_context *ctx);
 void destroy_sim_status_data(gpointer mem_block);
+
+
+gboolean register_ofono(connui_cell_context *ctx);
+void unregister_ofono(connui_cell_context *ctx);
 
 #endif /* __CONNUI_CELL_CONTEXT_H__ */
