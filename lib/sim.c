@@ -44,6 +44,8 @@ void present_changed(OfonoSimMgr* sender, void* arg) {
     GVariant* v = ofono_object_get_property(obj, "Present", NULL);
     gboolean present;
     g_variant_get(v, "b", &present);
+    g_variant_unref(v);
+
     CONNUI_ERR("** present: %d", present);
 
     // XXX: yeah, ugly.
@@ -336,31 +338,54 @@ connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
     /* TODO: Use `Retries` property for the right code type, see
      * include/connui-cellular.h for the SIM code types - SIM_SECURITY_CODE_PIN
      * and other security_code_type ; map to ofono types. */
-  connui_cell_context *ctx = connui_cell_context_get();
-  GError *error = NULL;
-  gint err_val;
-  guint attempts_left;
 
-  g_return_val_if_fail(ctx != NULL, 0);
+    connui_cell_context *ctx = connui_cell_context_get();
+    guchar attempts_left = 0;
 
-  if (!dbus_g_proxy_call(ctx->phone_sim_security_proxy, "verify_attempts_left",
-                         &error,
-                         G_TYPE_UINT, code_type,
-                         G_TYPE_INVALID,
-                         G_TYPE_UINT, &attempts_left,
-                         G_TYPE_INT, &err_val,
-                         G_TYPE_INVALID))
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
-    err_val = 1;
-    attempts_left = 0;
-  }
+    g_return_val_if_fail(ctx != NULL, attempts_left);
 
-  if (error_value)
-    *error_value = err_val;
+    if (!ctx->ofono_sim_manager) {
+        *error_value = 1;
+        goto cleanup;
+    }
 
-  connui_cell_context_destroy(ctx);
+    // XXX: free obj? deref obj? nothing?
+    OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
 
-  return attempts_left;
+    GVariant* v = ofono_object_get_property(obj, "Retries", NULL);
+    if (!v) {
+        *error_value = 1;
+        goto cleanup;
+    }
+
+    GVariant *v2;
+
+    switch (code_type) {
+        case SIM_SECURITY_CODE_PIN:
+            v2 = g_variant_lookup_value(v, "pin", G_VARIANT_TYPE_BYTE);
+            break;
+        case SIM_SECURITY_CODE_PUK:
+            v2 = g_variant_lookup_value(v, "puk", G_VARIANT_TYPE_BYTE);
+            break;
+        case SIM_SECURITY_CODE_PIN2:
+            v2 = g_variant_lookup_value(v, "pin2", G_VARIANT_TYPE_BYTE);
+            break;
+        /* TODO: UPIN, UPIN == puk2? */
+        default:
+            CONNUI_ERR("Invalid code_type: %d", code_type);
+            *error_value = 1;
+            goto cleanup;
+    }
+
+    g_variant_get(v2, "y", &attempts_left);
+    g_variant_unref(v2);
+    g_variant_unref(v);
+
+    *error_value = 0;
+
+    cleanup:
+    connui_cell_context_destroy(ctx);
+
+
+    return (guint)attempts_left;
 }
