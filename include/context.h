@@ -57,6 +57,9 @@ struct _connui_cell_context
   gulong ofono_sim_property_changed;
 
   gchar* ofono_modem_path;
+
+  /* sim.c properties */
+  gulong ofono_sim_present_changed_valid_id;
 };
 
 typedef struct _connui_cell_context connui_cell_context;
@@ -73,8 +76,5 @@ connui_cell_context *connui_cell_context_get();
 void connui_cell_context_destroy(connui_cell_context *ctx);
 void destroy_sim_status_data(gpointer mem_block);
 
-
-gboolean register_ofono(connui_cell_context *ctx);
-void unregister_ofono(connui_cell_context *ctx);
 
 #endif /* __CONNUI_CELL_CONTEXT_H__ */
