@@ -239,16 +239,15 @@ connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
 
   // XXX: free obj? deref obj? nothing?
   OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-  // XXX: deref variant?
-  // TODO: requires modem to be online (!) -- otherwise the variant is NULL
   GVariant* v = ofono_object_get_property(obj, "ServiceProviderName", NULL);
 
   gchar* name = NULL;
   if (!v) {
+      // Modem might not be online.
       CONNUI_ERR("Variant for ServiceProviderName is NULL");
   } else {
       g_variant_get(v, "s", &name);
-      /* TODO: something/someone has to free this string */
+      g_variant_unref(v);
   }
 
   if (!name)
@@ -370,7 +369,7 @@ connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
         case SIM_SECURITY_CODE_PIN2:
             v2 = g_variant_lookup_value(v, "pin2", G_VARIANT_TYPE_BYTE);
             break;
-        /* TODO: UPIN, UPIN == puk2? */
+        /* TODO: UPIN, UPUK == puk2? */
         default:
             CONNUI_ERR("Invalid code_type: %d", code_type);
             *error_value = 1;
@@ -385,7 +384,6 @@ connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
 
     cleanup:
     connui_cell_context_destroy(ctx);
-
 
     return (guint)attempts_left;
 }
