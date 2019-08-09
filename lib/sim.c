@@ -82,15 +82,6 @@ void release_sim(connui_cell_context *ctx) {
 }
 
 
-static void
-sim_status_changed_cb(DBusGProxy *proxy, guint status,
-                      connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL && ctx->sim_status_cbs != NULL);
-
-  connui_utils_notify_notify_UINT(ctx->sim_status_cbs, status);
-}
-
 void
 connui_cell_sim_status_close(cell_sim_status_cb cb)
 {
@@ -100,34 +91,19 @@ connui_cell_sim_status_close(cell_sim_status_cb cb)
 
   ctx->sim_status_cbs = connui_utils_notify_remove(ctx->sim_status_cbs, cb);
 
-  if (!ctx->sim_status_cbs)
-    dbus_g_proxy_disconnect_signal(ctx->phone_sim_proxy, "status",
-                                   (GCallback)sim_status_changed_cb, ctx);
+  if (!ctx->sim_status_cbs) {
+      /* TODO MW: maybe unset any callbacks/signals, but probably not, and then
+       * the if statement can just go*/
+  }
 
   connui_cell_context_destroy(ctx);
 }
 
-static void
-sim_status_cb(DBusGProxy *proxy, guint sim_status, gint error_value,
-              GError *error, connui_cell_context *ctx)
-{
-  ctx->get_sim_status_call = NULL;
-
-  if (error)
-  {
-    sim_status_changed_cb(proxy, 0, ctx);
-    CONNUI_ERR("%s", error->message);
-    g_clear_error(&error);
-  }
-  else
-  {
-    if (error_value)
-      CONNUI_ERR("Error in method return: %d", error_value);
-
-    sim_status_changed_cb(proxy, sim_status, ctx);
-  }
-}
-
+/* TODO: this is currently used in lib/security_code.c in a hacky manner, but
+ * this code doesn't work anymore, and should go. So lib/security_code.c should
+ * be modified to make it work with the newer and non-hacky API. I will do that
+ * once I can test it, I don't want to write code that I cannot test, as it'll
+ * be guaranteed to be wrong. */
 typedef void (*get_sim_status_cb_f)(DBusGProxy *, guint, gint, GError *,
                                     connui_cell_context *);
 __attribute__((visibility("hidden"))) void
@@ -155,28 +131,12 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 
   g_return_val_if_fail(ctx != NULL, FALSE);
 
-  if (!ctx->sim_status_cbs)
-    dbus_g_proxy_connect_signal(ctx->phone_sim_proxy, "status",
-                                (GCallback)sim_status_changed_cb, ctx, NULL);
-
   ctx->sim_status_cbs =
       connui_utils_notify_add(ctx->sim_status_cbs, cb, user_data);
 
-  if (!ctx->get_sim_status_call)
-  {
-    sim_status_data *data = g_slice_new(sim_status_data);
-
-    data->cb = (GCallback)sim_status_cb;
-    data->data = ctx;
-    ctx->get_sim_status_call =
-        dbus_g_proxy_begin_call(ctx->phone_sim_proxy, "get_sim_status",
-                                (DBusGProxyCallNotify)get_sim_status_cb, data,
-                                destroy_sim_status_data, G_TYPE_INVALID);
-  }
-
   connui_cell_context_destroy(ctx);
 
-  return ctx->get_sim_status_call != NULL;
+  return TRUE;
 }
 
 gboolean
