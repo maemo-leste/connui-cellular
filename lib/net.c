@@ -32,6 +32,39 @@ typedef struct _service_call service_call;
 #define NETWORK_CS_OP_MODE_GAN_ONLY  0x01   // CS is in GAN only operation mode
 #define NETWORK_CS_OP_MODE_UNKNOWN   0x02
 
+/* TODO: example of getter, rather than property changed handler */
+void debug_netreg(OfonoNetReg* netreg) {
+	CONNUI_ERR("debug_netreg");
+	guint i;
+    OfonoObject* obj = ofono_netreg_object(netreg);
+
+    /* XXX: Shouldn't these keys be freed ? */
+    GPtrArray* keys = ofono_object_get_property_keys(obj);
+	CONNUI_ERR("debug_netreg keys len %d", keys->len);
+    for (i=0; i<keys->len; i++) {
+        const char* key = keys->pdata[i];
+        if (1) {
+            /* XXX: shouldn't these gvariants be freed / dereffed? */
+            GVariant* v = ofono_object_get_property(obj, key, NULL);
+            gchar* text = g_variant_print(v, FALSE);
+            CONNUI_ERR("%s: %s\n", key, text);
+            g_free(text);
+        } else {
+            CONNUI_ERR("%s\n", key);
+        }
+    }
+	CONNUI_ERR("debug_netreg_done");
+}
+
+void set_netreg(connui_cell_context* ctx) {
+    CONNUI_ERR("set_netreg");
+    debug_netreg(ctx->ofono_netreg); // XXX: move or remove this
+}
+
+void release_netreg(connui_cell_context* ctx) {
+    CONNUI_ERR("release_netreg");
+}
+
 static void
 net_signal_strength_change_notify(connui_cell_context *ctx)
 {

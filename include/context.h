@@ -10,6 +10,7 @@
 // XXX: need this to read connection status
 #include <gofono_connmgr.h>
 #include <gofono_connctx.h>
+#include <gofono_netreg.h>
 
 struct _connui_cell_context
 {
@@ -50,11 +51,15 @@ struct _connui_cell_context
   OfonoModem* ofono_modem;
   OfonoSimMgr* ofono_sim_manager;
   OfonoConnMgr* ofono_conn_manager;
+  OfonoNetReg* ofono_netreg;
+
   gulong ofono_manager_valid_id;
   gulong ofono_sim_manager_valid_id;
   gulong ofono_modem_added_id;
   gulong ofono_modem_removed_id;
   gulong ofono_sim_property_changed;
+
+  gulong ofono_netreg_valid_id;
 
   gchar* ofono_modem_path;
 
