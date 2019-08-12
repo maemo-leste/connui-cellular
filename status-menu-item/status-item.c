@@ -82,7 +82,10 @@ connui_cellular_status_item_update_icon(ConnuiCellularStatusItem *item)
       {
         char rat = priv->state.rat_name;
 
-        if (rat == NETWORK_UMTS_RAT)
+        if (rat == NETWORK_LTE_RAT)
+        {
+            mode_icon = "statusarea_cell_mode_4g";
+        } else if (rat == NETWORK_UMTS_RAT)
         {
           if (priv->state.network_hsdpa_allocated == 1)
             mode_icon = "statusarea_cell_mode_3_5g";

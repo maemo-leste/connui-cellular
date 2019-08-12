@@ -99,6 +99,7 @@ enum network_alpha_tag_name_type
 #define NETWORK_RAT_NAME_UNKNOWN         0x00
 #define NETWORK_GSM_RAT                  0x01
 #define NETWORK_UMTS_RAT                 0x02
+#define NETWORK_LTE_RAT                  0x03 // XXX TODO 0x03 or 0x04 (enum vs mask)
 
 #define NETWORK_MASK_GPRS_SUPPORT   0x01
 #define NETWORK_MASK_CS_SERVICES    0x02
