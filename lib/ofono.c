@@ -22,6 +22,8 @@ static void modem_removed_cb(OfonoManager* manager, const char* path, void* arg)
 static void set_modem(connui_cell_context *ctx, OfonoManager* manager, OfonoModem* modem);
 
 void sim_valid_changed_handler(OfonoSimMgr* sim, void* arg);
+void netreg_valid_changed_handler(OfonoNetReg* netreg, void* arg);
+
 #if 0
 void debug_sim(OfonoSimMgr* sim);
 gulong sim_property_changed(OfonoSimMgr* sim, const char* name, GVariant *value, void* arg);
@@ -33,9 +35,11 @@ register_ofono(connui_cell_context *ctx) {
     ctx->ofono_modem = NULL;
     ctx->ofono_sim_manager = NULL;
     ctx->ofono_conn_manager = NULL;
+    ctx->ofono_netreg = NULL;
 
     ctx->ofono_manager_valid_id = 0;
     ctx->ofono_sim_manager_valid_id = 0;
+    ctx->ofono_netreg_valid_id = 0;
     ctx->ofono_modem_added_id = 0;
     ctx->ofono_modem_removed_id = 0;
     ctx->ofono_modem_path = NULL;
@@ -76,10 +80,12 @@ static void set_modem(connui_cell_context *ctx, OfonoManager* manager, OfonoMode
     ctx->ofono_modem_path = g_strdup(path);
     ctx->ofono_sim_manager = ofono_simmgr_new(path);
     ctx->ofono_conn_manager = ofono_connmgr_new(path);
+    ctx->ofono_netreg = ofono_netreg_new(path);
 
     /* Connect sim valid and connmgr stuff to callbacks */
 
     ctx->ofono_sim_manager_valid_id = ofono_simmgr_add_valid_changed_handler(ctx->ofono_sim_manager, sim_valid_changed_handler, ctx);
+    ctx->ofono_netreg_valid_id = ofono_netreg_add_valid_changed_handler(ctx->ofono_netreg, netreg_valid_changed_handler, ctx);
 }
 
 static void
@@ -134,15 +140,19 @@ modem_removed_cb(OfonoManager* manager, const char* path, void* arg) {
         release_sim(ctx);
 
         ofono_manager_remove_handler(ctx->ofono_manager, ctx->ofono_sim_manager_valid_id);
+        ofono_netreg_remove_handler(ctx->ofono_netreg, ctx->ofono_netreg_valid_id);
 
         ofono_connmgr_unref(ctx->ofono_conn_manager);
         ofono_simmgr_unref(ctx->ofono_sim_manager);
+        ofono_netreg_unref(ctx->ofono_netreg);
         ofono_modem_unref(ctx->ofono_modem);
 
         ctx->ofono_modem = NULL;
         ctx->ofono_sim_manager = NULL;
+        ctx->ofono_netreg = NULL;
         ctx->ofono_conn_manager = NULL;
         ctx->ofono_sim_manager_valid_id = 0;
+        ctx->ofono_netreg_valid_id = 0;
         ctx->ofono_modem_added_id = 0;
         ctx->ofono_modem_path = NULL;
     }
@@ -158,6 +168,17 @@ void sim_valid_changed_handler(OfonoSimMgr* sim, void* arg) {
         set_sim(ctx);
     } else {
         release_sim(ctx);
+    }
+}
+
+void netreg_valid_changed_handler(OfonoNetReg* netreg, void* arg) {
+    connui_cell_context* ctx = arg;
+
+    /* XXX */
+	if (netreg->intf.object.valid) {
+        set_netreg(ctx);
+    } else {
+        release_netreg(ctx);
     }
 }
 
