@@ -60,6 +60,7 @@ struct _connui_cell_context
   gulong ofono_sim_property_changed;
 
   gulong ofono_netreg_valid_id;
+  gulong ofono_netreg_property_changed_id;
 
   gchar* ofono_modem_path;
 

@@ -32,6 +32,27 @@ typedef struct _service_call service_call;
 #define NETWORK_CS_OP_MODE_GAN_ONLY  0x01   // CS is in GAN only operation mode
 #define NETWORK_CS_OP_MODE_UNKNOWN   0x02
 
+static void ofono_signal_strength_change(guchar signals_bar);
+static void ofono_rat_change(gchar* technology);
+
+void debug_call_all(const char* name, GVariant* value) {
+    if (!strcmp(name, "Strength")) {
+        CONNUI_ERR("netreg_propchange strength lol");
+        /* XXX: just testing */
+        guchar str = 0;
+        g_variant_get(value, "y", &str);
+        ofono_signal_strength_change(str);
+    }
+    if (!strcmp(name, "Technology")) {
+        CONNUI_ERR("netreg_propchange technology lol");
+        /* XXX: just testing */
+        gchar* str = NULL;
+        g_variant_get(value, "s", &str);
+        ofono_rat_change(str);
+        g_free(str);
+    }
+}
+
 /* TODO: example of getter, rather than property changed handler */
 void debug_netreg(OfonoNetReg* netreg) {
 	CONNUI_ERR("debug_netreg");
@@ -49,6 +70,8 @@ void debug_netreg(OfonoNetReg* netreg) {
             gchar* text = g_variant_print(v, FALSE);
             CONNUI_ERR("%s: %s\n", key, text);
             g_free(text);
+
+            debug_call_all(key, v);
         } else {
             CONNUI_ERR("%s\n", key);
         }
@@ -56,19 +79,85 @@ void debug_netreg(OfonoNetReg* netreg) {
 	CONNUI_ERR("debug_netreg_done");
 }
 
+static void netreg_propchange(OfonoNetReg *sender, const char* name, GVariant *value, connui_cell_context *ctx) {
+    gchar* text = g_variant_print(value, FALSE);
+    CONNUI_ERR("netreg_propchange: %s = %s\n", name, text);
+    g_free(text);
+
+    debug_call_all(name, value);
+    //g_variant_unref(value); // ???
+}
+
 void set_netreg(connui_cell_context* ctx) {
     CONNUI_ERR("set_netreg");
     debug_netreg(ctx->ofono_netreg); // XXX: move or remove this
+
+    ctx->ofono_netreg_property_changed_id = ofono_netreg_add_property_changed_handler(ctx->ofono_netreg,
+            (OfonoNetRegPropertyHandler)netreg_propchange,
+            NULL /* name NULL = all properties? */,
+            (void*)ctx);
+
+    return;
 }
 
 void release_netreg(connui_cell_context* ctx) {
     CONNUI_ERR("release_netreg");
+
+    if ((ctx->ofono_netreg) && (ctx->ofono_netreg_property_changed_id)) {
+        ofono_netreg_remove_handler(ctx->ofono_netreg, ctx->ofono_netreg_property_changed_id);
+        ctx->ofono_netreg_property_changed_id = 0;
+    }
+
+    return;
 }
 
 static void
 net_signal_strength_change_notify(connui_cell_context *ctx)
 {
   connui_utils_notify_notify_POINTER(ctx->net_status_cbs, &ctx->state);
+}
+
+
+/* TODO: add ofono callbacks here */
+
+static void ofono_signal_strength_change(guchar signals_bar) {
+    /* TODO: make sure that property that we get here is sensible, fits in
+     * guchar, etc */
+    connui_cell_context *ctx = connui_cell_context_get();
+    CONNUI_ERR("ofono_signal_strength_change");
+
+    ctx->state.network_signals_bar = signals_bar;
+
+    net_signal_strength_change_notify(ctx);
+
+    connui_cell_context_destroy(ctx);
+}
+
+static void ofono_rat_change(gchar* technology) {
+    CONNUI_ERR("ofono_rat_change");
+    connui_cell_context *ctx = connui_cell_context_get();
+
+    /* TODO: name thing / map */
+
+    if (!strcmp("lte", technology)) {
+        ctx->state.rat_name = NETWORK_LTE_RAT;
+    } else if (!strcmp("hspa", technology)) {
+        // XXX
+        ctx->state.rat_name = NETWORK_UMTS_RAT;
+        ctx->state.network_hsdpa_allocated = 1;
+    } else if (!strcmp("umts", technology)) {
+        ctx->state.rat_name = NETWORK_UMTS_RAT;
+    } else if (!strcmp("edge", technology)) {
+        ctx->state.rat_name = NETWORK_GSM_RAT;
+        // XXX: Maybe add this bit to supported_services ?
+        //if (priv->state.supported_services & NETWORK_MASK_EGPRS_SUPPORT)
+    } else if (!strcmp("gsm", technology)) {
+        ctx->state.rat_name = NETWORK_GSM_RAT;
+    }
+
+    net_signal_strength_change_notify(ctx);
+
+    connui_cell_context_destroy(ctx);
 }
 
 static void

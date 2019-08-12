@@ -25,7 +25,6 @@ void sim_valid_changed_handler(OfonoSimMgr* sim, void* arg);
 void netreg_valid_changed_handler(OfonoNetReg* netreg, void* arg);
 
 #if 0
-void debug_sim(OfonoSimMgr* sim);
 gulong sim_property_changed(OfonoSimMgr* sim, const char* name, GVariant *value, void* arg);
 #endif
 
@@ -40,6 +39,7 @@ register_ofono(connui_cell_context *ctx) {
     ctx->ofono_manager_valid_id = 0;
     ctx->ofono_sim_manager_valid_id = 0;
     ctx->ofono_netreg_valid_id = 0;
+    ctx->ofono_netreg_property_changed_id = 0;
     ctx->ofono_modem_added_id = 0;
     ctx->ofono_modem_removed_id = 0;
     ctx->ofono_modem_path = NULL;
