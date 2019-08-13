@@ -39,7 +39,7 @@ static void ofono_countrycode_change(gchar* country_code);
 static void ofono_operatorcode_change(gchar* operator_code);
 static void ofono_reg_operatorname_change(gchar* operator_name);
 static void ofono_cellid_change(guint cellid);
-static void ofono_lac_change(guint cellid);
+static void ofono_lac_change(guint16 lac);
 
 void debug_call_all(const char* name, GVariant* value) {
     /* XXX: just testing, this is a mess :-) */
@@ -82,7 +82,7 @@ void debug_call_all(const char* name, GVariant* value) {
         CONNUI_ERR("netreg_propchange lac");
         guint16 lac = 0;
         g_variant_get(value, "q", &lac);
-        ofono_lav_change(lac);
+        ofono_lac_change(lac);
     } else if (!strcmp(name, "Name")) {
         CONNUI_ERR("netreg_propchange name");
         gchar* str = NULL;
