@@ -1,3 +1,9 @@
+connui-cellular (3.0.1) unstable; urgency=medium
+
+  * Work in progress ofono port. Likely quite buggy still.
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Tue, 13 Aug 2019 18:20:29 +0200
+
 connui-cellular (3.0) unstable; urgency=medium
 
   * First RE release
