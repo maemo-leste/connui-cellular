@@ -34,21 +34,60 @@ typedef struct _service_call service_call;
 
 static void ofono_signal_strength_change(guchar signals_bar);
 static void ofono_rat_change(gchar* technology);
+static void ofono_reg_status_change(gchar* status);
+static void ofono_countrycode_change(gchar* country_code);
+static void ofono_operatorcode_change(gchar* operator_code);
+static void ofono_reg_operatorname_change(gchar* operator_name);
+static void ofono_cellid_change(guint cellid);
+static void ofono_lac_change(guint cellid);
 
 void debug_call_all(const char* name, GVariant* value) {
+    /* XXX: just testing, this is a mess :-) */
+
     if (!strcmp(name, "Strength")) {
-        CONNUI_ERR("netreg_propchange strength lol");
-        /* XXX: just testing */
-        guchar str = 0;
-        g_variant_get(value, "y", &str);
-        ofono_signal_strength_change(str);
-    }
-    if (!strcmp(name, "Technology")) {
-        CONNUI_ERR("netreg_propchange technology lol");
-        /* XXX: just testing */
+        CONNUI_ERR("netreg_propchange strength");
+        guchar strength = 0;
+        g_variant_get(value, "y", &strength);
+        ofono_signal_strength_change(strength);
+    } else if (!strcmp(name, "Technology")) {
+        CONNUI_ERR("netreg_propchange technology");
         gchar* str = NULL;
         g_variant_get(value, "s", &str);
         ofono_rat_change(str);
+        g_free(str);
+    } else if (!strcmp(name, "Status")) {
+        CONNUI_ERR("netreg_propchange status");
+        gchar* str = NULL;
+        g_variant_get(value, "s", &str);
+        ofono_reg_status_change(str);
+        g_free(str);
+    } else if (!strcmp(name, "MobileCountryCode")) {
+        CONNUI_ERR("netreg_propchange countrycode");
+        gchar* str = NULL;
+        g_variant_get(value, "s", &str);
+        ofono_countrycode_change(str);
+        g_free(str);
+    } else if (!strcmp(name, "MobileNetworkCode")) {
+        CONNUI_ERR("netreg_propchange networkcode");
+        gchar* str = NULL;
+        g_variant_get(value, "s", &str);
+        ofono_operatorcode_change(str);
+        g_free(str);
+    } else if (!strcmp(name, "CellId")) {
+        CONNUI_ERR("netreg_propchange cellid");
+        guint cellid = 0;
+        g_variant_get(value, "u", &cellid);
+        ofono_cellid_change(cellid);
+    } else if (!strcmp(name, "LocationAreaCode")) {
+        CONNUI_ERR("netreg_propchange lac");
+        guint16 lac = 0;
+        g_variant_get(value, "q", &lac);
+        ofono_lav_change(lac);
+    } else if (!strcmp(name, "Name")) {
+        CONNUI_ERR("netreg_propchange name");
+        gchar* str = NULL;
+        g_variant_get(value, "s", &str);
+        ofono_reg_operatorname_change(str);
         g_free(str);
     }
 }
@@ -85,12 +124,17 @@ static void netreg_propchange(OfonoNetReg *sender, const char* name, GVariant *v
     g_free(text);
 
     debug_call_all(name, value);
+
+    debug_netreg(ctx->ofono_netreg); // XXX remove
     //g_variant_unref(value); // ???
 }
 
 void set_netreg(connui_cell_context* ctx) {
     CONNUI_ERR("set_netreg");
     debug_netreg(ctx->ofono_netreg); // XXX: move or remove this
+
+    // TODO: Create function to fill struct without doing callbacks, and then do
+    // one callback.
 
     ctx->ofono_netreg_property_changed_id = ofono_netreg_add_property_changed_handler(ctx->ofono_netreg,
             (OfonoNetRegPropertyHandler)netreg_propchange,
@@ -118,13 +162,9 @@ net_signal_strength_change_notify(connui_cell_context *ctx)
 }
 
 
-/* TODO: add ofono callbacks here */
-
 static void ofono_signal_strength_change(guchar signals_bar) {
-    /* TODO: make sure that property that we get here is sensible, fits in
-     * guchar, etc */
     connui_cell_context *ctx = connui_cell_context_get();
-    CONNUI_ERR("ofono_signal_strength_change");
+    g_return_if_fail(ctx != NULL);
 
     ctx->state.network_signals_bar = signals_bar;
 
@@ -133,9 +173,22 @@ static void ofono_signal_strength_change(guchar signals_bar) {
     connui_cell_context_destroy(ctx);
 }
 
+#if 0
+/* TODO: make sure all of this is implemented */
+#define NETWORK_RAT_NAME_UNKNOWN         0x00
+#define NETWORK_GSM_RAT                  0x01
+#define NETWORK_UMTS_RAT                 0x02
+#define NETWORK_MASK_GPRS_SUPPORT   0x01
+#define NETWORK_MASK_CS_SERVICES    0x02
+#define NETWORK_MASK_EGPRS_SUPPORT  0x04
+#define NETWORK_MASK_HSDPA_AVAIL    0x08
+#define NETWORK_MASK_HSUPA_AVAIL    0x10
+};
+#endif
+
 static void ofono_rat_change(gchar* technology) {
-    CONNUI_ERR("ofono_rat_change");
     connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
 
     /* TODO: name thing / map */
 
@@ -158,6 +211,139 @@ static void ofono_rat_change(gchar* technology) {
     net_signal_strength_change_notify(ctx);
 
     connui_cell_context_destroy(ctx);
+}
+
+#if 0
+    enum net_registration_status
+{
+    NETWORK_REG_STATUS_HOME = 0x00, // CS is registered to home network
+    NETWORK_REG_STATUS_ROAM,        // CS is registered to some other network than home network
+    NETWORK_REG_STATUS_ROAM_BLINK,  // CS is registered to non-home system in a non-home area ('a' or 'b' area)
+    NETWORK_REG_STATUS_NOSERV,      // CS is not in service
+    NETWORK_REG_STATUS_NOSERV_SEARCHING,    // CS is not in service, but is currently searching for service
+    NETWORK_REG_STATUS_NOSERV_NOTSEARCHING, // CS is not in service and it is not currently searching for service
+    NETWORK_REG_STATUS_NOSERV_NOSIM,        // CS is not in service due to missing SIM or missing subscription
+    NETWORK_REG_STATUS_POWER_OFF = 0x08,    // CS is in power off state
+    NETWORK_REG_STATUS_NSPS,                // CS is in No Service Power Save State (currently not listening to any cell)
+    NETWORK_REG_STATUS_NSPS_NO_COVERAGE,    // CS is in No Service Power Save State (CS is entered to this state because there is no network coverage)
+    NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW // CS is not in service due to missing subscription
+};
+#endif
+
+/* TODO: This only implements basic status changes, it lacks all the power
+ * saving modes above */
+static void ofono_reg_status_change(gchar* status) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    // TODO: also use sim status here? (no service because of no sim, etc)
+
+    if (!strcmp("unregistered", status)) {
+        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
+    } else if (!strcmp("registered", status)) {
+        ctx->state.reg_status = NETWORK_REG_STATUS_HOME;
+    } else if (!strcmp("searching", status)) {
+        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV_SEARCHING;
+    } else if (!strcmp("denied", status)) {
+        // XXX: might be wrong
+        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW;
+    } else if (!strcmp("unknown", status)) {
+        // TODO: this is not correct
+        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
+        //ctx->state.reg_status = ...
+    } else if (!strcmp("roaming", status)) {
+        ctx->state.reg_status = NETWORK_REG_STATUS_ROAM;
+        // TODO: NETWORK_REG_STATUS_ROAM_BLINK
+    }
+
+    net_signal_strength_change_notify(ctx);
+    connui_cell_context_destroy(ctx);
+}
+
+static void ofono_cellid_change(guint cellid) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    ctx->state.cell_id = cellid;
+
+    connui_cell_context_destroy(ctx);
+    net_signal_strength_change_notify(ctx);
+}
+
+static void ofono_lac_change(guint16 lac) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    ctx->state.lac = lac;
+
+    connui_cell_context_destroy(ctx);
+    net_signal_strength_change_notify(ctx);
+}
+
+static void ofono_reg_operatorname_change(gchar* operator_name) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    // XXX: move elsewhere, dedup
+    if (!ctx->state.network)
+        ctx->state.network = g_new0(cell_network, 1);
+
+    // TODO: might not be the right place to free this.
+    if (ctx->state.network->operator_name) {
+        g_free(ctx->state.network->operator_name);
+        ctx->state.network->operator_name = NULL;
+    }
+    ctx->state.network->operator_name = g_strdup(operator_name);
+
+    /* XXX: We also set operator_name on cell_network_state here for now, as
+     * it's not clear what the difference is.
+     * Probably want this elsewhere? (Also, with alternative operator name?) */
+    if (ctx->state.operator_name) {
+        g_free(ctx->state.operator_name);
+        ctx->state.operator_name = NULL;
+    }
+    ctx->state.operator_name = g_strdup(operator_name);
+
+    connui_cell_context_destroy(ctx);
+    net_signal_strength_change_notify(ctx);
+}
+
+static void ofono_countrycode_change(gchar* country_code) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    // XXX: move elsewhere, dedup
+    if (!ctx->state.network)
+        ctx->state.network = g_new0(cell_network, 1);
+
+    // TODO: might not be the right place to free this.
+    if (ctx->state.network->country_code) {
+        g_free(ctx->state.network->country_code);
+        ctx->state.network->country_code = NULL;
+    }
+    ctx->state.network->country_code = g_strdup(country_code);
+
+    connui_cell_context_destroy(ctx);
+    net_signal_strength_change_notify(ctx);
+}
+
+static void ofono_operatorcode_change(gchar* operator_code) {
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_if_fail(ctx != NULL);
+
+    // XXX: move elsewhere, dedup
+    if (!ctx->state.network)
+        ctx->state.network = g_new0(cell_network, 1);
+
+    // TODO: might not be the right place to free this.
+    if (ctx->state.network->operator_code) {
+        g_free(ctx->state.network->operator_code);
+        ctx->state.network->operator_code = NULL;
+    }
+    ctx->state.network->operator_code = g_strdup(operator_code);
+
+    connui_cell_context_destroy(ctx);
+    net_signal_strength_change_notify(ctx);
 }
 
 static void
