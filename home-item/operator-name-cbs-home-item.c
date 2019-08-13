@@ -478,6 +478,10 @@ get_operator_name(OperatorNameCBSHomeItemPrivate *priv,
     }
   }
 
+  // Ensure that these properties are available, otherwise, bail
+  if ((!state->network->country_code) || (!state->network->operator_code))
+      return;
+
   gint error;
   gchar *operator =
       connui_cell_net_get_operator_name(state->network, TRUE, &error);
