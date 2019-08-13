@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88.16),
  osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev,
  libhildondesktop1-dev, osso-af-settings, libcodelockui1-dev,
  hildon-control-panel-dev, libtelepathy-glib-dev, libgofono-dev,
- libglibutil-dev, maemo-launcher-dev
+ libglibutil-dev, maemo-launcher-dev, maemo-system-services-dev
 Standards-Version: 3.7.2
 
 Package: connui-iapsettings-gprs
