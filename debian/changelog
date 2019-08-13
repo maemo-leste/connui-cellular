@@ -1,3 +1,9 @@
+connui-cellular (3.2.0) unstable; urgency=medium
+
+  * Work in progress ofono port. Likely quite buggy still.
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Sun, 01 Mar 2020 13:44:31 +0100
+
 connui-cellular (3.1) unstable; urgency=medium
 
   * use pkgconfig provided installation dirs
