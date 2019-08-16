@@ -221,37 +221,40 @@ connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
 gboolean
 connui_cell_sim_is_locked(gboolean *has_error)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
-  gboolean rv;
-  GError *error = NULL;
-  gint status = 0;
+    /* TODO: Port to LockedPins, test with other sim cards.
+     * enter pin and such is in lib/security-code*/
+    OfonoObject* obj;
+    GVariant *v;
+    GVariantIter i;
+    char* locked_pin;
+    gboolean locked = FALSE;
 
-  g_return_val_if_fail(ctx != NULL, FALSE);
+    CONNUI_ERR("connui_cell_sim_is_locked");
 
-  rv = dbus_g_proxy_call(ctx->phone_sim_proxy, "read_simlock_status", &error,
-                         G_TYPE_INVALID,
-                         G_TYPE_INT, &status,
-                         G_TYPE_INVALID);
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
 
-  if (rv)
-  {
-    if (has_error)
-      *has_error = status == 0 || status == 8 || status == 7 || status == 5;
+    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+    v = ofono_object_get_property(obj, "LockedPins", NULL);
 
-    rv = (status == 2 || status == 3 || status == 4);
-  }
-  else
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
+    if (!v) {
+        if (has_error)
+            *has_error = TRUE;
+    } else {
+        g_variant_iter_init(&i, v);
+        while (g_variant_iter_loop(&i, "s", &locked_pin)) {
+            /* XXX: Assume that any value currently means pin is locked, since the
+             * function has no argument for specific pins.
+             * In the future we can check for specific strings/types */
+            locked = TRUE;
+        }
+        //g_variant_unref(v);
 
-    if (has_error)
-      *has_error = TRUE;
-  }
+        if (has_error)
+            *has_error = FALSE;
+    }
 
-  connui_cell_context_destroy(ctx);
-
-  return rv;
+    return locked;
 }
 
 gboolean
