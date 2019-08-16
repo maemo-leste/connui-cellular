@@ -44,7 +44,7 @@ void present_changed(OfonoSimMgr* sender, void* arg) {
     GVariant* v = ofono_object_get_property(obj, "Present", NULL);
     gboolean present;
     g_variant_get(v, "b", &present);
-    g_variant_unref(v);
+    //g_variant_unref(v);
 
     CONNUI_ERR("** present: %d", present);
 
@@ -192,30 +192,33 @@ connui_cell_sim_is_network_in_service_provider_info(gint *error_value,
 gchar *
 connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
 {
+    OfonoObject* obj;
+    GVariant *v;
+    gchar *name = NULL;
+
     CONNUI_ERR("connui_cell_sim_get_service_provider");
-  connui_cell_context *ctx = connui_cell_context_get();
 
-  g_return_val_if_fail(ctx != NULL, FALSE);
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
 
-  // XXX: free obj? deref obj? nothing?
-  OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-  GVariant* v = ofono_object_get_property(obj, "ServiceProviderName", NULL);
+    // XXX: free obj? deref obj? nothing?
+    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+    v = ofono_object_get_property(obj, "ServiceProviderName", NULL);
 
-  gchar* name = NULL;
-  if (!v) {
-      // Modem might not be online.
-      CONNUI_ERR("Variant for ServiceProviderName is NULL");
-  } else {
-      g_variant_get(v, "s", &name);
-      g_variant_unref(v);
+    if (!v) {
+        // Modem might not be online.
+        CONNUI_ERR("Variant for ServiceProviderName is NULL");
+    } else {
+        g_variant_get(v, "s", &name);
+        //g_variant_unref(v);
   }
 
-  if (!name)
-      *error_value = 1;
+    if (!name)
+        *error_value = 1;
 
-  connui_cell_context_destroy(ctx);
+    connui_cell_context_destroy(ctx);
 
-  return name;
+    return name;
 }
 
 gboolean
