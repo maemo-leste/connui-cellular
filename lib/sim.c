@@ -260,38 +260,22 @@ connui_cell_sim_is_locked(gboolean *has_error)
 gboolean
 connui_cell_sim_deactivate_lock(const gchar *pin_code, gint *error_value)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
-  gboolean rv = FALSE;
-  GError *error = NULL;
-  gint err_val = 0;
+    gboolean ok = FALSE;
 
-  g_return_val_if_fail(ctx != NULL, FALSE);
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
 
-  if (dbus_g_proxy_call(ctx->phone_sim_security_proxy, "deactivate_simlock",
-                        &error,
-                        G_TYPE_UCHAR, 7, /* no idea what is this */
-                        G_TYPE_STRING, pin_code,
-                        G_TYPE_INVALID,
-                        G_TYPE_INT, &err_val,
-                        G_TYPE_INVALID))
-  {
-    if (error_value)
-      *error_value = err_val;
+    /* XXX: detect pin type, since function doesn't show it, or just pick "pin"
+     * (and not "pin2") for now? */
+    ok = ofono_simmgr_unlock_pin(ctx->ofono_sim_manager, "pin", pin_code);
 
-    rv = err_val == 0;
-  }
-  else
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
+    if (!ok && error_value) {
+        *error_value = TRUE;
+    }
 
-    if (error_value)
-      *error_value = 1;
-  }
+    connui_cell_context_destroy(ctx);
 
-  connui_cell_context_destroy(ctx);
-
-  return rv;
+    return ok;
 }
 
 guint
