@@ -144,6 +144,35 @@ void set_netreg(connui_cell_context* ctx) {
     return;
 }
 
+void RENAME_reset_state(connui_cell_context* ctx) {
+    /* TODO: share this code, create common function, proper func name, etc*/
+    ctx->state.network_signals_bar = 0;
+    ctx->state.rat_name = NETWORK_RAT_NAME_UNKNOWN;
+    ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
+    ctx->state.cell_id = 0;
+    ctx->state.lac = 0;
+
+    g_free(ctx->state.operator_name);
+    ctx->state.operator_name = NULL;
+
+    if (ctx->state.network) {
+        g_free(ctx->state.network->operator_name);
+        ctx->state.network->operator_name = NULL;
+
+        g_free(ctx->state.network->country_code);
+        ctx->state.network->country_code= NULL;
+
+        g_free(ctx->state.network->operator_code);
+        ctx->state.network->operator_code= NULL;
+    }
+}
+
+static void
+net_signal_strength_change_notify(connui_cell_context *ctx)
+{
+  connui_utils_notify_notify_POINTER(ctx->net_status_cbs, &ctx->state);
+}
+
 void release_netreg(connui_cell_context* ctx) {
     CONNUI_ERR("release_netreg");
 
@@ -152,13 +181,11 @@ void release_netreg(connui_cell_context* ctx) {
         ctx->ofono_netreg_property_changed_id = 0;
     }
 
-    return;
-}
+    RENAME_reset_state(ctx);
+    net_signal_strength_change_notify(ctx);
 
-static void
-net_signal_strength_change_notify(connui_cell_context *ctx)
-{
-  connui_utils_notify_notify_POINTER(ctx->net_status_cbs, &ctx->state);
+
+    return;
 }
 
 
