@@ -1057,39 +1057,29 @@ connui_cell_cs_status_close(cell_cs_status_cb cb)
 gboolean
 connui_cell_net_is_activated(gint *error_value)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
-  GError *error = NULL;
-  guchar network_cs_operation_mode = NETWORK_CS_OP_MODE_UNKNOWN;
-  guchar network_cs_state = NETWORK_CS_STATE_UNKNOWN;
-  gboolean rv = FALSE;
+    // XXX: TODO: Does this also want to know if a sim is present or something?
+    // Currently just checking is modem is powered.
+    connui_cell_context *ctx = connui_cell_context_get();
+    GVariant *v;
+    gboolean powered;
 
-  g_return_val_if_fail(ctx != NULL, FALSE);
+    g_return_val_if_fail(ctx != NULL, FALSE);
 
-  if (!dbus_g_proxy_call(ctx->phone_net_proxy, "get_cs_state", &error,
-         G_TYPE_INVALID,
-         G_TYPE_UCHAR, &network_cs_state,
-         G_TYPE_UCHAR, &network_cs_operation_mode,
-         G_TYPE_INT, NULL,
-         G_TYPE_INVALID))
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
+    OfonoObject* obj = ofono_modem_object(ctx->ofono_modem);
+    v = ofono_object_get_property(obj, "Powered", NULL);
+    if (!v) {
+        CONNUI_ERR("No Powered property?");
+        powered = FALSE;
+    } else {
+        g_variant_get(v, "b", &powered);
+    }
 
-    if (error_value)
-      *error_value = 1;
-  }
-  else
-  {
-    if (error_value)
-      *error_value = 0;
+    if (error_value) {
+        *error_value = !powered;
+    }
 
-    if (network_cs_state == NETWORK_CS_ACTIVE)
-      rv = TRUE;
-  }
-
-  connui_cell_context_destroy(ctx);
-
-  return rv;
+    connui_cell_context_destroy(ctx);
+    return powered;
 }
 
 static guint
