@@ -1,3 +1,10 @@
+connui-cellular (3.0.2) unstable; urgency=medium
+
+  * statusarea applet and home applet should mostly behave now
+  * pin dialog should also work
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Thu, 26 Dec 2019 07:37:27 +0100
+
 connui-cellular (3.0.1) unstable; urgency=medium
 
   * Work in progress ofono port. Likely quite buggy still.
