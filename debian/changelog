@@ -1,3 +1,9 @@
+connui-cellular (3.1) unstable; urgency=medium
+
+  * use pkgconfig provided installation dirs
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Wed, 15 Jan 2019 10:14:33 +0200
+
 connui-cellular (3.0) unstable; urgency=medium
 
   * First RE release
