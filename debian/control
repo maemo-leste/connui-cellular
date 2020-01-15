@@ -2,8 +2,8 @@ Source: connui-cellular
 Section: x11
 Priority: optional
 Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
-Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88.16),
- libconbtui0-dev (>= 2.88.17), connui-iapsettings-dev (>= 2.78.2),
+Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.88.21),
+ libconbtui0-dev (>= 2.88.17), connui-iapsettings-dev (>= 2.78.11),
  osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev,
  libhildondesktop1-dev, osso-af-settings, libcodelockui1-dev,
  hildon-control-panel-dev, libtelepathy-glib-dev

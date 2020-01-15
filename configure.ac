@@ -109,10 +109,10 @@ AC_SUBST([controlpanelpluginlibdir])
 controlpanelplugindesktopentrydir=`pkg-config hildon-control-panel --variable=plugindesktopentrydir`
 AC_SUBST([controlpanelplugindesktopentrydir])
 
-conndlgslibdir=$libdir/conndlgs
+conndlgslibdir="`$PKG_CONFIG --variable=pluginlibdir connui`"
 AC_SUBST(conndlgslibdir)
 
-iapsettingslibdir=$libdir/iapsettings
+iapsettingslibdir="`$PKG_CONFIG --variable=pluginlibdir connui-iapsettings`"
 AC_SUBST(iapsettingslibdir)
 
 AC_ARG_ENABLE(cast-checks,  [  --disable-cast-checks   compile with GLIB cast checks disabled],[cchecks=${enableval}],cchecks=yes)
