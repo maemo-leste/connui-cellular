@@ -541,8 +541,10 @@ connui_cell_code_ui_code_cb(security_code_type code_type, gchar **old_code,
     }
   }
 
-  *query_user_data = code_ui;
-  *query_cb = (GCallback)connui_cell_code_ui_verify_code_cb;
+  if (query_user_data)
+      *query_user_data = code_ui;
+  if (query_cb)
+      *query_cb = (GCallback)connui_cell_code_ui_verify_code_cb;
 
   return;
 }
