@@ -19,4 +19,6 @@ void release_sim(connui_cell_context *ctx);
 void set_netreg(connui_cell_context *ctx);
 void release_netreg(connui_cell_context *ctx);
 
+void ofono_wait_ready(connui_cell_context *ctx);
+
 #endif /* __CONNUI_CELL_OFONO_CONTEXT_H__ */

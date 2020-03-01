@@ -66,6 +66,23 @@ void unregister_ofono(connui_cell_context *ctx) {
     ofono_manager_unref(ctx->ofono_manager);
 }
 
+/* Wait for ofono manager to become ready, and then wait for the sim manager to
+ * become ready. */
+void ofono_wait_ready(connui_cell_context *ctx) {
+    do {
+        g_main_context_iteration(NULL, TRUE);
+    } while (!ofono_manager_wait_valid(ctx->ofono_manager, 50, NULL));
+
+    // Now wait for a modem (should pick one after one iteration)
+    g_main_context_iteration(NULL, TRUE);
+
+    do {
+        g_main_context_iteration(NULL, TRUE);
+    } while (!ofono_object_wait_valid(ofono_simmgr_object(ctx->ofono_sim_manager), 52, NULL));
+
+    return;
+}
+
 static void set_modem(connui_cell_context *ctx, OfonoManager* manager, OfonoModem* modem) {
     const char* path;
 
