@@ -1044,6 +1044,8 @@ connui_cell_net_is_activated(gint *error_value)
     gboolean powered;
 
     g_return_val_if_fail(ctx != NULL, FALSE);
+    // XXX: is it acceptable is the modem is not valid when we reach this point?
+    g_return_val_if_fail(ctx->ofono_modem != NULL, FALSE);
 
     OfonoObject* obj = ofono_modem_object(ctx->ofono_modem);
     v = ofono_object_get_property(obj, "Powered", NULL);
