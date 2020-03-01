@@ -26,11 +26,29 @@ static gboolean
 verify_code(connui_cell_context *ctx, gint code_type, gchar *old_code,
             gchar *new_code, gint *error_value, sim_status_data *data)
 {
-  GError *error = NULL;
-  gint err;
+  gboolean ok = FALSE;
+  CONNUI_ERR("verify_code");
+  if ( !new_code ) {
+      CONNUI_ERR("calling ofono_simmgr_enter_pin");
+      /* TODO: map code_type to pin or puk */
+      ok = ofono_simmgr_enter_pin(ctx->ofono_sim_manager, "pin", old_code);
 
+
+      if (data && data->cb)
+        ((verify_code_cb_f)data->cb)(code_type, !ok, data->data);
+
+      if (error_value)
+          *error_value = !ok;
+  } else {
+      /* What do we do here, change pin? */
+      return ok;
+  }
+
+  return ok;
+#if 0
   if ( !new_code )
     new_code = "";
+
 
   if (dbus_g_proxy_call(ctx->phone_sim_security_proxy, "verify_code", &error,
                         G_TYPE_UINT, code_type,
@@ -58,6 +76,7 @@ verify_code(connui_cell_context *ctx, gint code_type, gchar *old_code,
     *error_value = err;
 
   return err == 0;
+#endif
 }
 
 static void
