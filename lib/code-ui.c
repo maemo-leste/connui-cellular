@@ -645,7 +645,7 @@ sc_register:
   }
 
 ss_close:
-  connui_cell_sim_status_close(connui_cell_code_ui_sim_status_cb);
+  //connui_cell_sim_status_close(connui_cell_code_ui_sim_status_cb);
 
   return;
 
