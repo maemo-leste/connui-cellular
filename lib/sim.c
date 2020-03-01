@@ -305,6 +305,36 @@ connui_cell_sim_is_locked(gboolean *has_error)
     return locked;
 }
 
+guint
+connui_cell_sim_get_status()
+{
+    /* XXX: DRY against present_changed */
+    fprintf(stderr, "conn_cell_sim_get_status\n");
+    guint present_status;
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
+
+    OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+
+    GVariant* v = ofono_object_get_property(obj, "Present", NULL);
+    gboolean present;
+    g_variant_get(v, "b", &present);
+
+    CONNUI_ERR("** present: %d", present);
+
+    if (present) {
+        if (connui_cell_sim_needs_pin(NULL)) {
+            present_status = 7;
+        } else {
+            present_status = 1;
+        }
+    }
+    else
+        present_status = 0;
+
+    return present_status;
+}
+
 gboolean
 connui_cell_sim_deactivate_lock(const gchar *pin_code, gint *error_value)
 {
