@@ -322,6 +322,13 @@ connui_cell_sim_needs_pin(gboolean *has_error)
 gboolean
 connui_cell_sim_is_locked(gboolean *has_error)
 {
+    /* XXX: Code ifdef's below should be OK, but I can't test it right now */
+    if (has_error) {
+        *has_error = FALSE;
+    }
+    return FALSE;
+#if 0
+    // TODO: this relies on ctx->ofono_sim_manager being valid, check for that!
     /* TODO: Port to LockedPins, test with other sim cards.
      * enter pin and such is in lib/security-code*/
     OfonoObject* obj;
@@ -348,6 +355,7 @@ connui_cell_sim_is_locked(gboolean *has_error)
              * function has no argument for specific pins.
              * In the future we can check for specific strings/types */
             locked = TRUE;
+            /* TODO: maybe need to free locked_pin every time? */
         }
         //g_variant_unref(v);
 
@@ -356,6 +364,7 @@ connui_cell_sim_is_locked(gboolean *has_error)
     }
 
     return locked;
+#endif
 }
 
 guint
