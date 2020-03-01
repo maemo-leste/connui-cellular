@@ -221,6 +221,51 @@ connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
     return name;
 }
 
+/* TODO: Returns if a sim present needs a pin
+ * We will probably need it as well for puk at some point
+ * previously if a pin was required was reflected in the get_sim_status dbus
+ * call, but we need to figure it out for eourselves here.
+ */
+gboolean
+connui_cell_sim_needs_pin(gboolean *has_error)
+{
+    /* TODO: pinrequired can contain a lot, we need to support more:
+     * https://git.kernel.org/pub/scm/network/ofono/ofono.git/tree/doc/sim-api.txt
+     */
+    OfonoObject* obj;
+    GVariant *v;
+    char* pin_required;
+    gboolean needed = FALSE;
+
+    CONNUI_ERR("connui_cell_sim_needs_pin");
+
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
+
+    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+    v = ofono_object_get_property(obj, "PinRequired", NULL);
+
+    CONNUI_ERR("connui_cell_sim_needs_pin got PinRequired field");
+
+    if (!v) {
+        if (has_error)
+            *has_error = TRUE;
+    } else {
+        g_variant_get(v, "s", &pin_required);
+        fprintf(stderr, "connui_cell_sim_needs_pin: %s\n", pin_required);
+
+        needed = (strcmp(pin_required, "none") != 0);
+        g_free(pin_required);
+
+        if (has_error)
+            *has_error = FALSE;
+    }
+
+    CONNUI_ERR("connui_cell_sim_needs_pin needed: %d", needed);
+
+    return needed;
+}
+
 gboolean
 connui_cell_sim_is_locked(gboolean *has_error)
 {
