@@ -163,6 +163,13 @@ get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
                                   data->data);
 }
 
+static gboolean issue_updates(gpointer user_data) {
+  connui_cell_context *ctx = connui_cell_context_get();
+  present_changed(ctx->ofono_sim_manager, ctx);
+  connui_cell_context_destroy(ctx);
+  return TRUE;
+}
+
 gboolean
 connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 {
@@ -174,6 +181,11 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 
   ctx->sim_status_cbs =
       connui_utils_notify_add(ctx->sim_status_cbs, cb, user_data);
+
+  if ((ctx->ofono_sim_manager) && (ofono_simmgr_valid(ctx->ofono_sim_manager))) {
+      /* XXX: this is a hack */
+      issue_updates(NULL);
+  }
 
   connui_cell_context_destroy(ctx);
 
