@@ -152,7 +152,8 @@ connui_cell_net_select_cb(gboolean success, guint network_reject_code,
 
       if (name)
       {
-        gchar *net_name = g_strdup_printf(_("conn_ib_network_selected"), name);
+        const gchar *msgid = "conn_ib_network_selected";
+        gchar *net_name = g_strdup_printf(_(msgid), name);
         GtkWindow *parent =
             gtk_window_get_transient_for(GTK_WINDOW(selection_dialog));
 
