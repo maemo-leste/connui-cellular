@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "context.h"
+#include "ofono-context.h"
 #include "connui-cell-note.h"
 
 #include "config.h"
@@ -49,6 +50,7 @@ struct _cell_code_ui
   gint sim_status;
   gboolean unk_bool; /* Can't grok what this is used for :( */
   gint code_min_len;
+  connui_cell_context *ctx;
 };
 
 typedef struct _cell_code_ui cell_code_ui;
@@ -664,6 +666,14 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
   code_ui->parent = parent;
   code_ui->show_pin_code_correct = show_pin_code_correct;
 
+
+  // XXX: we want to keep this context alive somehow, because otherwise
+  // everywhere in the lib where destroy() is called, unregister_ofono gets
+  // called, and all of this (waiting for validity) is for nothing.
+  code_ui->ctx = connui_cell_context_get();
+  /* TODO: give this a return value? */
+  ofono_wait_ready(code_ui->ctx);
+
   if (show_pin_code_correct)
   {
     gchar *modem_state = NULL;
@@ -748,6 +758,9 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
     return FALSE;
   }
 
+
+  code_ui->ctx->starting = FALSE;
+
   while (1)
   {
     if (STATE_IS_ERROR(code_ui->state) ||
@@ -800,6 +813,8 @@ connui_cell_code_ui_destroy()
     g_free(_code_ui->pin_message);
     g_free(_code_ui->clui_em_number);
     g_strfreev(_code_ui->emergency_numbers);
+
+    _code_ui->ctx = NULL;
     g_free(_code_ui);
     _code_ui = NULL;
   }
