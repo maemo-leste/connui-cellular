@@ -184,6 +184,7 @@ gboolean connui_cell_sim_is_network_in_service_provider_info(gint *error_value, 
 gchar *connui_cell_sim_get_service_provider(guint *name_type, gint *error_value);
 gboolean connui_cell_sim_deactivate_lock(const gchar *pin_code, gint *error_value);
 guint connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value);
+guint connui_cell_sim_get_status();
 
 /* SSC */
 gboolean connui_cell_ssc_state_register(cell_ssc_state_cb cb, gpointer user_data);
@@ -196,6 +197,7 @@ gboolean connui_cell_call_status_register(cell_call_status_cb cb, gpointer user_
 /* CODE UI */
 gboolean connui_cell_code_ui_cancel_dialog();
 gboolean connui_cell_code_ui_is_sim_locked_with_error();
+gboolean connui_cell_sim_needs_pin(gboolean *has_error);
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
 gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);
 void connui_cell_code_ui_destroy();
