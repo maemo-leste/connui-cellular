@@ -9,6 +9,15 @@
 #include "context.h"
 #include "ofono-context.h"
 
+/*
+ * Sim status list:
+ * 1, 0 = sim available, no pin required
+ * 7, 0 = sim available, pin not yet entered
+ *
+ * Presumably, but have to test:
+ * 8 = puk required to be entered (still unrelated to sim lock?)
+ */
+
 /* TODO: example of getter, rather than property changed handler */
 void debug_sim(OfonoSimMgr* sim) {
 	CONNUI_ERR("debug_sim");
@@ -48,23 +57,48 @@ void present_changed(OfonoSimMgr* sender, void* arg) {
 
     CONNUI_ERR("** present: %d", present);
 
-    // XXX: yeah, ugly.
-    guint present_status;
-    if (present)
-        present_status = 1;
+    if (present) {
+        if (connui_cell_sim_needs_pin(NULL)) {
+            present_status = 7;
+        } else {
+            present_status = 1;
+        }
+    }
     else
         present_status = 0;
 
     CONNUI_ERR("Sending present notification with %d", present_status);
+    /* TODO: Perhaps figure out all the different statuses of the sim and pass
+     * that here right away -- like is the sim locked or not, etc, Also see
+     * connui_cell_code_ui_sim_status_cb */
     connui_utils_notify_notify_UINT(ctx->sim_status_cbs, present_status);
+}
+
+void pinrequired_changed(OfonoSimMgr* sender, void* arg) {
+    CONNUI_ERR("**pinrequired changed");
+    connui_cell_context *ctx = arg;
+    debug_sim(ctx->ofono_sim_manager);
+    CONNUI_ERR("**pinrequired changed done");
+
+    /* Send notification of changed status? */
+    // XXX: HACK: for now just call present_changed to send new sim status
+    present_changed(ctx->ofono_sim_manager, ctx);
 }
 
 void set_sim(connui_cell_context *ctx) {
     CONNUI_ERR("set_sim");
-    debug_sim(ctx->ofono_sim_manager);
+
+    /* TODO: do we want this here too? maybe we don't need it */
+    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_present_changed_valid_id)) {
+        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_present_changed_valid_id);
+        ctx->ofono_sim_present_changed_valid_id = 0;
+        ctx->ofono_sim_pinrequired_changed_valid_id = 0;
+    }
 
     ctx->ofono_sim_present_changed_valid_id = ofono_simmgr_add_present_changed_handler(ctx->ofono_sim_manager,
             present_changed, ctx);
+    ctx->ofono_sim_pinrequired_changed_valid_id = ofono_simmgr_add_pin_required_changed_handler(ctx->ofono_sim_manager,
+            pinrequired_changed, ctx);
 
     /* XXX: first manual invoke */
     present_changed(ctx->ofono_sim_manager, ctx);
@@ -75,8 +109,15 @@ void set_sim(connui_cell_context *ctx) {
 void release_sim(connui_cell_context *ctx) {
     CONNUI_ERR("release_sim");
 
-    ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_present_changed_valid_id);
-    ctx->ofono_sim_present_changed_valid_id = 0;
+    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_present_changed_valid_id)) {
+        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_present_changed_valid_id);
+        ctx->ofono_sim_present_changed_valid_id = 0;
+    }
+
+    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_pinrequired_changed_valid_id)) {
+        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_pinrequired_changed_valid_id);
+        ctx->ofono_sim_pinrequired_changed_valid_id = 0;
+    }
 
     return;
 }
