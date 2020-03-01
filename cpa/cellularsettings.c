@@ -818,7 +818,8 @@ send_call_id_create()
         selector, GTK_TREE_MODEL(list_store), TRUE);
 
   g_object_unref(G_OBJECT(list_store));
-  g_object_set(G_OBJECT(column), "text-column", 0);
+  g_object_set(G_OBJECT(column), "text-column", 0, NULL);
+
 
   button = hildon_picker_button_new(HILDON_SIZE_FINGER_HEIGHT,
                                     HILDON_BUTTON_ARRANGEMENT_VERTICAL);
