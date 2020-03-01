@@ -43,6 +43,8 @@ void debug_sim(OfonoSimMgr* sim) {
 }
 
 void present_changed(OfonoSimMgr* sender, void* arg) {
+    guint present_status;
+
     CONNUI_ERR("** present changed");
 
     connui_cell_context *ctx = arg;
