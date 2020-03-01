@@ -373,6 +373,7 @@ static void ofono_operatorcode_change(gchar* operator_code) {
     net_signal_strength_change_notify(ctx);
 }
 
+#if 0
 static void
 net_reg_status_change_cb(DBusGProxy *proxy, guchar reg_status,
                          gushort current_lac, guint current_cell_id,
@@ -401,7 +402,9 @@ net_reg_status_change_cb(DBusGProxy *proxy, guchar reg_status,
   if (proxy)
     net_signal_strength_change_notify(ctx);
 }
+#endif
 
+#if 0
 static void
 net_signal_strength_change_cb(DBusGProxy *proxy, guchar signals_bar,
                               guchar rssi_in_dbm, connui_cell_context *ctx)
@@ -413,7 +416,9 @@ net_signal_strength_change_cb(DBusGProxy *proxy, guchar signals_bar,
   if (proxy)
       net_signal_strength_change_notify(ctx);
 }
+#endif
 
+#if 0
 static void
 net_rat_change_cb(DBusGProxy *proxy, guchar rat_name, connui_cell_context *ctx)
 {
@@ -424,7 +429,9 @@ net_rat_change_cb(DBusGProxy *proxy, guchar rat_name, connui_cell_context *ctx)
   if (proxy)
     net_signal_strength_change_notify(ctx);
 }
+#endif
 
+#if 0
 static void
 net_radio_info_change_cb(DBusGProxy *proxy, guchar network_radio_state,
                          guchar network_hsdpa_allocated,
@@ -438,7 +445,9 @@ net_radio_info_change_cb(DBusGProxy *proxy, guchar network_radio_state,
   if (proxy)
     net_signal_strength_change_notify(ctx);
 }
+#endif
 
+#if 0
 static void
 net_cell_info_change_cb(DBusGProxy *proxy, guchar network_cell_type,
                         gushort network_current_lac,
@@ -463,7 +472,9 @@ net_cell_info_change_cb(DBusGProxy *proxy, guchar network_cell_type,
       net_signal_strength_change_notify(ctx);
   }
 }
+#endif
 
+#if 0
 static void
 operator_name_change_cb(DBusGProxy *proxy, guchar operator_name_type,
                         const char *operator_name,
@@ -482,6 +493,7 @@ operator_name_change_cb(DBusGProxy *proxy, guchar operator_name_type,
   if (proxy)
     net_signal_strength_change_notify(ctx);
 }
+#endif
 
 void
 connui_cell_net_status_close(cell_network_state_cb cb)
@@ -494,6 +506,7 @@ connui_cell_net_status_close(cell_network_state_cb cb)
 
   if (!ctx->net_status_cbs)
   {
+#if 0
     dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy,
                                    "registration_status_change",
                                    (GCallback)net_reg_status_change_cb, ctx);
@@ -510,55 +523,13 @@ connui_cell_net_status_close(cell_network_state_cb cb)
                                    (GCallback)net_cell_info_change_cb, ctx);
     dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy, "operator_name_change",
                                    (GCallback)operator_name_change_cb, ctx);
+#endif
   }
 
   connui_cell_context_destroy(ctx);
 }
 
-typedef void (*net_get_rat_cb_f)(DBusGProxy *, guchar, int32_t, GError *,
-                                 connui_cell_context *);
-
-static void
-get_radio_access_technology_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
-                               void *user_data)
-{
-  sim_status_data *data = user_data;
-  GError *error = NULL;
-  int32_t error_value;
-  guchar network_rat_name;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error,
-                        G_TYPE_UCHAR, &network_rat_name,
-                        G_TYPE_INT, &error_value,
-                        G_TYPE_INVALID);
-
-  ((net_get_rat_cb_f)data->cb)(proxy, network_rat_name, error_value, error,
-                               data->data);
-}
-
-static void
-net_get_rat_cb(DBusGProxy *proxy, guchar network_rat_name, int32_t error_value,
-               GError *error, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->get_registration_status_call = NULL;
-
-  if (error)
-  {
-    CONNUI_ERR("%s", error->message);
-    g_clear_error(&error);
-  }
-  else
-  {
-    if (error_value)
-      CONNUI_ERR("Error in method return: %d", error_value);
-
-    net_rat_change_cb(NULL, network_rat_name, ctx);
-    net_signal_strength_change_notify(ctx);
-  }
-}
-
+#if 0
 typedef void (*net_get_reg_status_cb_f)(DBusGProxy *, guchar, guint,
                                          guint, guint, guint, guchar,
                                          guchar, int32_t, GError *,
@@ -715,6 +686,7 @@ net_get_reg_status_cb(DBusGProxy *proxy, guchar reg_status,
   else
     net_signal_strength_change_notify(ctx);
 }
+#endif
 
 gboolean
 connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
@@ -725,6 +697,7 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
 
   if (!ctx->net_status_cbs)
   {
+#if 0
     dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
                                 "registration_status_change",
                                 (GCallback)net_reg_status_change_cb, ctx, NULL);
@@ -742,6 +715,7 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
                                 (GCallback)net_cell_info_change_cb, ctx, NULL);
     dbus_g_proxy_connect_signal(ctx->phone_net_proxy, "operator_name_change",
                                 (GCallback)operator_name_change_cb, ctx, NULL);
+#endif
   }
 
   ctx->net_status_cbs = connui_utils_notify_add(ctx->net_status_cbs,
@@ -749,6 +723,7 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
                                                 user_data);
   if (!ctx->get_registration_status_call)
   {
+#if 0
     sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)net_get_reg_status_cb;
@@ -757,11 +732,14 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
         dbus_g_proxy_begin_call(ctx->phone_net_proxy, "get_registration_status",
                                 get_registration_status_cb, data,
                                 destroy_sim_status_data, G_TYPE_INVALID);
+#endif
   }
 
   connui_cell_context_destroy(ctx);
 
+#if 0
   return ctx->get_registration_status_call != NULL;
+#endif
 }
 
 gchar *
@@ -962,8 +940,10 @@ remove_service_call(connui_cell_context *ctx, guint call_id)
 
   if (call)
   {
+#if 0
     if (call->proxy && call->proxy_call)
       dbus_g_proxy_cancel_call(call->proxy, call->proxy_call);
+#endif
 
     if (call->unk)
     {
@@ -1092,6 +1072,7 @@ get_next_call_id(connui_cell_context *ctx)
 
 typedef void (*net_divert_reply_f)(DBusGProxy *, GError *, gpointer);
 
+#if 0
 static void
 divert_activate_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
 {
@@ -1101,7 +1082,9 @@ divert_activate_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
   dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
   ((net_divert_reply_f)data->cb)(proxy, error, data->data);
 }
+#endif
 
+#if 0
 static void
 connui_cell_net_divert_activate_reply(DBusGProxy *proxy, GError *error,
                                       const void *user_data)
@@ -1149,7 +1132,9 @@ connui_cell_net_divert_activate_reply(DBusGProxy *proxy, GError *error,
   remove_service_call(ctx, (guint)call_id);
   connui_cell_context_destroy(ctx);
 }
+#endif
 
+#if 0
 static void
 divert_cancel_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
 {
@@ -1159,7 +1144,9 @@ divert_cancel_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
   dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
   ((net_divert_reply_f)data->cb)(proxy, error, data->data);
 }
+#endif
 
+#if 0
 static void
 connui_cell_net_divert_cancel_reply(DBusGProxy *proxy, GError *error,
                                     const void *user_data)
@@ -1192,6 +1179,7 @@ connui_cell_net_divert_cancel_reply(DBusGProxy *proxy, GError *error,
   remove_service_call(ctx, call_id);
   connui_cell_context_destroy(ctx);
 }
+#endif
 
 guint
 connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
@@ -1216,6 +1204,7 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
 
   if (enabled)
   {
+#if 0
     proxy = ctx->csd_ss_proxy;
     data->cb = (GCallback)connui_cell_net_divert_activate_reply;
     proxy_call = dbus_g_proxy_begin_call(proxy, "DivertActivate",
@@ -1225,15 +1214,18 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
                                          G_TYPE_UINT, 5,
                                          G_TYPE_STRING, phone_number,
                                          G_TYPE_UINT, 20, G_TYPE_INVALID);
+#endif
   }
   else
   {
+#if 0
     proxy = ctx->csd_ss_proxy;
     data->cb = (GCallback)connui_cell_net_divert_cancel_reply;
     proxy_call = dbus_g_proxy_begin_call(proxy, "DivertCancel",
                                          divert_cancel_cb, data,
                                          destroy_sim_status_data,
                                          G_TYPE_UINT, 5, G_TYPE_INVALID);
+#endif
   }
 
   add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
@@ -1248,6 +1240,7 @@ typedef void (*divert_check_reply_cb_f)(DBusGProxy *, gboolean, gchar *, GError 
 static void
 divert_check_reply_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
 {
+#if 0
   sim_status_data *data = user_data;
   gchar *phone_number;
   gboolean enabled;
@@ -1261,6 +1254,7 @@ divert_check_reply_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
                                         data->data);
 
   g_free(phone_number);
+#endif
 }
 
 static void
