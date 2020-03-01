@@ -135,49 +135,32 @@ sec_code_status_cb(gpointer data)
       CONNUI_ERR("Error in method return: %d\n", error_value);
 #endif
 
+    /* maybe also look at connui_cell_code_ui_sim_status_cb for all the
+     * different sim status cb codes */
     if (sec_code_status == 7)
       verify_code_requested_cb(ctx->phone_sim_security_proxy, 2, ctx);
     else if (sec_code_status == 8)
       verify_code_requested_cb(ctx->phone_sim_security_proxy, 3, ctx);
+#if 0
   }
+#endif
+  return TRUE; /* XXX */
 }
-
-/* in sim.c */
-void get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data);
 
 gboolean
 connui_cell_security_code_register(cell_sec_code_query_cb cb,
                                    gpointer user_data)
 {
   connui_cell_context *ctx = connui_cell_context_get();
-  gboolean rv = FALSE;
+  gboolean rv = TRUE;
 
   g_return_val_if_fail(ctx != NULL, FALSE);
 
-  if (!ctx->sec_code_cbs)
-  {
-    dbus_g_proxy_connect_signal(ctx->phone_sim_security_proxy,
-                                "verify_code_requested",
-                                (GCallback)verify_code_requested_cb, ctx, NULL);
-  }
-
   ctx->sec_code_cbs = connui_utils_notify_add(ctx->sec_code_cbs, cb, user_data);
 
-  if (!ctx->get_sim_status_call_1)
-  {
-    sim_status_data *data = g_slice_new(sim_status_data);
-
-    data->cb = (GCallback)sec_code_status_cb;
-    data->data = ctx;
-
-    ctx->get_sim_status_call_1 =
-        dbus_g_proxy_begin_call(ctx->phone_sim_proxy, "get_sim_status",
-                                get_sim_status_cb, data,
-                                destroy_sim_status_data, G_TYPE_INVALID);
-  }
-
-  if (ctx->get_sim_status_call_1)
-    rv = TRUE;
+  /* XXX: Add a call to sec_code_status_cb with sim status */
+  /* XXX: ret rv */
+  sec_code_status_cb(ctx);
 
   connui_cell_context_destroy(ctx);
 
