@@ -1198,6 +1198,8 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
   guint call_id;
   sim_status_data *data;
 
+  return 0;
+
   if (!phone_number)
     phone_number = "";
 
