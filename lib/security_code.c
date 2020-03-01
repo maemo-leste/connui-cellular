@@ -112,12 +112,18 @@ verify_code_requested_cb(DBusGProxy *proxy, int status,
   g_free(new_code);
 }
 
-static void
-sec_code_status_cb(DBusGProxy *proxy, guint sec_code_status, gint error_value,
-                   GError *error, connui_cell_context *ctx)
+static gboolean
+sec_code_status_cb(gpointer data)
 {
+  connui_cell_context *ctx = data;
+  guint sim_status = connui_cell_sim_get_status();
+#if 0
   ctx->get_sim_status_call_1 = NULL;
+#endif
+  guint sec_code_status;
+  sec_code_status = sim_status;
 
+#if 0
   if (error)
   {
     CONNUI_ERR("DBUS error: %s\n", error->message);
@@ -127,6 +133,7 @@ sec_code_status_cb(DBusGProxy *proxy, guint sec_code_status, gint error_value,
   {
     if (error_value)
       CONNUI_ERR("Error in method return: %d\n", error_value);
+#endif
 
     if (sec_code_status == 7)
       verify_code_requested_cb(ctx->phone_sim_security_proxy, 2, ctx);
