@@ -456,7 +456,6 @@ connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
 
     g_variant_get(v2, "y", &attempts_left);
     g_variant_unref(v2);
-    g_variant_unref(v);
 
     *error_value = 0;
 
