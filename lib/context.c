@@ -160,6 +160,9 @@ connui_cell_context_get()
   context.net_select_cbs = NULL;
   context.cs_status_cbs = NULL;
   context.call_status_cbs = NULL;
+
+  context.starting = TRUE;
+
   context.initialized = TRUE;
 
   return &context;
@@ -168,6 +171,16 @@ connui_cell_context_get()
 __attribute__((visibility("hidden"))) void
 connui_cell_context_destroy(connui_cell_context *ctx)
 {
+    if (ctx->starting) {
+        // XXX: this is not proper, and will need a proper fix, but cpa will
+        // not register callbacks right away, leading to register_ofono and
+        // unregister_ofono being called all the time, which is currently quite
+        // confusing since most of the code is non-blocking and will wait for
+        // various callbacks, but then the cpa code expects it to be blocking.
+        return;
+    }
+    return;
+
   if (ctx->sim_status_cbs || ctx->sec_code_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
       ctx->cs_status_cbs || ctx->service_calls || ctx->clir_cb ||
