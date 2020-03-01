@@ -137,7 +137,10 @@ manager_valid_cb(OfonoManager* manager, void* arg) {
 
 static void
 modem_added_cb(OfonoManager* manager, OfonoModem* modem, void* arg) {
-	CONNUI_ERR("modem_added_cb");
+    connui_cell_context* ctx = arg;
+    if (ctx->ofono_modem == NULL) {
+        set_modem(ctx, manager, modem);
+    }
 }
 
 static void
