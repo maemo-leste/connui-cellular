@@ -735,8 +735,11 @@ connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
 #endif
   }
 
+  // XXX: FIXME: ugly (but do this before destroy)
+  int ret = ctx->net_status_cbs != 0;
   connui_cell_context_destroy(ctx);
 
+  return ret;
 #if 0
   return ctx->get_registration_status_call != NULL;
 #endif
