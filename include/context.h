@@ -66,6 +66,15 @@ struct _connui_cell_context
 
   /* sim.c properties */
   gulong ofono_sim_present_changed_valid_id;
+  gulong ofono_sim_pinrequired_changed_valid_id;
+
+  /* XXX: This is a hack for now, for cases where code like code-ui/cpa will
+   * get an ofono context, and call connui_cell_net_is_activated which will then
+   * call connui_cell_context_destroy, which will actually destroy the context
+   * since code-ui/cpa have not set up any *callbacks* yet.
+   * I think we need a more formal API that declares intent
+   * */
+  gboolean starting;
 };
 
 typedef struct _connui_cell_context connui_cell_context;
