@@ -450,8 +450,9 @@ connui_cell_code_ui_verify_code_cb(security_code_type code_type,
       code_ui->pin_message = g_strdup(_("conn_ib_incorrect_pin_1_tries"));
     else if ( (signed int)left > 1 )
     {
+      const gchar *message = _("conn_ib_incorrect_pin_2_tries");
       code_ui->pin_message =
-          g_strdup_printf(_("conn_ib_incorrect_pin_2_tries"));
+          g_strdup_printf(message, left);
     }
     else if ( !left )
       code_ui->pin_message = g_strdup(_("conn_ib_incorrect_pin_0_tries"));
