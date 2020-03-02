@@ -76,10 +76,6 @@ void ofono_wait_ready(connui_cell_context *ctx) {
     // Now wait for a modem (should pick one after one iteration)
     g_main_context_iteration(NULL, TRUE);
 
-    do {
-        g_main_context_iteration(NULL, TRUE);
-    } while (!ofono_object_wait_valid(ofono_simmgr_object(ctx->ofono_sim_manager), 52, NULL));
-
     return;
 }
 
