@@ -234,7 +234,7 @@ connui_cell_code_ui_get_code(security_code_type code_type,
                              cell_code_ui *code_ui)
 {
   const char *clui_title = NULL;
-  gint res;
+  gint res = 0;
 
   if (code_ui->dialog)
   {
@@ -283,7 +283,6 @@ connui_cell_code_ui_get_code(security_code_type code_type,
 
   connui_cell_code_ui_create_dialog(clui_title, 4);
 
-  res = 0;
   while (1)
   {
     GtkWidget *dialog = code_ui->dialog;
