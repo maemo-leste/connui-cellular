@@ -14,8 +14,8 @@ sec_code_query(connui_cell_context *ctx, gint code_type, gchar **old_code,
         ctx != NULL && old_code != NULL && verification_data != NULL, FALSE);
 
   connui_utils_notify_notify_INT_POINTER_POINTER_POINTER_POINTER(
-        ctx->sec_code_cbs, code_type, old_code, new_code, verification_data->cb,
-        verification_data->data);
+        ctx->sec_code_cbs, code_type, old_code, new_code, &(verification_data->cb),
+        &(verification_data->data));
 
   return *old_code != 0;
 }
