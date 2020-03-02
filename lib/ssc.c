@@ -27,51 +27,18 @@ connui_cell_ssc_state_register(cell_ssc_state_cb cb, gpointer user_data)
   //GError *error = NULL;
   connui_cell_context *ctx = connui_cell_context_get();
 
+  // This will return false is we have no modem
   rv = connui_cell_net_is_activated(NULL);
+  if (!rv) {
+      return rv;
+  }
+
   modem_state = strdup("XXX"); // XXX
 
   ctx->ssc_state_cbs =
       connui_utils_notify_add(ctx->ssc_state_cbs, cb, user_data);
   /* XXX: fix this up */
   ssc_state_changed_cb(ctx->phone_ssc_proxy, "modem_state", ctx);
-
-  //return rv;
-
-  // XXX: similar to connui_cell_net_is_activated, but also callback
-  // registration (?)
-
-  g_return_val_if_fail(ctx != NULL, FALSE);
-
-#if 0
-  if (!ctx->ssc_state_cbs)
-  {
-    dbus_g_proxy_connect_signal(ctx->phone_ssc_proxy, "modem_state_changed_ind",
-                                (GCallback)ssc_state_changed_cb, ctx, NULL);
-  }
-#endif
-
-  ctx->ssc_state_cbs =
-      connui_utils_notify_add(ctx->ssc_state_cbs, cb, user_data);
-
-  /* TODO: this is a blocking call to get the modem state, so we can block too
-   * if/when we replace/rewrite this code */
-#if 0
-  rv = dbus_g_proxy_call(ctx->phone_ssc_proxy, "get_modem_state", &error,
-                         G_TYPE_INVALID,
-                         G_TYPE_STRING, &modem_state,
-                         G_TYPE_INVALID);
-#endif
-
-  /*
-  if (rv)
-    ssc_state_changed_cb(ctx->phone_ssc_proxy, modem_state, ctx);
-  else
-    CONNUI_ERR("%s", error->message);
-    */
-
-  /* XXX: we really want to return if the modem state is OK, whatever
-   * 'get_modem_state' in the ssc proxy really does/return */
-  rv = ctx->ssc_state_cbs != NULL;
 
   g_free(modem_state);
   connui_cell_context_destroy(ctx);
