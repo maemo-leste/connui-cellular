@@ -687,20 +687,6 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
       return FALSE;
     }
 
-    // XXX: FIXME: work around ofono problem: it will present a sim while it is
-    // still loading sim properties, with wrong PinRequired field, amongst other
-    // things, so let's wait until we get an actual card identifier.
-    CONNUI_ERR("Waiting for card identifier");
-    do {
-      CONNUI_ERR("Waiting for card identifier...");
-      g_main_context_iteration(NULL, TRUE);
-    } while (!connui_cell_sim_has_card_identifier());
-    CONNUI_ERR("Done waiting for card identifier...");
-    // Wait half a second for ofono to also send the actual and proper
-    // PinRequired field, which it (of course...) sends as the very last value
-    usleep(1000*1000*2);
-    g_main_context_iteration(NULL, TRUE);
-
     if (modem_state)
     {
       if (!strcmp(modem_state, "initialize"))

@@ -66,12 +66,6 @@ void present_changed(OfonoSimMgr* sender, void* arg) {
         } else {
             present_status = 1;
         }
-
-        /* XXX: hack around ofono bugs, where it reports no pin is required
-         * while it is still reading the sim card. */
-        if (!connui_cell_sim_has_card_identifier()) {
-            present_status = 7;
-        }
     }
     else
         present_status = 0;
@@ -425,12 +419,6 @@ connui_cell_sim_get_status()
             present_status = 7;
         } else {
             present_status = 1;
-        }
-
-        /* XXX: hack around ofono bugs, where it reports no pin is required
-         * while it is still reading the sim card. */
-        if (!connui_cell_sim_has_card_identifier()) {
-            present_status = 7;
         }
     }
     else
