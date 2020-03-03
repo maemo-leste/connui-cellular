@@ -197,6 +197,7 @@ gboolean connui_cell_call_status_register(cell_call_status_cb cb, gpointer user_
 /* CODE UI */
 gboolean connui_cell_code_ui_cancel_dialog();
 gboolean connui_cell_code_ui_is_sim_locked_with_error();
+gboolean connui_cell_sim_has_card_identifier();
 gboolean connui_cell_sim_needs_pin(gboolean *has_error);
 gboolean connui_cell_sim_is_locked(gboolean *has_error);
 gboolean connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct);

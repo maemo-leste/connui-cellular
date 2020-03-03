@@ -59,11 +59,18 @@ void present_changed(OfonoSimMgr* sender, void* arg) {
 
     CONNUI_ERR("** present: %d", present);
 
+
     if (present) {
         if (connui_cell_sim_needs_pin(NULL)) {
             present_status = 7;
         } else {
             present_status = 1;
+        }
+
+        /* XXX: hack around ofono bugs, where it reports no pin is required
+         * while it is still reading the sim card. */
+        if (!connui_cell_sim_has_card_identifier()) {
+            present_status = 7;
         }
     }
     else
@@ -276,6 +283,32 @@ connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
     return name;
 }
 
+gboolean connui_cell_sim_has_card_identifier() {
+    OfonoObject* obj;
+    GVariant *v;
+
+    connui_cell_context *ctx = connui_cell_context_get();
+    g_return_val_if_fail(ctx != NULL, FALSE);
+
+    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+    v = ofono_object_get_property(obj, "CardIdentifier", NULL);
+
+    CONNUI_ERR("connui_cell_sim_has_card_identifier got CardIdentifier field");
+
+    if (v) {
+        char* identifier = NULL;
+        g_variant_get(v, "s", &identifier);
+        fprintf(stderr, "identifier: %s\n", identifier);
+        g_free(identifier);
+    }
+
+    if (!v) {
+        return FALSE;
+    } else {
+        return TRUE;
+    }
+}
+
 /* TODO: Returns if a sim present needs a pin
  * We will probably need it as well for puk at some point
  * previously if a pin was required was reflected in the get_sim_status dbus
@@ -386,11 +419,18 @@ connui_cell_sim_get_status()
 
     CONNUI_ERR("** present: %d", present);
 
+
     if (present) {
         if (connui_cell_sim_needs_pin(NULL)) {
             present_status = 7;
         } else {
             present_status = 1;
+        }
+
+        /* XXX: hack around ofono bugs, where it reports no pin is required
+         * while it is still reading the sim card. */
+        if (!connui_cell_sim_has_card_identifier()) {
+            present_status = 7;
         }
     }
     else
