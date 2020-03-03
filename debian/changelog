@@ -1,3 +1,11 @@
+connui-cellular (3.2.1) unstable; urgency=medium
+
+  * pinentry now mostly works
+  * Fix various non-ofono report relays bugs
+  * Lots of hacks to slowly make things work. Hacks will disappear over time.
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Tue, 03 Mar 2020 01:25:21 +0100
+
 connui-cellular (3.2.0) unstable; urgency=medium
 
   * Work in progress ofono port. Likely quite buggy still.
