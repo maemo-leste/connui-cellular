@@ -1,3 +1,10 @@
+connui-cellular (3.2.2) unstable; urgency=medium
+
+  * Remove some hacks from previous tag
+  * Wait 15 seconds for ofono on start for now
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Tue, 03 Mar 2020 12:22:44 +0100
+
 connui-cellular (3.2.1) unstable; urgency=medium
 
   * pinentry now mostly works
