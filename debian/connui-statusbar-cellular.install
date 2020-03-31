@@ -1,2 +1,2 @@
-usr/lib/hildon-desktop/connui-cellular-status-item.so
+usr/lib/*/hildon-desktop/connui-cellular-status-item.so
 usr/share/applications/hildon-status-menu/*
