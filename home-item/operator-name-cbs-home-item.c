@@ -80,8 +80,9 @@ struct _OperatorNameCBSHomeItemPrivate
   GConfClient *gconf_client;
 };
 
-HD_DEFINE_PLUGIN_MODULE(OperatorNameCBSHomeItem, operator_name_cbs_home_item,
-                        HD_TYPE_HOME_PLUGIN_ITEM);
+HD_DEFINE_PLUGIN_MODULE_EXTENDED(OperatorNameCBSHomeItem, operator_name_cbs_home_item,
+                        HD_TYPE_HOME_PLUGIN_ITEM,
+                        G_ADD_PRIVATE_DYNAMIC(OperatorNameCBSHomeItem), , );
 
 static void
 update_widget(OperatorNameCBSHomeItemPrivate *priv)
@@ -179,7 +180,7 @@ _dbus_message_filter_func(DBusConnection* connection, DBusMessage* message,
   if(home_item)
   {
     OperatorNameCBSHomeItemPrivate* priv =
-        OPERATOR_NAME_CBS_HOME_ITEM_GET_PRIVATE(home_item);
+        (OperatorNameCBSHomeItemPrivate*)operator_name_cbs_home_item_get_instance_private(home_item);
 
     if(priv && !priv->flightmode)
     {
@@ -674,7 +675,6 @@ operator_name_cbs_home_item_class_finalize(OperatorNameCBSHomeItemClass* klass)
 static void
 operator_name_cbs_home_item_class_init(OperatorNameCBSHomeItemClass* klass)
 {
-  g_type_class_add_private(klass, sizeof(OperatorNameCBSHomeItemPrivate));
   GTK_WIDGET_CLASS(klass)->realize = operator_name_cbs_home_item_realize;
   GTK_WIDGET_CLASS(klass)->expose_event = operator_name_cbs_home_item_expose_event;
   G_OBJECT_CLASS(klass)->finalize = (GObjectFinalizeFunc)operator_name_cbs_home_item_finalize;
