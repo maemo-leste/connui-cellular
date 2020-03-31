@@ -44,9 +44,10 @@ struct _ConnuiCellularStatusItemPrivate
 static gchar *current_mode_icon;
 static gchar *current_bars_icon;
 
-HD_DEFINE_PLUGIN_MODULE(ConnuiCellularStatusItem,
+HD_DEFINE_PLUGIN_MODULE_EXTENDED(ConnuiCellularStatusItem,
                         connui_cellular_status_item,
-                        HD_TYPE_STATUS_MENU_ITEM)
+                        HD_TYPE_STATUS_MENU_ITEM,
+                        G_ADD_PRIVATE_DYNAMIC(ConnuiCellularStatusItem), , );
 
 static void
 connui_cellular_status_item_class_finalize(ConnuiCellularStatusItemClass *klass)
@@ -263,16 +264,12 @@ static void
 connui_cellular_status_item_class_init(ConnuiCellularStatusItemClass *klass)
 {
   G_OBJECT_CLASS(klass)->finalize = connui_cellular_status_item_finalize;
-  g_type_class_add_private(klass, sizeof(ConnuiCellularStatusItemPrivate));
 }
 
 static void
 connui_cellular_status_item_init(ConnuiCellularStatusItem *self)
 {
-  ConnuiCellularStatusItemPrivate *priv =
-      G_TYPE_INSTANCE_GET_PRIVATE(self,
-                                  CONNUI_CELLULAR_STATUS_ITEM_TYPE,
-                                  ConnuiCellularStatusItemPrivate);
+  ConnuiCellularStatusItemPrivate *priv = (ConnuiCellularStatusItemPrivate*)connui_cellular_status_item_get_instance_private(self);
 
   self->priv = priv;
   priv->pixbuf_cache = connui_pixbuf_cache_new();
