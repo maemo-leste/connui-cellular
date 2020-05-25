@@ -219,6 +219,9 @@ static void ofono_rat_change(gchar* technology) {
 
     /* TODO: name thing / map */
 
+    // Reset this to default
+    ctx->state.network_hsdpa_allocated = 0;
+
     if (!strcmp("lte", technology)) {
         ctx->state.rat_name = NETWORK_LTE_RAT;
     } else if (!strcmp("hspa", technology)) {
