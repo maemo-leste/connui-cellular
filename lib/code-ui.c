@@ -6,13 +6,21 @@
 
 #include <libintl.h>
 
+#include <errno.h>
+#include <fcntl.h>
 #include <string.h>
+#include <sys/file.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "context.h"
 #include "ofono-context.h"
 #include "connui-cell-note.h"
 
 #include "config.h"
+
+#define LOCK_FILE "/tmp/connui-cell-code-ui.lock"
 
 #define _(s) dgettext(GETTEXT_PACKAGE, s)
 
@@ -653,10 +661,62 @@ wait_better_status:
       g_timeout_add(60000, (GSourceFunc)sim_status_timeout_cb, code_ui);
 }
 
+/*
+ * TRUE && fd != -1 - locked
+ * TRUE && fd = -1 - CodeUI is already running
+ * FALSE - some error has occured
+ */
+static gboolean
+connui_cell_code_ui_lock(int *fd)
+{
+  gboolean rv = FALSE;
+  int res;
+
+  *fd = open(LOCK_FILE, O_RDWR | O_CREAT, 0666);
+
+  if (*fd != -1)
+  {
+    res = flock(*fd, LOCK_EX | LOCK_NB);
+
+    if (res == -1)
+    {
+      if (errno == EWOULDBLOCK)
+      {
+        g_warning("Code UI is already running.");
+        rv = TRUE;
+      }
+      else
+        g_warning("flock() on %s failed[%d]", LOCK_FILE, errno);
+
+      close(*fd);
+      *fd = -1;
+    }
+    else
+      rv = TRUE;
+  }
+  else
+    g_warning("open() on %s failed[%d]", LOCK_FILE, errno);
+
+  return rv;
+}
+
+static void
+connui_cell_code_ui_unlock(int fd)
+{
+  flock(fd, LOCK_UN);
+  close(fd);
+  unlink(LOCK_FILE);
+}
+
 gboolean
 connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
 {
   cell_code_ui *code_ui = _code_ui;
+  int fd;
+  int rv = FALSE;
+
+  if (!connui_cell_code_ui_lock(&fd) || fd == -1)
+    return rv;
 
   if (!code_ui)
   {
@@ -666,7 +726,6 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
 
   code_ui->parent = parent;
   code_ui->show_pin_code_correct = show_pin_code_correct;
-
 
   // XXX: we want to keep this context alive somehow, because otherwise
   // everywhere in the lib where destroy() is called, unregister_ofono gets
@@ -684,7 +743,7 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
     if (!connui_cell_ssc_state_register(connui_cell_code_ui_ssc_state_cb,
                                         &modem_state))
     {
-      return FALSE;
+      goto out;
     }
 
     if (modem_state)
@@ -719,7 +778,7 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
         code_ui->note = NULL;
         connui_cell_ssc_state_close(connui_cell_code_ui_ssc_state_cb);
         g_free(modem_state);
-        return FALSE;
+        goto out;
       }
     }
     else
@@ -743,7 +802,7 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
       gtk_dialog_run(GTK_DIALOG(note));
       gtk_widget_destroy(note);
       connui_cell_code_ui_destroy();
-      return FALSE;
+      goto out;
     }
   }
 
@@ -756,9 +815,8 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
       connui_cell_code_ui_launch_no_sim_note(code_ui);
 
     connui_cell_code_ui_destroy();
-    return FALSE;
+    goto out;
   }
-
 
   code_ui->ctx->starting = FALSE;
 
@@ -774,10 +832,14 @@ connui_cell_code_ui_init(GtkWindow *parent, gboolean show_pin_code_correct)
   }
 
   if (code_ui->state == CONNUI_CELL_CODE_UI_STATE_OK)
-    return TRUE;
+    rv = TRUE;
+  else
+    connui_cell_code_ui_destroy();
 
-  connui_cell_code_ui_destroy();
-  return FALSE;
+out:
+  connui_cell_code_ui_unlock(fd);
+
+  return rv;
 }
 
 void
