@@ -2,7 +2,11 @@
 
 #export DH_VERBOSE=1
 
-DEB_CONFIGURE_EXTRA_FLAGS = --enable-maemo-launcher --disable-static --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib
+ifeq (,$(findstring nolauncher,$(DEB_BUILD_OPTIONS)))
+ENABLE_LAUNCHER += --enable-maemo-launcher
+endif
+
+DEB_CONFIGURE_EXTRA_FLAGS = $(ENABLE_LAUNCHER) --disable-static --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib
 
 CFLAGS += -Werror
 
