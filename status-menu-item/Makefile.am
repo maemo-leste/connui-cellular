@@ -3,7 +3,7 @@ hildondesktoplib_LTLIBRARIES = connui-cellular-status-item.la
 AM_CFLAGS = -Wall -Werror $(ICD2_CFLAGS) $(LIBHILDON_CFLAGS) \
 	    $(HILDON_CFLAGS) $(CONNUI_CFLAGS) $(LIBGOFONO_FLAGS) $(OSSO_CFLAGS) \
 	    -I$(top_builddir)/include -DG_LOG_DOMAIN=\"$(PACKAGE)\" \
-	    -DOSSOLOG_COMPILE=1
+	    -DOSSOLOG_COMPILE=1 -DBINDIR=\"$(bindir)\"
 
 AM_LDFLAGS = -Wl,--as-needed $(ICD2_LIBS) $(LIBHILDON_LIBS) \
 	     $(HILDON_LIBS) $(CONNUI_LIBS) $(LIBGOFONO_LIBS) $(OSSO_LIBS) -module \

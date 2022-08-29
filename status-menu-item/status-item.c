@@ -208,6 +208,20 @@ connui_cellular_status_item_flightmode_cb(dbus_bool_t offline,
   connui_cellular_status_item_update_icon(item);
 }
 
+static void
+connui_cellular_status_item_pin_query()
+{
+  static const char *spq = BINDIR "/startup-pin-query";
+  pid_t pid = fork();
+
+  g_return_if_fail(pid != -1);
+
+  if (!pid)
+  {
+    execl(spq, spq, NULL);
+    exit(1);
+  }
+}
 
 static void
 connui_cellular_status_item_sim_status_cb(guint sim_status, gpointer user_data)
@@ -216,6 +230,9 @@ connui_cellular_status_item_sim_status_cb(guint sim_status, gpointer user_data)
       CONNUI_CELLULAR_STATUS_ITEM(user_data);
 
   g_return_if_fail(item != NULL && item->priv != NULL);
+
+  if (sim_status == 7 || sim_status == 8)
+    connui_cellular_status_item_pin_query();
 
   item->priv->sim_status = sim_status;
   connui_cellular_status_item_update_icon(item);
