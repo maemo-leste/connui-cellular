@@ -1,3 +1,11 @@
+connui-cellular (3.2.5) unstable; urgency=medium
+
+  * do not install startup-pin-query xsession script
+  * allow only one cell_code_ui dialog at a time
+  * call startup-pin-query on appropriate SIM status
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Mon, 29 Aug 2022 11:01:32 +0300
+
 connui-cellular (3.2.4) unstable; urgency=medium
 
   * (WIP) remove deprecated interfaces
