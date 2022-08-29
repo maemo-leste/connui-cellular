@@ -21,7 +21,3 @@ override_dh_auto_install:
 override_dh_install:
 	dh_install
 	dh_maemolauncher -p connui-conndlgs-cellular
-	dh_installxsession -p connui-conndlgs-cellular -u 'pre 04' --init-script=b_start_matchbox
-	dh_installxsession -p connui-conndlgs-cellular -u 'pre 05'
-	dh_installxsession -p connui-conndlgs-cellular -u 'pre 06' --init-script=stop_matchbox
-
