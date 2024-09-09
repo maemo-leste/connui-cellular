@@ -220,12 +220,12 @@ connui_cellular_status_item_update_icon(ConnuiCellularStatusItem *item,
 
   if (count > 2)
     count = 2;
-  else if (!count)
-    count = 1;
 
-  pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 18 * count, 36);
-  gdk_pixbuf_fill(pixbuf, 0);
-  count = 0;
+  if (count)
+  {
+    pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 18 * count, 36);
+    gdk_pixbuf_fill(pixbuf, 0);
+  }
 
   for (l = modems; l && count < 2; l = l->next)
   {
