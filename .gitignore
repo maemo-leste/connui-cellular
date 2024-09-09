@@ -1,42 +1,46 @@
-# http://www.gnu.org/software/automake
-
-Makefile.in
-/ar-lib
-/mdate-sh
-/py-compile
-/test-driver
-/ylwrap
-
-# http://www.gnu.org/software/autoconf
-
-/autom4te.cache
-/autoscan.log
-/autoscan-*.log
+*.gcda
+*.gcno
+*.la
+*.lo
+*.o
+*~
+.deps
+.libs
 /aclocal.m4
-/compile
-/config.guess
+/autom4te.cache/
+/config.h
 /config.h.in
-/config.sub
+/config.log
+/config.status
 /configure
-/configure.scan
-/depcomp
-/install-sh
-/missing
+/lcov.html
+/lcov.info
+/lcov.info.tmp
+/libtool
 /stamp-h1
+Makefile
+Makefile.in
+INSTALL
+build-aux/
+conndlgs/pin-code-correct
+conndlgs/startup-pin-query
 
-# https://www.gnu.org/software/libtool/
+#debian
+debian/tmp
+debian/connui-cellular-settings/
+debian/connui-conndlgs-cellular/
+debian/connui-home-cellular/
+debian/connui-iapsettings-gprs/
+debian/connui-statusbar-cellular/
+debian/libconnui-cellular/
+debian/libconnui-cellular-dev/
+debian/.debhelper/
+debian/*debhelper*
+debian/autoreconf*
+debian/files
+debian/*.substvars
 
-/ltmain.sh
-
-# http://www.gnu.org/software/texinfo
-
-/texinfo.tex
-
-# http://www.gnu.org/software/m4/
-
-m4/libtool.m4
-m4/ltoptions.m4
-m4/ltsugar.m4
-m4/ltversion.m4
-m4/lt~obsolete.m4
-autom4te.cache
+#generated stuff
+lib/org.ofono.*
+lib/connui-cell-marshal.*
+connui-cellular.pc
