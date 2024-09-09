@@ -148,7 +148,7 @@ connui_cell_net_select_cb(gboolean success, guint network_reject_code,
     if (selection_dialog)
     {
       gchar *name =
-          connui_cell_net_get_operator_name(current_network, TRUE, NULL);
+          connui_cell_net_get_operator_name(current_network, NULL);
 
       if (name)
       {

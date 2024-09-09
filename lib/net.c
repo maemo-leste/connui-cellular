@@ -6,10 +6,13 @@
 #include <connui/connui-dbus.h>
 #include <telepathy-glib/telepathy-glib.h>
 #include <gio/gio.h>
+#include <libxml/xpath.h>
 
 #include <string.h>
 
 #include "context.h"
+
+#include "net.h"
 
 struct _service_call
 {
@@ -32,345 +35,319 @@ typedef struct _service_call service_call;
 #define NETWORK_CS_OP_MODE_GAN_ONLY  0x01   // CS is in GAN only operation mode
 #define NETWORK_CS_OP_MODE_UNKNOWN   0x02
 
-static void ofono_signal_strength_change(guchar signals_bar);
-static void ofono_rat_change(gchar* technology);
-static void ofono_reg_status_change(gchar* status);
-static void ofono_countrycode_change(gchar* country_code);
-static void ofono_operatorcode_change(gchar* operator_code);
-static void ofono_reg_operatorname_change(gchar* operator_name);
-static void ofono_cellid_change(guint cellid);
-static void ofono_lac_change(guint16 lac);
+typedef struct _net_data
+{
+  connui_cell_context *ctx;
+  OrgOfonoNetworkRegistration *proxy;
+  gchar *path;
 
-void debug_call_all(const char* name, GVariant* value) {
-    /* XXX: just testing, this is a mess :-) */
+  cell_network_state state;
+  connui_net_selection_mode selection_mode;
 
-    if (!strcmp(name, "Strength")) {
-        CONNUI_ERR("netreg_propchange strength");
-        guchar strength = 0;
-        g_variant_get(value, "y", &strength);
-        ofono_signal_strength_change(strength);
-    } else if (!strcmp(name, "Technology")) {
-        CONNUI_ERR("netreg_propchange technology");
-        gchar* str = NULL;
-        g_variant_get(value, "s", &str);
-        ofono_rat_change(str);
-        g_free(str);
-    } else if (!strcmp(name, "Status")) {
-        CONNUI_ERR("netreg_propchange status");
-        gchar* str = NULL;
-        g_variant_get(value, "s", &str);
-        ofono_reg_status_change(str);
-        g_free(str);
-    } else if (!strcmp(name, "MobileCountryCode")) {
-        CONNUI_ERR("netreg_propchange countrycode");
-        gchar* str = NULL;
-        g_variant_get(value, "s", &str);
-        ofono_countrycode_change(str);
-        g_free(str);
-    } else if (!strcmp(name, "MobileNetworkCode")) {
-        CONNUI_ERR("netreg_propchange networkcode");
-        gchar* str = NULL;
-        g_variant_get(value, "s", &str);
-        ofono_operatorcode_change(str);
-        g_free(str);
-    } else if (!strcmp(name, "CellId")) {
-        CONNUI_ERR("netreg_propchange cellid");
-        guint cellid = 0;
-        g_variant_get(value, "u", &cellid);
-        ofono_cellid_change(cellid);
-    } else if (!strcmp(name, "LocationAreaCode")) {
-        CONNUI_ERR("netreg_propchange lac");
-        guint16 lac = 0;
-        g_variant_get(value, "q", &lac);
-        ofono_lac_change(lac);
-    } else if (!strcmp(name, "Name")) {
-        CONNUI_ERR("netreg_propchange name");
-        gchar* str = NULL;
-        g_variant_get(value, "s", &str);
-        ofono_reg_operatorname_change(str);
-        g_free(str);
-    }
+  guint idle_id;
+  gulong properties_changed_id;
 }
+net_data;
 
-/* TODO: example of getter, rather than property changed handler */
-void debug_netreg(OfonoNetReg* netreg) {
-	CONNUI_ERR("debug_netreg");
-	guint i;
-    OfonoObject* obj = ofono_netreg_object(netreg);
+#define DATA "connui_cell_net_data"
 
-    /* XXX: Shouldn't these keys be freed ? */
-    GPtrArray* keys = ofono_object_get_property_keys(obj);
-	CONNUI_ERR("debug_netreg keys len %d", keys->len);
-    for (i=0; i<keys->len; i++) {
-        const char* key = keys->pdata[i];
-        if (1) {
-            /* XXX: shouldn't these gvariants be freed / dereffed? */
-            GVariant* v = ofono_object_get_property(obj, key, NULL);
-            gchar* text = g_variant_print(v, FALSE);
-            CONNUI_ERR("%s: %s\n", key, text);
-            g_free(text);
+static net_data *
+_net_data_get(const char *path, GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  OrgOfonoModem *modem;
 
-            debug_call_all(key, v);
-        } else {
-            CONNUI_ERR("%s\n", key);
-        }
-    }
-	CONNUI_ERR("debug_netreg_done");
-}
+  g_return_val_if_fail(path != NULL, NULL);
 
-static void netreg_propchange(OfonoNetReg *sender, const char* name, GVariant *value, connui_cell_context *ctx) {
-    gchar* text = g_variant_print(value, FALSE);
-    CONNUI_ERR("netreg_propchange: %s = %s\n", name, text);
-    g_free(text);
+  modem = g_hash_table_lookup(ctx->modems, path);
 
-    debug_call_all(name, value);
+  if (!modem)
+  {
+    CONNUI_ERR("Invalid modem path %s", path);
+    g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_FOUND,
+                "No such modem [%s]", path);
+    return NULL;
+  }
 
-    debug_netreg(ctx->ofono_netreg); // XXX remove
-    //g_variant_unref(value); // ???
-}
-
-void set_netreg(connui_cell_context* ctx) {
-    CONNUI_ERR("set_netreg");
-    debug_netreg(ctx->ofono_netreg); // XXX: move or remove this
-
-    // TODO: Create function to fill struct without doing callbacks, and then do
-    // one callback.
-
-    ctx->ofono_netreg_property_changed_id = ofono_netreg_add_property_changed_handler(ctx->ofono_netreg,
-            (OfonoNetRegPropertyHandler)netreg_propchange,
-            NULL /* name NULL = all properties? */,
-            (void*)ctx);
-
-    return;
-}
-
-void RENAME_reset_state(connui_cell_context* ctx) {
-    /* TODO: share this code, create common function, proper func name, etc*/
-    ctx->state.network_signals_bar = 0;
-    ctx->state.rat_name = NETWORK_RAT_NAME_UNKNOWN;
-    ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
-    ctx->state.cell_id = 0;
-    ctx->state.lac = 0;
-
-    g_free(ctx->state.operator_name);
-    ctx->state.operator_name = NULL;
-
-    if (ctx->state.network) {
-        g_free(ctx->state.network->operator_name);
-        ctx->state.network->operator_name = NULL;
-
-        g_free(ctx->state.network->country_code);
-        ctx->state.network->country_code= NULL;
-
-        g_free(ctx->state.network->operator_code);
-        ctx->state.network->operator_code= NULL;
-    }
+  return g_object_get_data(G_OBJECT(modem), DATA);
 }
 
 static void
-net_signal_strength_change_notify(connui_cell_context *ctx)
+init_net_state(cell_network_state *state)
 {
-  connui_utils_notify_notify_POINTER(ctx->net_status_cbs, &ctx->state);
+  state->reg_status = CONNUI_NET_REG_STATUS_UNKNOWN;
+  state->lac = 0;
+  state->cell_id = 0;
+  state->supported_services = 0;
+  state->network_signals_bar = 0;
+  state->rat_name = CONNUI_NET_RAT_UNKNOWN;
+  state->network_hsdpa_allocated = FALSE;
 }
 
-void release_netreg(connui_cell_context* ctx) {
-    CONNUI_ERR("release_netreg");
-
-    if ((ctx->ofono_netreg) && (ctx->ofono_netreg_property_changed_id)) {
-        ofono_netreg_remove_handler(ctx->ofono_netreg, ctx->ofono_netreg_property_changed_id);
-        ctx->ofono_netreg_property_changed_id = 0;
-    }
-
-    RENAME_reset_state(ctx);
-    net_signal_strength_change_notify(ctx);
-
-
-    return;
-}
-
-
-static void ofono_signal_strength_change(guchar signals_bar) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
-
-    ctx->state.network_signals_bar = signals_bar;
-
-    net_signal_strength_change_notify(ctx);
-
-    connui_cell_context_destroy(ctx);
-}
-
-#if 0
-/* TODO: make sure all of this is implemented */
-#define NETWORK_RAT_NAME_UNKNOWN         0x00
-#define NETWORK_GSM_RAT                  0x01
-#define NETWORK_UMTS_RAT                 0x02
-#define NETWORK_MASK_GPRS_SUPPORT   0x01
-#define NETWORK_MASK_CS_SERVICES    0x02
-#define NETWORK_MASK_EGPRS_SUPPORT  0x04
-#define NETWORK_MASK_HSDPA_AVAIL    0x08
-#define NETWORK_MASK_HSUPA_AVAIL    0x10
-};
-#endif
-
-static void ofono_rat_change(gchar* technology) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
-
-    /* TODO: name thing / map */
-
-    if (!strcmp("lte", technology)) {
-        ctx->state.rat_name = NETWORK_LTE_RAT;
-    } else if (!strcmp("hspa", technology)) {
-        // XXX
-        ctx->state.rat_name = NETWORK_UMTS_RAT;
-        ctx->state.network_hsdpa_allocated = 1;
-    } else if (!strcmp("umts", technology)) {
-        ctx->state.rat_name = NETWORK_UMTS_RAT;
-    } else if (!strcmp("edge", technology)) {
-        ctx->state.rat_name = NETWORK_GSM_RAT;
-        // XXX: Maybe add this bit to supported_services ?
-        //if (priv->state.supported_services & NETWORK_MASK_EGPRS_SUPPORT)
-    } else if (!strcmp("gsm", technology)) {
-        ctx->state.rat_name = NETWORK_GSM_RAT;
-    }
-
-    net_signal_strength_change_notify(ctx);
-
-    connui_cell_context_destroy(ctx);
-}
-
-#if 0
-    enum net_registration_status
+static void
+_net_data_destroy(gpointer data)
 {
-    NETWORK_REG_STATUS_HOME = 0x00, // CS is registered to home network
-    NETWORK_REG_STATUS_ROAM,        // CS is registered to some other network than home network
-    NETWORK_REG_STATUS_ROAM_BLINK,  // CS is registered to non-home system in a non-home area ('a' or 'b' area)
-    NETWORK_REG_STATUS_NOSERV,      // CS is not in service
-    NETWORK_REG_STATUS_NOSERV_SEARCHING,    // CS is not in service, but is currently searching for service
-    NETWORK_REG_STATUS_NOSERV_NOTSEARCHING, // CS is not in service and it is not currently searching for service
-    NETWORK_REG_STATUS_NOSERV_NOSIM,        // CS is not in service due to missing SIM or missing subscription
-    NETWORK_REG_STATUS_POWER_OFF = 0x08,    // CS is in power off state
-    NETWORK_REG_STATUS_NSPS,                // CS is in No Service Power Save State (currently not listening to any cell)
-    NETWORK_REG_STATUS_NSPS_NO_COVERAGE,    // CS is in No Service Power Save State (CS is entered to this state because there is no network coverage)
-    NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW // CS is not in service due to missing subscription
-};
-#endif
+  net_data *nd = data;
+  cell_network_state *state = &nd->state;
 
-/* TODO: This only implements basic status changes, it lacks all the power
- * saving modes above */
-static void ofono_reg_status_change(gchar* status) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
+  if (nd->idle_id)
+    g_source_remove(nd->idle_id);
 
-    // TODO: also use sim status here? (no service because of no sim, etc)
+  g_signal_handler_disconnect(nd->proxy, nd->properties_changed_id);
+  g_object_unref(nd->proxy);
 
-    if (!strcmp("unregistered", status)) {
-        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
-    } else if (!strcmp("registered", status)) {
-        ctx->state.reg_status = NETWORK_REG_STATUS_HOME;
-    } else if (!strcmp("searching", status)) {
-        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV_SEARCHING;
-    } else if (!strcmp("denied", status)) {
-        // XXX: might be wrong
-        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW;
-    } else if (!strcmp("unknown", status)) {
-        // TODO: this is not correct
-        ctx->state.reg_status = NETWORK_REG_STATUS_NOSERV;
-        //ctx->state.reg_status = ...
-    } else if (!strcmp("roaming", status)) {
-        ctx->state.reg_status = NETWORK_REG_STATUS_ROAM;
-        // TODO: NETWORK_REG_STATUS_ROAM_BLINK
-    }
+  connui_cell_network_free(state->network);
+  state->network = NULL;
+  g_free(state->operator_name);
+  state->operator_name = NULL;
+  init_net_state(state);
 
-    net_signal_strength_change_notify(ctx);
-    connui_cell_context_destroy(ctx);
+  connui_utils_notify_notify(nd->ctx->net_status_cbs, nd->path, state, NULL);
+
+  g_free(nd->path);
+  g_free(nd);
 }
 
-static void ofono_cellid_change(guint cellid) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
+static net_data *
+_net_data_create(OrgOfonoNetworkRegistration *proxy, const gchar *path,
+                 connui_cell_context *ctx)
+{
+  net_data *nd = g_new0(net_data, 1);
+  OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
 
-    ctx->state.cell_id = cellid;
+  g_assert(modem);
 
-    connui_cell_context_destroy(ctx);
-    net_signal_strength_change_notify(ctx);
+  g_object_set_data_full(G_OBJECT(modem), DATA, nd, _net_data_destroy);
+
+  nd->path = g_strdup(path);
+  nd->proxy = proxy;
+  nd->ctx = ctx;
+
+  nd->state.network = g_new0(cell_network, 1);
+  nd->selection_mode = CONNUI_NET_SELECT_MODE_UNKNOWN;
+
+  init_net_state(&nd->state);
+
+  return nd;
 }
 
-static void ofono_lac_change(guint16 lac) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
+static gboolean
+_idle_notify(gpointer user_data)
+{
+  net_data *nd = user_data;
+  nd->idle_id = 0;
 
-    ctx->state.lac = lac;
+  connui_utils_notify_notify(nd->ctx->net_status_cbs, nd->path, &nd->state,
+                             NULL);
 
-    connui_cell_context_destroy(ctx);
-    net_signal_strength_change_notify(ctx);
+  return G_SOURCE_REMOVE;
 }
 
-static void ofono_reg_operatorname_change(gchar* operator_name) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
-
-    // XXX: move elsewhere, dedup
-    if (!ctx->state.network)
-        ctx->state.network = g_new0(cell_network, 1);
-
-    // TODO: might not be the right place to free this.
-    if (ctx->state.network->operator_name) {
-        g_free(ctx->state.network->operator_name);
-        ctx->state.network->operator_name = NULL;
-    }
-    ctx->state.network->operator_name = g_strdup(operator_name);
-
-    /* XXX: We also set operator_name on cell_network_state here for now, as
-     * it's not clear what the difference is.
-     * Probably want this elsewhere? (Also, with alternative operator name?) */
-    if (ctx->state.operator_name) {
-        g_free(ctx->state.operator_name);
-        ctx->state.operator_name = NULL;
-    }
-    ctx->state.operator_name = g_strdup(operator_name);
-
-    connui_cell_context_destroy(ctx);
-    net_signal_strength_change_notify(ctx);
+static void
+_notify(net_data *nd)
+{
+  if (nd && !nd->idle_id)
+    nd->idle_id = g_idle_add(_idle_notify, nd);
 }
 
-static void ofono_countrycode_change(gchar* country_code) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
+static void
+_notify_all(connui_cell_context *ctx)
+{
+  GHashTableIter iter;
+  gpointer modem;
 
-    // XXX: move elsewhere, dedup
-    if (!ctx->state.network)
-        ctx->state.network = g_new0(cell_network, 1);
+  g_hash_table_iter_init (&iter, ctx->modems);
 
-    // TODO: might not be the right place to free this.
-    if (ctx->state.network->country_code) {
-        g_free(ctx->state.network->country_code);
-        ctx->state.network->country_code = NULL;
-    }
-    ctx->state.network->country_code = g_strdup(country_code);
-
-    connui_cell_context_destroy(ctx);
-    net_signal_strength_change_notify(ctx);
+  while (g_hash_table_iter_next(&iter, NULL, &modem))
+    _notify(g_object_get_data(G_OBJECT(modem), DATA));
 }
 
-static void ofono_operatorcode_change(gchar* operator_code) {
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_if_fail(ctx != NULL);
+static connui_net_registration_status
+_reg_status(const gchar *status)
+{
+  if (!strcmp(status, "unregistered"))
+    return CONNUI_NET_REG_STATUS_UNREGISTERED;
+  else if (!strcmp(status, "registered"))
+    return CONNUI_NET_REG_STATUS_HOME;
+  else if (!strcmp(status, "searching"))
+    return CONNUI_NET_REG_STATUS_SEARCHING;
+  else if (!strcmp(status, "denied"))
+    return CONNUI_NET_REG_STATUS_DENIED;
+  else if (!strcmp(status, "roaming"))
+      return CONNUI_NET_REG_STATUS_ROAMING;
+  else
+    return CONNUI_NET_REG_STATUS_UNKNOWN;
+}
 
-    // XXX: move elsewhere, dedup
-    if (!ctx->state.network)
-        ctx->state.network = g_new0(cell_network, 1);
+static guint
+_rat_name(const gchar *tech)
+{
+  if (!strcmp(tech, "gsm") || !strcmp(tech, "edge"))
+    return CONNUI_NET_RAT_GSM;
+  else if (!strcmp(tech, "umts") || !strcmp(tech, "hspa"))
+    return CONNUI_NET_RAT_UMTS;
+  else if (!strcmp(tech, "lte"))
+    return CONNUI_NET_RAT_LTE;
+  else if (!strcmp(tech, "nr"))
+    return CONNUI_NET_RAT_NR;
+  else
+    return CONNUI_NET_RAT_UNKNOWN;
+}
 
-    // TODO: might not be the right place to free this.
-    if (ctx->state.network->operator_code) {
-        g_free(ctx->state.network->operator_code);
-        ctx->state.network->operator_code = NULL;
+static gboolean
+_hspda(const gchar *tech)
+{
+  return !strcmp(tech, "hspa");
+}
+
+static gboolean
+_parse_property(net_data *nd, const gchar *name, GVariant *value)
+{
+  gboolean notify = FALSE;
+  cell_network_state *state = &nd->state;
+  cell_network *network = state->network;
+
+  g_debug("NET %s parsing property %s, type %s", nd->path, name,
+          g_variant_get_type_string(value));
+
+  if (!strcmp(name, OFONO_NETREG_PROPERTY_STRENGTH))
+  {
+    nd->state.network_signals_bar = g_variant_get_byte(value);
+
+    if (state->rat_name)
+      notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_NAME))
+  {
+    g_free(state->operator_name);
+    state->operator_name = g_strdup(g_variant_get_string(value, NULL));
+    g_free(network->operator_name);
+    network->operator_name = g_strdup(state->operator_name);
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_MCC))
+  {
+    g_free(network->country_code);
+    network->country_code = g_strdup(g_variant_get_string(value, NULL));
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_MNC))
+  {
+    g_free(network->operator_code);
+    network->operator_code = g_strdup(g_variant_get_string(value, NULL));
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_LOCATION_AREA_CODE))
+  {
+    state->lac = g_variant_get_uint16(value);
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_CELL_ID))
+  {
+    state->cell_id = g_variant_get_uint32(value);
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_STATUS))
+  {
+    state->reg_status = _reg_status(g_variant_get_string(value, NULL));
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_TECHNOLOGY))
+  {
+    const gchar *tech = g_variant_get_string(value, NULL);
+
+    state->rat_name = _rat_name(tech);
+    state->network_hsdpa_allocated = _hspda(tech);
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_NETREG_PROPERTY_MODE))
+  {
+    const gchar *mode = g_variant_get_string(value, NULL);
+
+    if (!strcmp(mode, "manual"))
+      nd->selection_mode = CONNUI_NET_SELECT_MODE_MANUAL;
+    else if (!strcmp(mode, "auto"))
+      nd->selection_mode = CONNUI_NET_SELECT_MODE_AUTO;
+    else if (!strcmp(mode, "auto-only"))
+      nd->selection_mode = CONNUI_NET_SELECT_MODE_AUTO_ONLY;
+    else
+      nd->selection_mode = CONNUI_NET_SELECT_MODE_UNKNOWN;
+
+    notify = TRUE;
+  }
+
+  return notify;
+}
+
+static void
+_property_changed_cb(OrgOfonoNetworkRegistration *proxy, const gchar *name,
+                    GVariant *value, gpointer user_data)
+{
+  net_data *nd = user_data;
+  GVariant *v = g_variant_get_variant(value);
+
+  g_debug("Modem %s network registration property %s changed", nd->path, name);
+
+  if (_parse_property(nd, name, v))
+    _notify(nd);
+
+  g_variant_unref(v);
+}
+
+__attribute__((visibility("hidden"))) void
+connui_cell_modem_add_netreg(connui_cell_context *ctx, const char *path)
+{
+  OrgOfonoNetworkRegistration *proxy;
+  GError *error = NULL;
+
+  proxy = org_ofono_network_registration_proxy_new_for_bus_sync(
+        OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
+        OFONO_SERVICE, path, NULL, &error);
+
+  if (proxy)
+  {
+    net_data *nd = _net_data_create(proxy, path, ctx);
+    GVariant *props;
+
+    if (org_ofono_network_registration_call_get_properties_sync(proxy, &props,
+                                                                NULL, &error))
+    {
+      GVariantIter i;
+      gchar *name;
+      GVariant *v;
+
+      g_variant_iter_init(&i, props);
+
+      while (g_variant_iter_loop(&i, "{&sv}", &name, &v))
+        _parse_property(nd, name, v);
+
+      g_variant_unref(props);
     }
-    ctx->state.network->operator_code = g_strdup(operator_code);
+    else
+    {
+      CONNUI_ERR("Unable to get modem [%s] network registration properties: %s",
+                 path, error->message);
+      g_error_free(error);
+    }
 
-    connui_cell_context_destroy(ctx);
-    net_signal_strength_change_notify(ctx);
+    nd->properties_changed_id =
+        g_signal_connect(proxy, "property-changed",
+                         G_CALLBACK(_property_changed_cb), nd);
+
+    _notify_all(ctx);
+  }
+  else
+  {
+    CONNUI_ERR("Error creating OFONO network registration proxy for %s [%s]",
+               path, error->message);
+    g_error_free(error);
+  }
+}
+
+__attribute__((visibility("hidden"))) void
+connui_cell_modem_remove_netreg(OrgOfonoModem *modem)
+{
+  g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
 
 #if 0
@@ -404,486 +381,209 @@ net_reg_status_change_cb(DBusGProxy *proxy, guchar reg_status,
 }
 #endif
 
-#if 0
-static void
-net_signal_strength_change_cb(DBusGProxy *proxy, guchar signals_bar,
-                              guchar rssi_in_dbm, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->state.network_signals_bar = signals_bar;
-
-  if (proxy)
-      net_signal_strength_change_notify(ctx);
-}
-#endif
-
-#if 0
-static void
-net_rat_change_cb(DBusGProxy *proxy, guchar rat_name, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->state.rat_name = rat_name;
-
-  if (proxy)
-    net_signal_strength_change_notify(ctx);
-}
-#endif
-
-#if 0
-static void
-net_radio_info_change_cb(DBusGProxy *proxy, guchar network_radio_state,
-                         guchar network_hsdpa_allocated,
-                         guchar network_hsupa_allocated,
-                         connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->state.network_hsdpa_allocated = network_hsdpa_allocated;
-
-  if (proxy)
-    net_signal_strength_change_notify(ctx);
-}
-#endif
-
-#if 0
-static void
-net_cell_info_change_cb(DBusGProxy *proxy, guchar network_cell_type,
-                        gushort network_current_lac,
-                        guint network_current_cell_id,
-                        guint network_operator_code,
-                        guint network_country_code,
-                        guchar network_service_status,
-                        guchar network_type, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  /* FIXME - what about NETWORK_REG_STATUS_ROAM_BLINK? */
-  if (ctx->state.reg_status == NETWORK_REG_STATUS_HOME ||
-      ctx->state.reg_status == NETWORK_REG_STATUS_ROAM)
-  {
-    net_reg_status_change_cb(NULL, -1, network_current_lac,
-                             network_current_cell_id, network_operator_code,
-                             network_country_code, network_type, -1, ctx);
-    ctx->state.network->service_status = network_service_status;
-
-    if (proxy)
-      net_signal_strength_change_notify(ctx);
-  }
-}
-#endif
-
-#if 0
-static void
-operator_name_change_cb(DBusGProxy *proxy, guchar operator_name_type,
-                        const char *operator_name,
-                        const char *alternative_operator_name,
-                        guint network_operator_code,
-                        guint network_country_code, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->state.operator_name_type = operator_name_type;
-  g_free(ctx->state.operator_name);
-  g_free(ctx->state.alternative_operator_name);
-  ctx->state.operator_name = g_strdup(operator_name);
-  ctx->state.alternative_operator_name = g_strdup(alternative_operator_name);
-
-  if (proxy)
-    net_signal_strength_change_notify(ctx);
-}
-#endif
-
 void
 connui_cell_net_status_close(cell_network_state_cb cb)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
   ctx->net_status_cbs = connui_utils_notify_remove(ctx->net_status_cbs, cb);
 
-  if (!ctx->net_status_cbs)
-  {
-#if 0
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy,
-                                   "registration_status_change",
-                                   (GCallback)net_reg_status_change_cb, ctx);
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy,
-                                   "signal_strength_change",
-                                   (GCallback)net_signal_strength_change_cb,
-                                   ctx);
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy,
-                                   "radio_access_technology_change",
-                                   (GCallback)net_rat_change_cb, ctx);
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy, "radio_info_change",
-                                   (GCallback)net_radio_info_change_cb, ctx);
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy, "cell_info_change",
-                                   (GCallback)net_cell_info_change_cb, ctx);
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy, "operator_name_change",
-                                   (GCallback)operator_name_change_cb, ctx);
-#endif
-  }
-
   connui_cell_context_destroy(ctx);
 }
 
-#if 0
-typedef void (*net_get_reg_status_cb_f)(DBusGProxy *, guchar, guint,
-                                         guint, guint, guint, guchar,
-                                         guchar, int32_t, GError *,
-                                         connui_cell_context *);
-static void
-get_registration_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
-                           void *user_data)
-{
-  sim_status_data *data = user_data;
-  int32_t error_value;
-  guint network_country_code;
-  guint network_operator_code;
-  guint network_current_cell_id;
-  guint network_current_lac;
-  guchar network_supported_services;
-  guchar network_type;
-  guchar network_reg_status;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error,
-                        G_TYPE_UCHAR, &network_reg_status,
-                        G_TYPE_UINT, &network_current_lac,
-                        G_TYPE_UINT, &network_current_cell_id,
-                        G_TYPE_UINT, &network_operator_code,
-                        G_TYPE_UINT, &network_country_code,
-                        G_TYPE_UCHAR, &network_type,
-                        G_TYPE_UCHAR, &network_supported_services,
-                        G_TYPE_INT, &error_value,
-                        G_TYPE_INVALID);
-
-  ((net_get_reg_status_cb_f)data->cb)(proxy, network_reg_status,
-                                      network_current_lac,
-                                      network_current_cell_id,
-                                      network_operator_code,
-                                      network_country_code, network_type,
-                                      network_supported_services, error_value,
-                                      error, data->data);
-}
-
-static void
-net_get_signal_strength_cb(DBusGProxy *proxy, guchar network_signals_bar,
-                           guchar network_rssi_in_dbm, int32_t error_value,
-                           GError *error, connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->get_registration_status_call = NULL;
-
-  if (error)
-  {
-    CONNUI_ERR("%s", error->message);
-    g_clear_error(&error);
-    return;
-  }
-
-  if (error_value)
-    CONNUI_ERR("Error in method return: %d", error_value);
-
-  net_signal_strength_change_cb(NULL, network_signals_bar, network_rssi_in_dbm,
-                                ctx);
-
-  if (!ctx->state.rat_name)
-  {
-    sim_status_data *data = g_slice_new(sim_status_data);
-
-    data->cb = (GCallback)net_get_rat_cb;
-    data->data = ctx;
-    ctx->get_registration_status_call =
-        dbus_g_proxy_begin_call(ctx->phone_net_proxy,
-                                "get_radio_access_technology",
-                                get_radio_access_technology_cb, data,
-                                destroy_sim_status_data, G_TYPE_INVALID);
-  }
-  else
-    net_signal_strength_change_notify(ctx);
-}
-
-typedef void (*net_get_signal_strength_cb_f)(DBusGProxy *, guchar, guchar,
-                                             int32_t, GError *,
-                                             connui_cell_context *);
-
-static void
-get_signal_strength_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
-                       void *user_data)
-{
-  sim_status_data *data = user_data;
-  GError *error = NULL;
-  guchar network_rssi_in_dbm;
-  guchar network_signals_bar;
-  int32_t error_value;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error,
-                        G_TYPE_UCHAR, &network_signals_bar,
-                        G_TYPE_UCHAR, &network_rssi_in_dbm,
-                        G_TYPE_INT, &error_value, G_TYPE_INVALID);
-
-  ((net_get_signal_strength_cb_f)data->cb)(proxy, network_signals_bar,
-                                           network_rssi_in_dbm, error_value,
-                                           error, data->data);
-}
-
-static void
-net_get_reg_status_cb(DBusGProxy *proxy, guchar reg_status,
-                      gushort current_lac, guint current_cell_id,
-                      guint operator_code, guint country_code,
-                      guchar type, guchar supported_services,
-                      int32_t error_value, GError *error,
-                      connui_cell_context *ctx)
-{
-  g_return_if_fail(ctx != NULL);
-
-  ctx->get_registration_status_call = NULL;
-
-  if (error)
-  {
-    CONNUI_ERR("%s", error->message);
-    g_clear_error(&error);
-    return;
-  }
-
-  if (error_value)
-    CONNUI_ERR("Error in method return: %d", error_value);
-
-  net_reg_status_change_cb(NULL, reg_status, current_lac, current_cell_id,
-                           operator_code, country_code, type,
-                           supported_services, ctx);
-
-  if (!ctx->state.network_signals_bar || !ctx->state.rat_name)
-  {
-    sim_status_data *data = g_slice_new(sim_status_data);
-    GCallback cb;
-    DBusGProxyCallNotify notify;
-    const char *method;
-
-    if (!ctx->state.network_signals_bar)
-    {
-      cb = (GCallback)net_get_signal_strength_cb;
-      notify = get_signal_strength_cb;
-      method = "get_signal_strength";
-    }
-    else
-    {
-      cb = (GCallback)net_get_rat_cb;
-      notify = get_radio_access_technology_cb;
-      method = "get_radio_access_technology";
-    }
-
-    data->cb = cb;
-    data->data = ctx;
-    ctx->get_registration_status_call =
-        dbus_g_proxy_begin_call(ctx->phone_net_proxy, method, notify,
-                                data, destroy_sim_status_data, G_TYPE_INVALID);
-  }
-  else
-    net_signal_strength_change_notify(ctx);
-}
-#endif
 
 gboolean
 connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_val_if_fail(ctx != NULL, FALSE);
-
-  if (!ctx->net_status_cbs)
-  {
-#if 0
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
-                                "registration_status_change",
-                                (GCallback)net_reg_status_change_cb, ctx, NULL);
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
-                                "signal_strength_change",
-                                (GCallback)net_signal_strength_change_cb, ctx,
-                                NULL);
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
-                                "radio_access_technology_change",
-                                (GCallback)net_rat_change_cb, ctx, NULL);
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy, "radio_info_change",
-                                (GCallback)net_radio_info_change_cb, ctx,
-                                NULL);
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy, "cell_info_change",
-                                (GCallback)net_cell_info_change_cb, ctx, NULL);
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy, "operator_name_change",
-                                (GCallback)operator_name_change_cb, ctx, NULL);
-#endif
-  }
 
   ctx->net_status_cbs = connui_utils_notify_add(ctx->net_status_cbs,
                                                 (connui_utils_notify)cb,
                                                 user_data);
-  if (!ctx->get_registration_status_call)
+
+  _notify_all(ctx);
+
+  return TRUE;
+}
+
+static gchar *
+_mbpi_get_name(guint mcc, guint mnc)
+{
+  xmlDocPtr doc;
+  gchar *name = NULL;
+
+  doc = xmlParseFile(MBPI_DATABASE);
+
+  if (doc)
   {
-#if 0
-    sim_status_data *data = g_slice_new(sim_status_data);
+    /* Create xpath evaluation context */
+    xmlXPathContextPtr ctx = xmlXPathNewContext(doc);
 
-    data->cb = (GCallback)net_get_reg_status_cb;
-    data->data = ctx;
-    ctx->get_registration_status_call =
-        dbus_g_proxy_begin_call(ctx->phone_net_proxy, "get_registration_status",
-                                get_registration_status_cb, data,
-                                destroy_sim_status_data, G_TYPE_INVALID);
-#endif
+    if (ctx)
+    {
+      gchar *xpath = g_strdup_printf(
+        "//network-id[@mcc='%03u' and @mnc='%02u']/../../name/text()", mcc,
+        mnc);
+      xmlXPathObjectPtr obj = xmlXPathEvalExpression(BAD_CAST xpath, ctx);
+
+      if (obj && obj->nodesetval)
+      {
+        xmlNodeSetPtr nodes = obj->nodesetval;
+
+        if (nodes->nodeNr)
+        {
+          xmlChar *content = xmlNodeGetContent(nodes->nodeTab[0]);
+
+          name = g_strdup((const gchar *)content);
+
+          xmlFree(content);
+        }
+
+        xmlXPathFreeObject(obj);
+      }
+      else
+        CONNUI_ERR("Unable to evaluate xpath expression '%s'", xpath);
+
+      g_free(xpath);
+      xmlXPathFreeContext(ctx);
+    }
+    else
+      CONNUI_ERR("Unable to create new XPath context");
+
+    xmlFreeDoc(doc);
   }
+  else
+    CONNUI_ERR("Unable to parse '" MBPI_DATABASE "'");
 
-  // XXX: FIXME: ugly (but do this before destroy)
-  int ret = ctx->net_status_cbs != 0;
-  connui_cell_context_destroy(ctx);
-
-  return ret;
-#if 0
-  return ctx->get_registration_status_call != NULL;
-#endif
+  return name;
 }
 
 gchar *
-connui_cell_net_get_operator_name(cell_network *network, gboolean long_name,
-                                  gint *error_value)
+connui_cell_net_get_operator_name(cell_network *network, GError **error)
 {
-  guchar network_oper_name_type;
-  gchar *network_display_tag = NULL;
-  GError *error = NULL;
-  connui_cell_context *ctx = connui_cell_context_get();
+  gchar *name = NULL;
+  connui_cell_context *ctx;
+  GHashTableIter iter;
+  gpointer modem;
+  guint mcc;
+  guint mnc;
 
+  g_return_val_if_fail(network != NULL, NULL);
+
+  ctx = connui_cell_context_get(error);
   g_return_val_if_fail(ctx != NULL, NULL);
 
-  if (!network)
+  mcc = g_ascii_strtoll(network->country_code, NULL, 10);
+  mnc = g_ascii_strtoll(network->operator_code, NULL, 10);
+
+  g_hash_table_iter_init (&iter, ctx->modems);
+
+  while (!name && g_hash_table_iter_next(&iter, NULL, &modem))
   {
-    CONNUI_ERR("Network is null");
-    goto err_out;
+    net_data *nd = g_object_get_data(G_OBJECT(modem), DATA);
+
+    if (nd)
+    {
+      GVariant *operators;
+
+      if (org_ofono_network_registration_call_get_operators_sync(
+            nd->proxy, &operators, NULL, NULL))
+      {
+        GVariantIter i;
+        GVariant *dict;
+
+        g_variant_iter_init(&i, operators);
+
+        while (!name && g_variant_iter_next (&i, "(&o@a{sv})", NULL, &dict))
+        {
+          const gchar *s;
+
+          if (g_variant_lookup(dict, "MobileCountryCode", "&s", &s) &&
+              mcc == g_ascii_strtoll(s, NULL, 10) &&
+              g_variant_lookup(dict, "MobileNetworkCode", "&s", &s) &&
+              mnc == g_ascii_strtoll(s, NULL, 10) &&
+              g_variant_lookup(dict, "Name", "&s", &s))
+          {
+            name = g_strdup(s);
+          }
+        }
+
+        g_variant_unref(operators);
+      }
+    }
   }
 
-  if (long_name)
-    network_oper_name_type = NETWORK_NITZ_FULL_OPER_NAME;
-  else
-    network_oper_name_type = NETWORK_NITZ_SHORT_OPER_NAME;
-
-  if (!dbus_g_proxy_call(
-        ctx->phone_net_proxy, "get_operator_name", &error,
-        G_TYPE_UCHAR, network_oper_name_type,
-        G_TYPE_UINT, (guint)g_ascii_strtod(network->operator_code, NULL),
-        G_TYPE_UINT, (guint)g_ascii_strtod(network->country_code, NULL),
-        G_TYPE_INVALID,
-        G_TYPE_STRING, &network_display_tag,
-        G_TYPE_INT, error_value,
-        G_TYPE_INVALID))
-  {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
-    goto err_out;
-  }
-
-  if (network_display_tag && *network_display_tag)
+  if (name && *name)
   {
     connui_cell_context_destroy(ctx);
-    return network_display_tag;
+    return name;
   }
 
-  g_free(network_display_tag);
+  g_free(name);
 
-  network_display_tag = NULL;
+  name = _mbpi_get_name(mcc, mnc);
 
-  if (!dbus_g_proxy_call(
-        ctx->phone_net_proxy, "get_operator_name", &error,
-        G_TYPE_UCHAR, NETWORK_HARDCODED_LATIN_OPER_NAME,
-        G_TYPE_UINT, (guint)g_ascii_strtod(network->operator_code, NULL),
-        G_TYPE_UINT, (guint)g_ascii_strtod(network->country_code, NULL),
-        G_TYPE_INVALID,
-        G_TYPE_STRING, &network_display_tag,
-        G_TYPE_INT, error_value,
-        G_TYPE_INVALID))
+  if (name && !*name)
   {
-    CONNUI_ERR("Error with DBUS: %s", error->message);
-    g_clear_error(&error);
-    goto err_out;
-  }
-
-  if (network_display_tag && !*network_display_tag)
-  {
-    g_free(network_display_tag);
-    network_display_tag = NULL;
+    g_free(name);
+    name = NULL;
   }
 
   connui_cell_context_destroy(ctx);
 
-  return network_display_tag;
-
-err_out:
-
-  if (error_value)
-    *error_value = 1;
-
-  connui_cell_context_destroy(ctx);
-
-  return NULL;
+  return name;
 }
 
-guchar
-connui_cell_net_get_network_selection_mode(gint *error_value)
+connui_net_selection_mode
+connui_cell_net_get_network_selection_mode(const char *modem_id,
+                                           GError **error)
 {
-  GError *error = NULL;
-  gint error_val = 1;
-  guchar network_selection_mode = NETWORK_SELECT_MODE_UNKNOWN;
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_net_selection_mode mode = CONNUI_NET_SELECT_MODE_UNKNOWN;
+  connui_cell_context *ctx;
 
-  g_return_val_if_fail(ctx != NULL, NETWORK_SELECT_MODE_UNKNOWN);
+  net_data *nd;
 
-  if (!dbus_g_proxy_call(
-        ctx->phone_net_proxy, "get_network_selection_mode", &error,
-        G_TYPE_INVALID,
-        G_TYPE_UCHAR, &network_selection_mode,
-        G_TYPE_INT, &error_val,
-        G_TYPE_INVALID))
-  {
-    CONNUI_ERR("Error with DBUS %s", error->message);
-    g_clear_error(&error);
-  }
+  g_return_val_if_fail(modem_id != NULL, mode);
 
-  if (error_value)
-    *error_value = error_val;
+  ctx = connui_cell_context_get(error);
+  g_return_val_if_fail(ctx != NULL, mode);
+
+  nd = _net_data_get(modem_id, error);
+
+  if (nd)
+    mode = nd->selection_mode;
 
   connui_cell_context_destroy(ctx);
 
-  return network_selection_mode;
+  return mode;
 }
 
-guchar
-connui_cell_net_get_radio_access_mode(gint *error_value)
+connui_net_radio_access_tech
+connui_cell_net_get_radio_access_mode(const char *modem_id,
+                                      GError **error)
 {
-  GError *error = NULL;
-  gint error_val = 1;
-  guchar selected_rat = NET_GSS_UNKNOWN_SELECTED_RAT;
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_net_radio_access_tech rat = CONNUI_NET_RAT_UNKNOWN;
+  connui_cell_context *ctx;
 
-  g_return_val_if_fail(ctx != NULL, NET_GSS_UNKNOWN_SELECTED_RAT);
+  net_data *nd;
 
-  if (!dbus_g_proxy_call(
-        ctx->phone_net_proxy, "get_selected_radio_access_technology", &error,
-         G_TYPE_INVALID,
-         G_TYPE_UCHAR, &selected_rat,
-         G_TYPE_INT, &error_val,
-         G_TYPE_INVALID))
-  {
-    CONNUI_ERR("Error with DBUS: %s",error->message);
-    g_clear_error(&error);
-    error_val = 1;
-  }
+  g_return_val_if_fail(modem_id != NULL, rat);
 
-  if (error_value)
-    *error_value = error_val;
+  ctx = connui_cell_context_get(error);
+  g_return_val_if_fail(ctx != NULL, rat);
+
+  nd = _net_data_get(modem_id, error);
+
+  if (nd)
+    rat = nd->state.rat_name;
 
   connui_cell_context_destroy(ctx);
 
-  return selected_rat;
+  return rat;
 }
 
 static service_call *
@@ -966,107 +666,6 @@ remove_service_call(connui_cell_context *ctx, guint call_id)
   }
 }
 
-void
-connui_cell_net_cancel_service_call(guint call_id)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-
-  g_return_if_fail(ctx != NULL);
-
-  if (ctx->service_calls && call_id)
-    remove_service_call(ctx, call_id);
-
-  connui_cell_context_destroy(ctx);
-}
-
-static void
-connui_cell_cs_status_change_cb(DBusGProxy *proxy, guchar network_cs_state,
-                                guchar network_cs_type,
-                                guchar network_cs_operation_mode,
-                                connui_cell_context *ctx)
-{
-  gboolean active = FALSE;
-
-  g_return_if_fail(ctx != NULL && ctx->cs_status_cbs != NULL);
-
-  if (network_cs_state == NETWORK_CS_ACTIVE)
-    active = TRUE;
-
-  connui_utils_notify_notify_BOOLEAN(ctx->cs_status_cbs, active);
-}
-
-gboolean
-connui_cell_cs_status_register(cell_cs_status_cb cb, gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-
-  g_return_val_if_fail(ctx != NULL, FALSE);
-
-  if (!ctx->cs_status_cbs)
-  {
-    dbus_g_proxy_connect_signal(ctx->phone_net_proxy,
-                                "cellular_system_state_change",
-                                (GCallback)connui_cell_cs_status_change_cb,
-                                ctx, NULL);
-  }
-
-  ctx->cs_status_cbs =
-      connui_utils_notify_add(ctx->cs_status_cbs, cb, user_data);
-  connui_cell_context_destroy(ctx);
-
-  return TRUE;
-}
-
-void
-connui_cell_cs_status_close(cell_cs_status_cb cb)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-
-  g_return_if_fail(ctx != NULL);
-
-  ctx->cs_status_cbs = connui_utils_notify_remove(ctx->cs_status_cbs, cb);
-
-  if (!ctx->cs_status_cbs)
-  {
-    dbus_g_proxy_disconnect_signal(ctx->phone_net_proxy,
-                                   "cellular_system_state_change",
-                                   (GCallback)connui_cell_cs_status_change_cb,
-                                   ctx);
-  }
-
-  connui_cell_context_destroy(ctx);
-}
-
-gboolean
-connui_cell_net_is_activated(gint *error_value)
-{
-    // XXX: TODO: Does this also want to know if a sim is present or something?
-    // Currently just checking is modem is powered.
-    connui_cell_context *ctx = connui_cell_context_get();
-    GVariant *v;
-    gboolean powered;
-
-    g_return_val_if_fail(ctx != NULL, FALSE);
-    // XXX: is it acceptable is the modem is not valid when we reach this point?
-    g_return_val_if_fail(ctx->ofono_modem != NULL, FALSE);
-
-    OfonoObject* obj = ofono_modem_object(ctx->ofono_modem);
-    v = ofono_object_get_property(obj, "Powered", NULL);
-    if (!v) {
-        CONNUI_ERR("No Powered property?");
-        powered = FALSE;
-    } else {
-        g_variant_get(v, "b", &powered);
-    }
-
-    if (error_value) {
-        *error_value = !powered;
-    }
-
-    connui_cell_context_destroy(ctx);
-    return powered;
-}
-
 static guint
 get_next_call_id(connui_cell_context *ctx)
 {
@@ -1094,7 +693,7 @@ static void
 connui_cell_net_divert_activate_reply(DBusGProxy *proxy, GError *error,
                                       const void *user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   guint call_id = GPOINTER_TO_UINT(user_data);
   service_call *service_call;
 
@@ -1156,7 +755,7 @@ static void
 connui_cell_net_divert_cancel_reply(DBusGProxy *proxy, GError *error,
                                     const void *user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   guint call_id = GPOINTER_TO_UINT(user_data);
   service_call *service_call;
 
@@ -1192,7 +791,7 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
                                             service_call_cb_f cb,
                                             gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   DBusGProxy *proxy;
   DBusGProxyCall *proxy_call;
   guint call_id;
@@ -1242,93 +841,6 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
   return call_id;
 }
 
-typedef void (*divert_check_reply_cb_f)(DBusGProxy *, gboolean, gchar *, GError *, gpointer);
-
-static void
-divert_check_reply_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
-{
-#if 0
-  sim_status_data *data = user_data;
-  gchar *phone_number;
-  gboolean enabled;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call, &error,
-                        G_TYPE_BOOLEAN, &enabled,
-                        G_TYPE_STRING, &phone_number,
-                        G_TYPE_INVALID);
-  ((divert_check_reply_cb_f)(data->cb))(proxy, enabled, phone_number, error,
-                                        data->data);
-
-  g_free(phone_number);
-#endif
-}
-
-static void
-connui_cell_net_divert_check_reply(DBusGProxy *proxy, gboolean enabled,
-                                   const gchar *phone_number, GError *error,
-                                   gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-  guint call_id = GPOINTER_TO_UINT(user_data);
-  service_call *service_call;
-
-  g_return_if_fail(ctx != NULL);
-
-  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
-  {
-    CONNUI_ERR("Unable to get call ID %d", call_id);
-    return;
-  }
-
-  if (error)
-  {
-    CONNUI_ERR("Error in call: %s", error->message);
-
-    if (service_call->cb)
-      service_call->cb(FALSE, 1, NULL, service_call->data);
-  }
-  else
-  {
-    if (phone_number && !*phone_number)
-        phone_number = NULL;
-
-    if (service_call->cb)
-      service_call->cb(enabled, 0, phone_number, service_call->data);
-  }
-
-  remove_service_call(ctx, (guint)call_id);
-  connui_cell_context_destroy(ctx);
-}
-
-/* see https://wiki.maemo.org/Phone_control for values of type */
-guint
-connui_cell_net_get_call_forwarding_enabled(guint type, service_call_cb_f cb,
-                                            gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-  guint call_id;
-  DBusGProxy *proxy;
-  sim_status_data *data;
-  DBusGProxyCall *proxy_call;
-
-  g_return_val_if_fail(ctx != NULL, 0);
-
-  call_id = get_next_call_id(ctx);
-  proxy = ctx->csd_ss_proxy;
-  data = g_slice_new(sim_status_data);
-  data->data = GUINT_TO_POINTER(call_id);
-  data->cb = (GCallback)connui_cell_net_divert_check_reply;
-
-  proxy_call = dbus_g_proxy_begin_call(proxy, "DivertCheck",
-                                       divert_check_reply_cb, data,
-                                       destroy_sim_status_data,
-                                       G_TYPE_UINT, type, G_TYPE_INVALID);
-  add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
-  connui_cell_context_destroy(ctx);
-
-  return call_id;
-}
 
 typedef void (*net_waiting_reply_f)(DBusGProxy *, GError *, gpointer);
 
@@ -1346,7 +858,7 @@ static void
 connui_cell_net_waiting_activate_reply(DBusGProxy *proxy, GError *error,
                                        gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   guint call_id = GPOINTER_TO_UINT(user_data);
   service_call *service_call;
 
@@ -1389,7 +901,7 @@ static void
 connui_cell_net_waiting_cancel_reply(DBusGProxy *proxy, GError *error,
                                      gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   guint call_id = GPOINTER_TO_UINT(user_data);
   service_call *service_call;
 
@@ -1422,7 +934,7 @@ guint
 connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb,
                                          gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   DBusGProxy *proxy = ctx->csd_ss_proxy;
   guint call_id;
   DBusGProxyCall *proxy_call;
@@ -1453,79 +965,6 @@ connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb,
   }
 
   add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
-  connui_cell_context_destroy(ctx);
-
-  return call_id;
-}
-
-typedef void (*net_waiting_check_reply_f)(DBusGProxy *, gboolean, GError *, gpointer);
-
-static void
-waiting_check_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
-{
-  sim_status_data *data = user_data;
-  gboolean enabled;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error, 0x14u, &enabled, 0);
-  ((net_waiting_check_reply_f)data->cb)(proxy, enabled, error, data->data);
-}
-
-static void
-connui_cell_net_waiting_check_reply(DBusGProxy *proxy, gboolean enabled,
-                                    GError *error, gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-  guint call_id = GPOINTER_TO_UINT(user_data);
-  service_call *service_call;
-
-  g_return_if_fail(ctx != NULL);
-
-  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
-  {
-    CONNUI_ERR("Unable to get call ID %d", call_id);
-    return;
-  }
-
-  if ( error )
-  {
-    CONNUI_ERR("Error in call: %s", error->message);
-
-    if (service_call->cb)
-      service_call->cb(FALSE, 1, NULL, service_call->data);
-  }
-  else
-  {
-    if (service_call->cb)
-      service_call->cb(enabled, 0, NULL, service_call->data);
-  }
-
-  remove_service_call(ctx, call_id);
-  connui_cell_context_destroy(ctx);
-}
-
-guint
-connui_cell_net_get_call_waiting_enabled(service_call_cb_f cb,
-                                         gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get();
-  guint call_id;
-  DBusGProxy *proxy;
-  sim_status_data *data;
-  DBusGProxyCall *call;
-
-  g_return_val_if_fail(ctx != NULL, 0);
-
-  call_id = get_next_call_id(ctx);
-  proxy = ctx->csd_ss_proxy;
-
-  data = g_slice_new(sim_status_data);
-  data->data = GUINT_TO_POINTER(call_id);
-  data->cb = (GCallback)connui_cell_net_waiting_check_reply;
-
-  call = dbus_g_proxy_begin_call(proxy, "WaitingCheck", waiting_check_cb, data,
-                                 destroy_sim_status_data, G_TYPE_INVALID);
-  add_service_call(ctx, call_id, proxy, call, cb, user_data);
   connui_cell_context_destroy(ctx);
 
   return call_id;
@@ -1628,7 +1067,7 @@ get_available_network_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_dat
 gboolean
 connui_cell_net_list(cell_net_list_cb cb, gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   gboolean rv = FALSE;
 
   g_return_val_if_fail(ctx != NULL, FALSE);
@@ -1656,7 +1095,7 @@ connui_cell_net_list(cell_net_list_cb cb, gpointer user_data)
 
   return rv;
 }
-
+/*
 static void
 net_select_cb(DBusGProxy *proxy, guchar network_reject_code, gint error_value,
               GError *error, gpointer user_data)
@@ -1690,11 +1129,11 @@ net_select_mode_cb(DBusGProxy *proxy, gint error_value, GError *error,
 {
   net_select_cb(proxy, 0, error_value, error, user_data);
 }
-
+*/
 void
 connui_cell_net_cancel_select(cell_net_select_cb cb)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
@@ -1719,7 +1158,7 @@ connui_cell_net_cancel_select(cell_net_select_cb cb)
 
   connui_cell_context_destroy(ctx);
 }
-
+/*
 typedef void (*network_cb_f)(DBusGProxy *, guchar, gint, GError *, gpointer);
 
 static void
@@ -1752,23 +1191,28 @@ select_network_mode_cb(DBusGProxy *proxy, DBusGProxyCall *call_id,
                         G_TYPE_INVALID);
   ((network_mode_cb_f)data->cb)(proxy, error_value, error, data->data);
 }
-
+*/
 gboolean
 connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
                        gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   gboolean rv = FALSE;
-  sim_status_data *data;
+  //sim_status_data *data;
+  //net_data *nd;
 
   g_return_val_if_fail(ctx != NULL, FALSE);
+
+  //nd = _net_data_get(modem_id, NULL);
+
+  g_assert(0);
 
   if (ctx->select_network_call)
     connui_cell_net_cancel_select(NULL);
 
   if (network && !ctx->select_network_call)
   {
-    data = g_slice_new(sim_status_data);
+/*    data = g_slice_new(sim_status_data);
 
     ctx->network.operator_code = network->operator_code;
     ctx->network.country_code = network->country_code;
@@ -1781,11 +1225,11 @@ connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
           G_TYPE_UCHAR, NETWORK_RAT_NAME_UNKNOWN,
           G_TYPE_STRING, network->operator_code,
           G_TYPE_STRING, network->country_code,
-          G_TYPE_INVALID);
+          G_TYPE_INVALID);*/
   }
   else
   {
-    if (network || ctx->select_network_call)
+/*    if (network || ctx->select_network_call)
     {
       connui_cell_context_destroy(ctx);
       return FALSE;
@@ -1802,7 +1246,7 @@ connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
                                 select_network_mode_cb, data,
                                 destroy_sim_status_data,
                                 G_TYPE_UCHAR, NETWORK_SELECT_MODE_AUTOMATIC,
-                                G_TYPE_INVALID);
+                                G_TYPE_INVALID);*/
   }
 
   if (ctx->select_network_call)
@@ -1810,11 +1254,12 @@ connui_cell_net_select(cell_network *network, cell_net_select_cb cb,
 
   ctx->net_select_cbs =
       connui_utils_notify_add(ctx->net_select_cbs, cb, user_data);
+
   connui_cell_context_destroy(ctx);
 
   return rv;
 }
-
+/*
 static void
 net_reset_cb(DBusGProxy *proxy, guchar network_reject_code, gint error_value,
              GError *error, gpointer user_data)
@@ -1833,12 +1278,12 @@ net_reset_cb(DBusGProxy *proxy, guchar network_reject_code, gint error_value,
   else if (error_value)
     CONNUI_ERR("Error in method return %d\n", error_value);
 }
-
+*/
 void
 connui_cell_reset_network()
 {
-  connui_cell_context *ctx = connui_cell_context_get();
-
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+  g_assert(0);
   g_return_if_fail(ctx != NULL);
 
   if (ctx->select_network_call)
@@ -1846,7 +1291,7 @@ connui_cell_reset_network()
 
   if (!ctx->select_network_call)
   {
-    sim_status_data *data = g_slice_new(sim_status_data);
+/*    sim_status_data *data = g_slice_new(sim_status_data);
 
     data->cb = (GCallback)net_reset_cb;
     data->data = ctx;
@@ -1855,7 +1300,7 @@ connui_cell_reset_network()
           destroy_sim_status_data, 500000,
           G_TYPE_UCHAR, NETWORK_SELECT_MODE_NO_SELECTION,
           G_TYPE_UCHAR, NETWORK_RAT_NAME_UNKNOWN,
-          G_TYPE_STRING, NULL, G_TYPE_STRING, NULL, G_TYPE_INVALID);
+          G_TYPE_STRING, NULL, G_TYPE_STRING, NULL, G_TYPE_INVALID);*/
   }
 
   connui_cell_context_destroy(ctx);
@@ -1864,7 +1309,7 @@ connui_cell_reset_network()
 void
 connui_cell_net_cancel_list(cell_net_list_cb cb)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
@@ -1894,7 +1339,7 @@ const cell_network *
 connui_cell_net_get_current()
 {
   static cell_network current_network;
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_val_if_fail(ctx != NULL, NULL);
 
@@ -1912,7 +1357,7 @@ connui_cell_net_get_current()
 gboolean
 connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   GError *error = NULL;
   gint err_val = 1;
 
@@ -1943,7 +1388,7 @@ connui_cell_order_mc_accounts(GAsyncReadyCallback async_cb,
                               gpointer cb_data)
 {
   TpAccountManager *manager;
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_val_if_fail(ctx != NULL, FALSE);
 
@@ -2010,7 +1455,7 @@ connui_cell_net_get_caller_id_presentation_cb(GObject *object,
     success = FALSE;
   }
 
-  ctx = connui_cell_context_get();
+  ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
@@ -2069,7 +1514,7 @@ connui_cell_net_get_caller_id_update_parameter_cb(GObject *object,
 
   g_strfreev(reconnect_required);
 
-  ctx = connui_cell_context_get();
+  ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
@@ -2151,3 +1596,4 @@ connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id)
     CONNUI_ERR("unable to create dbus message");
 
 }
+

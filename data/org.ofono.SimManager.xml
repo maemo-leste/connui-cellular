@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+  "http://standards.freedesktop.org/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.ofono.SimManager">
+    <method name="GetProperties">
+      <arg name="properties" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetProperty">
+      <arg name="property" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <method name="ChangePin">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="oldpin" type="s" direction="in"/>
+      <arg name="newpin" type="s" direction="in"/>
+    </method>
+    <method name="EnterPin">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="pin" type="s" direction="in"/>
+    </method>
+    <method name="ResetPin">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="puk" type="s" direction="in"/>
+      <arg name="newpin" type="s" direction="in"/>
+    </method>
+    <method name="LockPin">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="pin" type="s" direction="in"/>
+    </method>
+    <method name="UnlockPin">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="pin" type="s" direction="in"/>
+    </method>
+    <method name="GetIcon">
+      <arg name="id" type="y" direction="in"/>
+      <arg name="icon" type="ay" direction="out"/>
+    </method>
+    <signal name="PropertyChanged">
+      <arg name="name" type="s"/>
+      <arg name="value" type="v"/>
+    </signal>
+  </interface>
+</node>

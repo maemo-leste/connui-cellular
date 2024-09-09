@@ -240,9 +240,9 @@ cell_dialog_oma_cp_ui_pin_query_response(GtkDialog *dialog, gint response_id,
 
 static gboolean
 iap_dialog_oma_cp_ui_show(int iap_id, DBusMessage *message,
-                           iap_dialogs_showing_fn showing,
-                           iap_dialogs_done_fn done,
-                           osso_context_t *libosso)
+                          iap_dialogs_showing_fn showing,
+                          iap_dialogs_done_fn done,
+                          osso_context_t *libosso)
 {
   GtkWidget *_dialog;
   DBusError error;
@@ -319,8 +319,9 @@ iap_dialog_oma_cp_ui_show(int iap_id, DBusMessage *message,
       if (pin_failed)
         cell_dialog_oma_cp_ui_notification("pin_failed", &unused);
 
-      _dialog =
-          connui_cell_code_ui_create_dialog(_("conn_ti_iap_select_pin"), 1);
+      /* FIXME - provide modem_id */
+      _dialog = connui_cell_code_ui_create_dialog(
+            NULL, _("conn_ti_iap_select_pin"), 1);
       g_signal_connect(G_OBJECT(_dialog), "response",
                        G_CALLBACK(cell_dialog_oma_cp_ui_pin_query_response),
                        NULL);

@@ -1,9 +1,9 @@
-#include <dbus/dbus-glib.h>
 #include <connui/connui-log.h>
 
 #include "connui-cell-marshal.h"
 #include "context.h"
-#include "ofono-context.h"
+
+#include "modem.h"
 
 __attribute__((visibility("hidden"))) void
 destroy_sim_status_data(gpointer mem_block)
@@ -44,124 +44,123 @@ register_marshallers()
   marshallers_registered = TRUE;
 }
 
+static void
+_add_modem(connui_cell_context *ctx, const gchar *path, GVariant *properties)
+{
+  GError *error = NULL;
+  OrgOfonoModem *modem = org_ofono_modem_proxy_new_for_bus_sync(
+        OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
+        OFONO_SERVICE, path, NULL, &error);
+
+  g_debug("Adding modem %s", path);
+
+  if (modem)
+  {
+    g_hash_table_insert(ctx->modems, g_strdup(path), modem);
+    connui_cell_modem_add(ctx, modem, path, properties);
+  }
+  else
+  {
+    CONNUI_ERR("Error creating OFONO modem %s proxy [%s]", path,
+               error->message);
+    g_error_free(error);
+  }
+}
+
+static void
+_modem_added_cb(OrgOfonoManager *manager, const gchar *path,
+                GVariant *properties, gpointer user_data)
+{
+  _add_modem(user_data, path, properties);
+}
+
+static void
+_modem_removed_cb(OrgOfonoManager *manager, const gchar *path,
+                  gpointer user_data)
+{
+  connui_cell_context *ctx = user_data;
+
+  /* that should call all the _xxx_data_destroy() functions */
+  g_hash_table_remove(ctx->modems, path);
+}
+
+static void
+_destroy_modem(gpointer modem)
+{
+  connui_cell_modem_remove(modem);
+  g_object_unref(modem);
+}
 
 static gboolean
 create_proxies(connui_cell_context *ctx)
 {
   GError *error = NULL;
-  DBusGConnection *bus = dbus_g_bus_get(DBUS_BUS_SYSTEM, &error);
+  GVariant *modems, *properties;
+  gchar *path;
+  GVariantIter iter;
 
-  if (error)
+  ctx->manager = org_ofono_manager_proxy_new_for_bus_sync(
+        G_BUS_TYPE_SYSTEM, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
+        "org.ofono", "/", NULL, &error);
+
+  if (!ctx->manager)
   {
-    CONNUI_ERR("Initializing DBUS failed: %s", error->message);
-    g_clear_error(&error);
+    CONNUI_ERR("Error creating OFONO manager [%s]", error->message);
+    g_error_free(error);
     return FALSE;
   }
 
-  ctx->phone_net_proxy = dbus_g_proxy_new_for_name(bus,
-                                                   "com.nokia.phone.net",
-                                                   "/com/nokia/phone/net",
-                                                   "Phone.Net");
-  ctx->phone_sim_proxy = dbus_g_proxy_new_for_name(bus,
-                                                   "com.nokia.phone.SIM",
-                                                   "/com/nokia/phone/SIM",
-                                                   "Phone.Sim");
-  ctx->phone_sim_security_proxy = dbus_g_proxy_new_for_name(
-                                    bus,
-                                    "com.nokia.phone.SIM",
-                                    "/com/nokia/phone/SIM/security",
-                                    "Phone.Sim.Security");
-  ctx->csd_ss_proxy = dbus_g_proxy_new_for_name(bus,
-                                                "com.nokia.csd",
-                                                "/com/nokia/csd/ss",
-                                                "com.nokia.csd.SS");
-  ctx->csd_call_proxy = dbus_g_proxy_new_for_name(bus,
-                                                  "com.nokia.csd.Call",
-                                                  "/com/nokia/csd/call",
-                                                  "com.nokia.csd.Call");
-  ctx->phone_ssc_proxy = dbus_g_proxy_new_for_name(bus,
-                                                   "com.nokia.phone.SSC",
-                                                   "/com/nokia/phone/SSC",
-                                                   "com.nokia.phone.SSC");
-  dbus_g_connection_unref(bus);
+  ctx->modems = g_hash_table_new_full(
+        g_str_hash, g_str_equal, g_free, _destroy_modem);
+
+  if (!org_ofono_manager_call_get_modems_sync(
+        ctx->manager, &modems, NULL, &error))
+  {
+    CONNUI_ERR("Error getting OFONO modems [%s]", error->message);
+    g_error_free(error);
+    g_hash_table_unref(ctx->modems);
+    g_object_unref(ctx->manager);
+    return FALSE;
+  }
+
+  g_variant_iter_init(&iter, modems);
+
+  while (g_variant_iter_loop(&iter, "(&o@a{sv})", &path, &properties))
+    _add_modem(ctx, path, properties);
+
+  g_variant_unref(modems);
+
+  ctx->modem_added_id = g_signal_connect(ctx->manager, "modem-added",
+                                         G_CALLBACK(_modem_added_cb), ctx);
+  ctx->modem_removed_id = g_signal_connect(ctx->manager, "modem-removed",
+                                           G_CALLBACK(_modem_removed_cb), ctx);
 
   return TRUE;
 }
 
-static void
-add_dbus_signals(connui_cell_context *ctx)
-{
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "registration_status_change",
-                          G_TYPE_UCHAR, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT,
-                          G_TYPE_UINT, G_TYPE_UCHAR, G_TYPE_UCHAR,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "signal_strength_change",
-                          G_TYPE_UCHAR, G_TYPE_UCHAR, G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "network_time_info_change",
-                          G_TYPE_INT, G_TYPE_INT, G_TYPE_INT, G_TYPE_INT,
-                          G_TYPE_INT, G_TYPE_INT, G_TYPE_INT, G_TYPE_INT,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "cellular_system_state_change",
-                          G_TYPE_UCHAR, G_TYPE_UCHAR, G_TYPE_UCHAR,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy,
-                          "radio_access_technology_change", G_TYPE_UCHAR,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "radio_info_change",
-                          G_TYPE_UCHAR, G_TYPE_UCHAR, G_TYPE_UCHAR,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "cell_info_change",
-                          G_TYPE_UCHAR, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT,
-                          G_TYPE_UINT, G_TYPE_UCHAR, G_TYPE_UCHAR,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_net_proxy, "operator_name_change",
-                          G_TYPE_UCHAR);
-  dbus_g_proxy_add_signal(ctx->phone_sim_proxy, "status", G_TYPE_UINT,
-                          G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_sim_security_proxy,
-                          "verify_code_requested", G_TYPE_UINT, G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->csd_call_proxy, "ServerStatus", G_TYPE_BOOLEAN,
-                          G_TYPE_BOOLEAN, G_TYPE_INVALID);
-  dbus_g_proxy_add_signal(ctx->phone_ssc_proxy, "modem_state_changed_ind",
-                          G_TYPE_STRING, G_TYPE_INVALID);
-}
-
 __attribute__((visibility("hidden"))) connui_cell_context *
-connui_cell_context_get()
+connui_cell_context_get(GError **error)
 {
   static connui_cell_context context;
 
   if (context.initialized)
     return &context;
 
-  context.state.cell_id = 0;
-  context.state.network = NULL;
-  context.state.reg_status = 0;
-  context.state.supported_services = 0;
-  context.state.lac = 0;
-  context.state.operator_name_type = 0;
-  context.state.operator_name = NULL;
-  context.state.alternative_operator_name = NULL;
+  g_debug("Init context");
 
   register_marshallers();
-
-  register_ofono(&context);
 
   if (!create_proxies(&context))
     return NULL;
 
-  add_dbus_signals(&context);
+  context.modem_cbs = NULL;
 
-  context.ssc_state_cbs = NULL;
   context.sim_status_cbs = NULL;
   context.sec_code_cbs = NULL;
   context.net_status_cbs = NULL;
   context.net_list_cbs = NULL;
   context.net_select_cbs = NULL;
-  context.cs_status_cbs = NULL;
   context.call_status_cbs = NULL;
-
-  context.starting = TRUE;
 
   context.initialized = TRUE;
 
@@ -171,76 +170,58 @@ connui_cell_context_get()
 __attribute__((visibility("hidden"))) void
 connui_cell_context_destroy(connui_cell_context *ctx)
 {
-    if (ctx->starting) {
-        // XXX: this is not proper, and will need a proper fix, but cpa will
-        // not register callbacks right away, leading to register_ofono and
-        // unregister_ofono being called all the time, which is currently quite
-        // confusing since most of the code is non-blocking and will wait for
-        // various callbacks, but then the cpa code expects it to be blocking.
-        return;
-    }
+  if (ctx->modem_cbs)
     return;
 
   if (ctx->sim_status_cbs || ctx->sec_code_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
-      ctx->cs_status_cbs || ctx->service_calls || ctx->clir_cb ||
-      ctx->ssc_state_cbs)
+      ctx->service_calls || ctx->clir_cb)
   {
     return;
   }
 
-  if (ctx->get_sim_status_call)
-  {
-    dbus_g_proxy_cancel_call(ctx->phone_sim_proxy, ctx->get_sim_status_call);
-    ctx->get_sim_status_call = NULL;
-  }
+  g_debug("Destroy context");
 
-  if (ctx->get_sim_status_call_1)
-  {
-    dbus_g_proxy_cancel_call(ctx->phone_sim_proxy, ctx->get_sim_status_call_1);
-    ctx->get_sim_status_call_1 = NULL;
-  }
-
-  if (ctx->get_registration_status_call)
-  {
-    dbus_g_proxy_cancel_call(ctx->phone_net_proxy,
-                             ctx->get_registration_status_call);
-    ctx->get_registration_status_call = NULL;
-  }
-
-  if (ctx->get_available_network_call)
-  {
-    dbus_g_proxy_cancel_call(ctx->phone_net_proxy,
-                             ctx->get_available_network_call);
-    ctx->get_available_network_call = NULL;
-  }
-
-  if (ctx->select_network_call)
-  {
-    dbus_g_proxy_cancel_call(ctx->phone_net_proxy, ctx->select_network_call);
-    ctx->select_network_call = NULL;
-  }
-
-  if (ctx->state.network)
-  {
-    connui_cell_network_free(ctx->state.network);
-    ctx->state.network = NULL;
-  }
-
-  g_free(ctx->state.operator_name);
-  ctx->state.operator_name = NULL;
-
-  g_free(ctx->state.alternative_operator_name);
-  ctx->state.alternative_operator_name = NULL;
-
-  g_object_unref(G_OBJECT(ctx->phone_net_proxy));
-  g_object_unref(G_OBJECT(ctx->phone_sim_proxy));
-  g_object_unref(G_OBJECT(ctx->phone_sim_security_proxy));
-  g_object_unref(G_OBJECT(ctx->csd_ss_proxy));
-  g_object_unref(G_OBJECT(ctx->csd_call_proxy));
-  g_object_unref(G_OBJECT(ctx->phone_ssc_proxy));
-
-  unregister_ofono(ctx);
+  g_hash_table_unref(ctx->modems);
+  g_object_unref(G_OBJECT(ctx->manager));
 
   ctx->initialized = FALSE;
+}
+
+#define CONNUI_ERROR_(error) OFONO_SERVICE ".Error." error
+
+static const GDBusErrorEntry connui_errors[] = {
+    {CONNUI_ERROR_INVALID_ARGS,          CONNUI_ERROR_("InvalidArguments")},
+    {CONNUI_ERROR_INVALID_FORMAT,        CONNUI_ERROR_("InvalidFormat")},
+    {CONNUI_ERROR_NOT_IMPLEMENTED,       CONNUI_ERROR_("NotImplemented")},
+    {CONNUI_ERROR_FAILED,                CONNUI_ERROR_("Failed")},
+    {CONNUI_ERROR_BUSY,                  CONNUI_ERROR_("InProgress")},
+    {CONNUI_ERROR_NOT_FOUND,             CONNUI_ERROR_("NotFound")},
+    {CONNUI_ERROR_NOT_ACTIVE,            CONNUI_ERROR_("NotActive")},
+    {CONNUI_ERROR_NOT_SUPPORTED,         CONNUI_ERROR_("NotSupported")},
+    {CONNUI_ERROR_NOT_AVAILABLE,         CONNUI_ERROR_("NotAvailable")},
+    {CONNUI_ERROR_TIMED_OUT,             CONNUI_ERROR_("Timedout")},
+    {CONNUI_ERROR_SIM_NOT_READY,         CONNUI_ERROR_("SimNotReady")},
+    {CONNUI_ERROR_IN_USE,                CONNUI_ERROR_("InUse")},
+    {CONNUI_ERROR_NOT_ATTACHED,          CONNUI_ERROR_("NotAttached")},
+    {CONNUI_ERROR_ATTACH_IN_PROGRESS,    CONNUI_ERROR_("AttachInProgress")},
+    {CONNUI_ERROR_NOT_REGISTERED,        CONNUI_ERROR_("NotRegistered")},
+    {CONNUI_ERROR_CANCELED,              CONNUI_ERROR_("Canceled")},
+    {CONNUI_ERROR_ACCESS_DENIED,         CONNUI_ERROR_("AccessDenied")},
+    {CONNUI_ERROR_EMERGENCY_ACTIVE,      CONNUI_ERROR_("EmergencyActive")},
+    {CONNUI_ERROR_INCORRECT_PASSWORD,    CONNUI_ERROR_("IncorrectPassword")},
+    {CONNUI_ERROR_NOT_ALLOWED,           CONNUI_ERROR_("NotAllowed")},
+    {CONNUI_ERROR_NOT_RECOGNIZED,        CONNUI_ERROR_("NotRecognized")},
+    {CONNUI_ERROR_NETWORK_TERMINATED,    CONNUI_ERROR_("Terminated")}
+};
+
+G_STATIC_ASSERT(G_N_ELEMENTS(connui_errors) == CONNUI_NUM_ERRORS);
+
+GQuark
+connui_error_quark()
+{
+    static volatile gsize connui_error_quark_value = 0;
+    g_dbus_error_register_error_domain("connui-error-quark",
+        &connui_error_quark_value, connui_errors, G_N_ELEMENTS(connui_errors));
+    return (GQuark)connui_error_quark_value;
 }

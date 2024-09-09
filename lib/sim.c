@@ -3,192 +3,526 @@
 #include <libosso.h>
 #include <connui/connui-utils.h>
 #include <connui/connui-log.h>
+#include <libxml/xpath.h>
 
 #include <string.h>
 
 #include "context.h"
-#include "ofono-context.h"
 
-/*
- * Sim status list:
- * 1, 0 = sim available, no pin required
- * 7, 0 = sim available, pin not yet entered
- *
- * Presumably, but have to test:
- * 8 = puk required to be entered (still unrelated to sim lock?)
- */
+#include "connui-cellular-sim.h"
 
-/* TODO: example of getter, rather than property changed handler */
-void debug_sim(OfonoSimMgr* sim) {
-	CONNUI_ERR("debug_sim");
-	guint i;
-    OfonoObject* obj = ofono_simmgr_object(sim);
+#include "sim.h"
 
-    /* XXX: Shouldn't these keys be freed ? */
-    GPtrArray* keys = ofono_object_get_property_keys(obj);
-	CONNUI_ERR("debug_sim keys len %d", keys->len);
-    for (i=0; i<keys->len; i++) {
-        const char* key = keys->pdata[i];
-        if (1) {
-            /* XXX: shouldn't these gvariants be freed / dereffed? */
-            GVariant* v = ofono_object_get_property(obj, key, NULL);
-            gchar* text = g_variant_print(v, FALSE);
-            CONNUI_ERR("%s: %s\n", key, text);
-            g_free(text);
-        } else {
-            CONNUI_ERR("%s\n", key);
-        }
-    }
-	CONNUI_ERR("debug_sim_done");
+typedef struct _sim_data
+{
+  connui_cell_context *ctx;
+  OrgOfonoSimManager *proxy;
+  gchar *path;
+
+  gboolean present;
+  guint mcc;
+  guint mnc;
+  gchar *imsi;
+  gchar *spn;
+  connui_sim_security_code_type pin_required;
+  gchar *pin_required_s;
+
+  gulong properties_changed_id;
+  guint idle_status_id;
+  guint idle_security_code_id;
+}
+sim_data;
+
+#define DATA "connui_cell_sim_data"
+
+typedef struct _code_query_callback_data
+{
+  cell_sec_code_query_cb_callback cb;
+  gpointer user_data;
+} code_query_callback_data;
+
+static connui_sim_status _get_status(sim_data *sd);
+static void verify_required_pin(sim_data *sd);
+
+static sim_data *
+_sim_data_get(const char *path, GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  OrgOfonoModem *modem;
+
+  g_return_val_if_fail(path != NULL, NULL);
+
+  modem = g_hash_table_lookup(ctx->modems, path);
+
+  if (!modem)
+  {
+    CONNUI_ERR("Invalid modem path %s", path);
+    g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_FOUND,
+                "No such modem [%s]", path);
+    return NULL;
+  }
+
+  return g_object_get_data(G_OBJECT(modem), DATA);
 }
 
-void present_changed(OfonoSimMgr* sender, void* arg) {
-    guint present_status;
+static void
+_sim_data_destroy(gpointer data)
+{
+  sim_data *sd = data;
+  connui_sim_status status = CONNUI_SIM_STATUS_UNKNOWN;
 
-    CONNUI_ERR("** present changed");
+  g_debug("Removing ofono sim manager for %s", sd->path);
 
-    connui_cell_context *ctx = arg;
-    // XXX: free obj? deref obj? nothing?
-    OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+  g_free(sd->imsi);
+  g_free(sd->spn);
+  g_free(sd->pin_required_s);
 
-    // XXX: deref variant?
-    GVariant* v = ofono_object_get_property(obj, "Present", NULL);
-    gboolean present;
-    g_variant_get(v, "b", &present);
-    //g_variant_unref(v);
+  if (sd->idle_status_id)
+    g_source_remove(sd->idle_status_id);
 
-    CONNUI_ERR("** present: %d", present);
+  if (sd->idle_security_code_id)
+    g_source_remove(sd->idle_security_code_id);
 
+  g_signal_handler_disconnect(sd->proxy, sd->properties_changed_id);
+  g_object_unref(sd->proxy);
 
-    if (present) {
-        if (connui_cell_sim_needs_pin(NULL)) {
-            present_status = 7;
-        } else {
-            present_status = 1;
-        }
+  connui_utils_notify_notify(sd->ctx->sim_status_cbs, sd->path, &status, NULL);
+
+  g_free(sd->path);
+  g_free(sd);
+}
+
+static sim_data *
+_sim_data_create(OrgOfonoSimManager *proxy, const gchar *path,
+                 connui_cell_context *ctx)
+{
+  sim_data *sd = g_new0(sim_data, 1);
+  OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
+
+  g_assert(modem);
+
+  g_object_set_data_full(G_OBJECT(modem), DATA, sd, _sim_data_destroy);
+
+  sd->path = g_strdup(path);
+  sd->proxy = proxy;
+  sd->ctx = ctx;
+  sd->pin_required = CONNUI_SIM_SECURITY_CODE_UNKNOWN;
+
+  return sd;
+}
+
+static gboolean
+_idle_notify_status(gpointer user_data)
+{
+  sim_data *sd = user_data;
+  guint status = _get_status(sd);
+
+  sd->idle_status_id = 0;
+
+  connui_utils_notify_notify(sd->ctx->sim_status_cbs, sd->path, &status, NULL);
+
+  return G_SOURCE_REMOVE;
+}
+
+static void
+_notify_status(sim_data *sd)
+{
+  if (sd && !sd->idle_status_id)
+    sd->idle_status_id = g_idle_add(_idle_notify_status, sd);
+}
+
+static void
+_notify_status_all(connui_cell_context *ctx)
+{
+  GHashTableIter iter;
+  gpointer modem;
+
+  g_hash_table_iter_init (&iter, ctx->modems);
+
+  while (g_hash_table_iter_next (&iter, NULL, &modem))
+    _notify_status(g_object_get_data(G_OBJECT(modem), DATA));
+}
+
+static gboolean
+_idle_notify_security_code(gpointer user_data)
+{
+  sim_data *sd = user_data;
+  guint status = _get_status(sd);
+
+  sd->idle_security_code_id = 0;
+
+  if (status == CONNUI_SIM_STATUS_OK_PIN_REQUIRED ||
+      status == CONNUI_SIM_STATUS_OK_PUK_REQUIRED)
+  {
+    verify_required_pin(sd);
+  }
+
+  return G_SOURCE_REMOVE;
+}
+
+static void
+_notify_security_code(sim_data *sd)
+{
+  if (sd && !sd->idle_security_code_id)
+    sd->idle_security_code_id = g_idle_add(_idle_notify_security_code, sd);
+}
+
+static void
+_notify_security_code_all(connui_cell_context *ctx)
+{
+  GHashTableIter iter;
+  gpointer modem;
+
+  g_hash_table_iter_init (&iter, ctx->modems);
+
+  while (g_hash_table_iter_next (&iter, NULL, &modem))
+    _notify_security_code(g_object_get_data(G_OBJECT(modem), DATA));
+}
+
+void
+_get_pin_required(sim_data *sd, GVariant *value)
+{
+  const gchar *pin_required;
+
+  if (!value)
+    return;
+
+  pin_required = g_variant_get_string(value, NULL);
+  g_free(sd->pin_required_s);
+  sd->pin_required_s = g_strdup(pin_required);
+
+  if (!strcmp(pin_required, "none"))
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_NONE;
+  else if (!strcmp(pin_required, "pin"))
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PIN;
+  else if (!strcmp(pin_required, "puk"))
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PUK;
+  else if (!strcmp(pin_required, "pin2"))
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PIN2;
+  else if (!strcmp(pin_required, "puk2"))
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PUK2;
+  else
+    sd->pin_required = CONNUI_SIM_SECURITY_CODE_UNSUPPORTED;
+}
+
+static gboolean
+_parse_property(sim_data *sd, const gchar *name, GVariant *value)
+{
+  gboolean notify = FALSE;
+
+  g_debug("SIM %s parsing property %s, type %s", sd->path, name,
+          g_variant_get_type_string(value));
+
+  if (!strcmp(name, OFONO_SIMMGR_PROPERTY_PRESENT))
+  {
+    sd->present = g_variant_get_boolean(value);
+    notify = TRUE;
+  }
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_MCC))
+    sd->mcc = atoi(g_variant_get_string(value, NULL));
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_MNC))
+    sd->mnc = atoi(g_variant_get_string(value, NULL));
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_IMSI))
+  {
+    g_free(sd->imsi);
+    sd->imsi = g_strdup((g_variant_get_string(value, NULL)));
+  }
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_SPN))
+  {
+    g_free(sd->spn);
+    sd->spn = g_strdup((g_variant_get_string(value, NULL)));
+  }
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_PIN_REQUIRED))
+  {
+    _get_pin_required(sd, value);
+    notify = TRUE;
+  }
+
+  return notify;
+}
+
+static void
+_property_changed_cb(OrgOfonoSimManager *proxy, const gchar *name,
+                     GVariant *value, gpointer user_data)
+{
+  sim_data *sd = user_data;
+  GVariant *v = g_variant_get_variant(value);
+
+  g_debug("Modem %s sim property %s changed", sd->path, name);
+
+  if (_parse_property(sd, name, v))
+  {
+    _notify_status(sd);
+    _notify_security_code(sd);
+  }
+
+  g_variant_unref(v);
+}
+
+__attribute__((visibility("hidden"))) void
+connui_cell_modem_add_simmgr(connui_cell_context *ctx, const char *path)
+{
+  OrgOfonoSimManager *proxy;
+  GError *error = NULL;
+
+  g_debug("Adding ofono sim manager for %s", path);
+
+  proxy = org_ofono_sim_manager_proxy_new_for_bus_sync(
+        OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
+        OFONO_SERVICE, path, NULL, &error);
+
+  if (proxy)
+  {
+    sim_data *sd = _sim_data_create(proxy, path, ctx);
+    GVariant *props;
+
+    if (org_ofono_sim_manager_call_get_properties_sync(proxy, &props, NULL,
+                                                       &error))
+    {
+      GVariantIter i;
+      gchar *name;
+      GVariant *v;
+
+      g_variant_iter_init(&i, props);
+
+      while (g_variant_iter_loop(&i, "{&sv}", &name, &v))
+        _parse_property(sd, name, v);
+
+      g_variant_unref(props);
     }
     else
-        present_status = 0;
-
-    CONNUI_ERR("Sending present notification with %d", present_status);
-    /* TODO: Perhaps figure out all the different statuses of the sim and pass
-     * that here right away -- like is the sim locked or not, etc, Also see
-     * connui_cell_code_ui_sim_status_cb */
-    connui_utils_notify_notify_UINT(ctx->sim_status_cbs, present_status);
-}
-
-void pinrequired_changed(OfonoSimMgr* sender, void* arg) {
-    CONNUI_ERR("**pinrequired changed");
-    connui_cell_context *ctx = arg;
-    debug_sim(ctx->ofono_sim_manager);
-    CONNUI_ERR("**pinrequired changed done");
-
-    /* Send notification of changed status? */
-    // XXX: HACK: for now just call present_changed to send new sim status
-    present_changed(ctx->ofono_sim_manager, ctx);
-}
-
-void set_sim(connui_cell_context *ctx) {
-    CONNUI_ERR("set_sim");
-
-    /* TODO: do we want this here too? maybe we don't need it */
-    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_present_changed_valid_id)) {
-        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_present_changed_valid_id);
-        ctx->ofono_sim_present_changed_valid_id = 0;
-        ctx->ofono_sim_pinrequired_changed_valid_id = 0;
+    {
+      CONNUI_ERR("Unable to get modem [%s] sim manager properties: %s",
+                 path, error->message);
+      g_error_free(error);
     }
 
-    ctx->ofono_sim_present_changed_valid_id = ofono_simmgr_add_present_changed_handler(ctx->ofono_sim_manager,
-            present_changed, ctx);
-    ctx->ofono_sim_pinrequired_changed_valid_id = ofono_simmgr_add_pin_required_changed_handler(ctx->ofono_sim_manager,
-            pinrequired_changed, ctx);
+    sd->properties_changed_id =
+        g_signal_connect(proxy, "property-changed",
+                         G_CALLBACK(_property_changed_cb), sd);
 
-    /* XXX: first manual invoke */
-    present_changed(ctx->ofono_sim_manager, ctx);
-
-    return;
+    _notify_status_all(ctx);
+    _notify_security_code_all(ctx);
+  }
+  else
+  {
+    CONNUI_ERR("Error creating OFONO sim manager proxy for %s [%s]", path,
+               error->message);
+    g_error_free(error);
+  }
 }
 
-void release_sim(connui_cell_context *ctx) {
-    CONNUI_ERR("release_sim");
-
-    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_present_changed_valid_id)) {
-        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_present_changed_valid_id);
-        ctx->ofono_sim_present_changed_valid_id = 0;
-    }
-
-    if ((ctx->ofono_sim_manager) && (ctx->ofono_sim_pinrequired_changed_valid_id)) {
-        ofono_simmgr_remove_handler(ctx->ofono_sim_manager, ctx->ofono_sim_pinrequired_changed_valid_id);
-        ctx->ofono_sim_pinrequired_changed_valid_id = 0;
-    }
-
-    return;
+__attribute__((visibility("hidden"))) void
+connui_cell_modem_remove_simmgr(OrgOfonoModem *modem)
+{
+  g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
 
+static connui_sim_status
+_get_status(sim_data *sd)
+{
+  guint status = CONNUI_SIM_STATUS_NO_SIM;
+
+  if (sd->present)
+  {
+    status = CONNUI_SIM_STATUS_OK;
+
+    switch (sd->pin_required)
+    {
+      case CONNUI_SIM_SECURITY_CODE_UNKNOWN:
+        status = CONNUI_SIM_STATUS_UNKNOWN;
+        break;
+      case CONNUI_SIM_SECURITY_CODE_NONE:
+      case CONNUI_SIM_SECURITY_CODE_PIN2:
+        break;
+      case CONNUI_SIM_SECURITY_CODE_PIN:
+        status = CONNUI_SIM_STATUS_OK_PIN_REQUIRED;
+        break;
+      case CONNUI_SIM_SECURITY_CODE_PUK:
+        status = CONNUI_SIM_STATUS_OK_PUK_REQUIRED;
+        break;
+      case CONNUI_SIM_SECURITY_CODE_PUK2:
+        status = CONNUI_SIM_STATUS_OK_PUK2_REQUIRED;
+        break;
+      case CONNUI_SIM_SECURITY_CODE_UNSUPPORTED:
+        status = CONNUI_SIM_STATE_LOCKED;
+        break;
+    }
+  }
+
+  return status;
+}
+
+connui_sim_status
+connui_cell_sim_get_status(const char *modem_id, GError **error)
+{
+  sim_data *sd = _sim_data_get(modem_id, error);
+
+  g_return_val_if_fail(sd != NULL, CONNUI_SIM_STATUS_UNKNOWN);
+
+  return _get_status(sd);
+}
+
+static GVariant *
+_get_property(sim_data *sd, const char *name, GError **error)
+{
+  GVariant *prop, *v = NULL;
+
+  if (org_ofono_sim_manager_call_get_properties_sync(
+        sd->proxy, &prop, NULL, error))
+  {
+    v = g_variant_lookup_value(prop, name, NULL);
+    g_variant_unref(prop);
+  }
+
+  return v;
+}
+
+static gboolean
+sec_code_query(connui_cell_context *ctx, const char *modem_id,
+               connui_sim_security_code_type code_type,
+               gchar **old_code,
+               gchar **new_code,
+               code_query_callback_data *cbd)
+{
+  g_return_val_if_fail(ctx != NULL && old_code != NULL && cbd != NULL, FALSE);
+
+  connui_utils_notify_notify(
+        ctx->sec_code_cbs, (gpointer)modem_id, &code_type, &old_code, &new_code,
+        &(cbd->cb), &(cbd->user_data), NULL);
+
+  return *old_code != 0;
+}
+
+static void
+sec_code_cb(code_query_callback_data *cbd, const char *modem_id,
+            connui_sim_security_code_type code_type, gboolean ok, GError *error)
+{
+  if (cbd->cb)
+    cbd->cb(modem_id, code_type, ok, cbd->user_data, error);
+}
+
+static gboolean
+verify_code(sim_data *sd, connui_sim_security_code_type code_type,
+            gchar *old_code, gchar *new_code, code_query_callback_data *cbd,
+            GError **error)
+{
+  gboolean ok = FALSE;
+  const gchar *type;
+  GError *local_error = NULL;
+  GVariant *v;
+
+  switch (code_type)
+  {
+    case CONNUI_SIM_SECURITY_CODE_PIN:
+      type = "pin";
+      break;
+    case CONNUI_SIM_SECURITY_CODE_PUK:
+      type = "puk";
+      break;
+    case CONNUI_SIM_SECURITY_CODE_PIN2:
+      type = "pin2";
+      break;
+    case CONNUI_SIM_SECURITY_CODE_PUK2:
+      type = "puk2";
+      break;
+    default:
+      g_assert_not_reached();
+  }
+
+  /* check how pin reset works */
+  if (!new_code)
+  {
+      ok = org_ofono_sim_manager_call_enter_pin_sync(
+            sd->proxy, type, old_code, NULL, &local_error);
+  }
+   else
+  {
+      ok = org_ofono_sim_manager_call_change_pin_sync(
+            sd->proxy, type, old_code, new_code, NULL, &local_error);
+  }
+
+  v = _get_property(sd, OFONO_SIMMGR_PROPERTY_PIN_REQUIRED, NULL);
+  _get_pin_required(sd, v);
+
+  sec_code_cb(cbd, sd->path, code_type, ok, local_error);
+
+  if (local_error)
+  {
+    if (error)
+      *error = g_error_copy(local_error);
+
+    g_error_free(local_error);
+  }
+
+  return ok;
+}
+
+static void
+verify_required_pin(sim_data *sd)
+{
+  code_query_callback_data cbd = {NULL, NULL};
+  gchar *new = NULL;
+  gchar *old = NULL;
+  gboolean code_queried = FALSE;
+  connui_sim_security_code_type type = sd->pin_required;
+
+  g_assert(type != CONNUI_SIM_SECURITY_CODE_UNKNOWN &&
+           type != CONNUI_SIM_SECURITY_CODE_NONE &&
+           type != CONNUI_SIM_SECURITY_CODE_UNSUPPORTED);
+
+  if (type == CONNUI_SIM_SECURITY_CODE_PUK ||
+      type == CONNUI_SIM_SECURITY_CODE_PUK2)
+  {
+    if (sec_code_query(sd->ctx, sd->path, type, &old, &new, &cbd))
+      code_queried = TRUE;
+  }
+
+  if (!code_queried)
+  {
+    if (!sec_code_query(sd->ctx, sd->path, type, &old, NULL, &cbd))
+    {
+      g_free(old);
+      return;
+    }
+    else
+      code_queried = TRUE;
+  }
+
+  if (code_queried)
+    verify_code(sd, type, old, new, &cbd, NULL);
+
+  g_free(old);
+  g_free(new);
+}
 
 void
 connui_cell_sim_status_close(cell_sim_status_cb cb)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+
+  g_debug("Close sim status callback %p", cb);
 
   g_return_if_fail(ctx != NULL);
 
   ctx->sim_status_cbs = connui_utils_notify_remove(ctx->sim_status_cbs, cb);
 
-  if (!ctx->sim_status_cbs) {
-      /* TODO MW: maybe unset any callbacks/signals, but probably not, and then
-       * the if statement can just go*/
-  }
-
   connui_cell_context_destroy(ctx);
-}
-
-/* TODO: this is currently used in lib/security_code.c in a hacky manner, but
- * this code doesn't work anymore, and should go. So lib/security_code.c should
- * be modified to make it work with the newer and non-hacky API. I will do that
- * once I can test it, I don't want to write code that I cannot test, as it'll
- * be guaranteed to be wrong. */
-typedef void (*get_sim_status_cb_f)(DBusGProxy *, guint, gint, GError *,
-                                    connui_cell_context *);
-__attribute__((visibility("hidden"))) void
-get_sim_status_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
-{
-  sim_status_data *data = (sim_status_data *)user_data;
-  gint error_value;
-  guint sim_status;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error,
-                        G_TYPE_UINT, &sim_status,
-                        G_TYPE_INT, &error_value,
-                        G_TYPE_INVALID);
-  ((get_sim_status_cb_f)data->cb)(proxy, sim_status, error_value, error,
-                                  data->data);
-}
-
-static gboolean issue_updates(gpointer user_data) {
-  connui_cell_context *ctx = connui_cell_context_get();
-  present_changed(ctx->ofono_sim_manager, ctx);
-  connui_cell_context_destroy(ctx);
-  return TRUE;
 }
 
 gboolean
 connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 {
-  CONNUI_ERR("connui_cell_sim_status_register");
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
-  connui_cell_context *ctx = connui_cell_context_get();
+  g_debug("Register new sim status callback %p", cb);
 
   g_return_val_if_fail(ctx != NULL, FALSE);
 
   ctx->sim_status_cbs =
       connui_utils_notify_add(ctx->sim_status_cbs, cb, user_data);
 
-  if ((ctx->ofono_sim_manager) && (ofono_simmgr_valid(ctx->ofono_sim_manager))) {
-      /* XXX: this is a hack */
-      issue_updates(NULL);
-  }
+  _notify_status_all(ctx);
 
   connui_cell_context_destroy(ctx);
 
@@ -196,310 +530,487 @@ connui_cell_sim_status_register(cell_sim_status_cb cb, gpointer user_data)
 }
 
 gboolean
-connui_cell_sim_is_network_in_service_provider_info(gint *error_value,
-                                                    guchar *code)
+connui_cell_sim_is_network_in_service_provider_info(guint mnc, guint mcc)
 {
+  xmlDocPtr doc = xmlParseFile(MBPI_DATABASE);
   gboolean rv = FALSE;
-  GArray *provider_info = NULL;
-  GError *error = NULL;
-  connui_cell_context *ctx = connui_cell_context_get();
 
-  g_return_val_if_fail(ctx != NULL, FALSE);
-
-  if (dbus_g_proxy_call(
-        ctx->phone_sim_proxy, "get_service_provider_info", &error,
-        G_TYPE_INVALID,
-        dbus_g_type_get_collection("GArray", G_TYPE_UCHAR), &provider_info,
-        G_TYPE_INT, error_value,
-        G_TYPE_INVALID))
+  if (doc)
   {
-    if (provider_info)
-    {
-      int i;
+    /* Create xpath evaluation context */
+    xmlXPathContextPtr ctx = xmlXPathNewContext(doc);
 
-      for (i = 0; i < provider_info->len; i += 4)
+    if (ctx)
+    {
+      gchar *xpath = g_strdup_printf(
+            "//network-id[@mcc='%03u' and @mnc='%02u']", mcc, mnc);
+      xmlXPathObjectPtr obj = xmlXPathEvalExpression(BAD_CAST xpath, ctx);
+
+      if (obj)
       {
-        if (!memcmp(&provider_info->data[i], code, 3))
-        {
+        if (obj->nodesetval)
           rv = TRUE;
-          break;
-        }
+
+        xmlXPathFreeObject(obj);
       }
 
-      g_array_free(provider_info, TRUE);
+      g_free(xpath);
+      xmlXPathFreeContext(ctx);
     }
+    else
+      CONNUI_ERR("Unable to create new XPath context");
 
-    connui_cell_context_destroy(ctx);
+    xmlFreeDoc(doc);
   }
   else
-  {
-    CONNUI_ERR("Error with DBUS in: %s", error->message);
-    g_clear_error(&error);
-
-    if (error_value )
-      *error_value = 1;
-
-    connui_cell_context_destroy(ctx);
-  }
+    CONNUI_ERR("Unable to parse '" MBPI_DATABASE "'");
 
   return rv;
 }
 
 gchar *
-connui_cell_sim_get_service_provider(guint *name_type, gint *error_value)
+connui_cell_sim_get_service_provider(const char *modem_id, GError **error)
 {
-    OfonoObject* obj;
-    GVariant *v;
-    gchar *name = NULL;
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  sim_data *sd;
+  gchar *spn = NULL;
 
-    CONNUI_ERR("connui_cell_sim_get_service_provider");
+  g_return_val_if_fail(ctx != NULL, NULL);
 
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
+  sd = _sim_data_get(modem_id, error);
 
-    // XXX: free obj? deref obj? nothing?
-    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-    v = ofono_object_get_property(obj, "ServiceProviderName", NULL);
+  if (sd && sd->spn)
+    spn = g_strdup(sd->spn);
 
-    if (!v) {
-        // Modem might not be online.
-        CONNUI_ERR("Variant for ServiceProviderName is NULL");
-    } else {
-        g_variant_get(v, "s", &name);
-        //g_variant_unref(v);
+  connui_cell_context_destroy(ctx);
+
+  return spn;
+}
+
+gboolean
+connui_cell_sim_needs_pin(const char *modem_id, GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  gboolean needed = FALSE;
+  sim_data *sd;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (sd)
+  {
+    if (sd->pin_required != CONNUI_SIM_SECURITY_CODE_UNKNOWN)
+      needed = sd->pin_required != CONNUI_SIM_SECURITY_CODE_NONE;
   }
 
-    if (!name)
-        *error_value = 1;
+  connui_cell_context_destroy(ctx);
 
-    connui_cell_context_destroy(ctx);
-
-    return name;
-}
-
-gboolean connui_cell_sim_has_card_identifier() {
-    OfonoObject* obj;
-    GVariant *v;
-
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
-
-    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-    v = ofono_object_get_property(obj, "CardIdentifier", NULL);
-
-    CONNUI_ERR("connui_cell_sim_has_card_identifier got CardIdentifier field");
-
-    if (v) {
-        char* identifier = NULL;
-        g_variant_get(v, "s", &identifier);
-        fprintf(stderr, "identifier: %s\n", identifier);
-        g_free(identifier);
-    }
-
-    if (!v) {
-        return FALSE;
-    } else {
-        return TRUE;
-    }
-}
-
-/* TODO: Returns if a sim present needs a pin
- * We will probably need it as well for puk at some point
- * previously if a pin was required was reflected in the get_sim_status dbus
- * call, but we need to figure it out for eourselves here.
- */
-gboolean
-connui_cell_sim_needs_pin(gboolean *has_error)
-{
-    /* TODO: pinrequired can contain a lot, we need to support more:
-     * https://git.kernel.org/pub/scm/network/ofono/ofono.git/tree/doc/sim-api.txt
-     */
-    OfonoObject* obj;
-    GVariant *v;
-    char* pin_required;
-    gboolean needed = FALSE;
-
-    CONNUI_ERR("connui_cell_sim_needs_pin");
-
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
-
-    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-    v = ofono_object_get_property(obj, "PinRequired", NULL);
-
-    CONNUI_ERR("connui_cell_sim_needs_pin got PinRequired field");
-
-    if (!v) {
-        if (has_error)
-            *has_error = TRUE;
-    } else {
-        g_variant_get(v, "s", &pin_required);
-        fprintf(stderr, "connui_cell_sim_needs_pin: %s\n", pin_required);
-
-        needed = (strcmp(pin_required, "none") != 0);
-        g_free(pin_required);
-
-        if (has_error)
-            *has_error = FALSE;
-    }
-
-    CONNUI_ERR("connui_cell_sim_needs_pin needed: %d", needed);
-
-    return needed;
+  return needed;
 }
 
 gboolean
-connui_cell_sim_is_locked(gboolean *has_error)
+connui_cell_sim_is_locked(const char *modem_id, GError **error)
 {
-    /* XXX: Code ifdef's below should be OK, but I can't test it right now */
-    if (has_error) {
-        *has_error = FALSE;
-    }
-    return FALSE;
-#if 0
-    // TODO: this relies on ctx->ofono_sim_manager being valid, check for that!
-    /* TODO: Port to LockedPins, test with other sim cards.
-     * enter pin and such is in lib/security-code*/
-    OfonoObject* obj;
-    GVariant *v;
-    GVariantIter i;
-    char* locked_pin;
-    gboolean locked = FALSE;
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  sim_data *sd;
+  gboolean locked = FALSE;
 
-    CONNUI_ERR("connui_cell_sim_is_locked");
+  g_return_val_if_fail(ctx != NULL, FALSE);
 
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
+  sd = _sim_data_get(modem_id, error);
 
-    obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-    v = ofono_object_get_property(obj, "LockedPins", NULL);
+  if (sd)
+  {
+    GVariant *v = _get_property(sd, "LockedPins", error);
 
-    if (!v) {
-        if (has_error)
-            *has_error = TRUE;
-    } else {
-        g_variant_iter_init(&i, v);
-        while (g_variant_iter_loop(&i, "s", &locked_pin)) {
-            /* XXX: Assume that any value currently means pin is locked, since the
-             * function has no argument for specific pins.
-             * In the future we can check for specific strings/types */
-            locked = TRUE;
-            /* TODO: maybe need to free locked_pin every time? */
+    if (v)
+    {
+      GHashTable *pins = g_hash_table_new(g_str_hash, g_str_equal);
+      GVariantIter i;
+      char *locked_pin;
+
+      g_variant_iter_init(&i, v);
+
+      g_hash_table_add(pins, "phone");
+      g_hash_table_add(pins, "firstphone");
+      g_hash_table_add(pins, "network");
+      g_hash_table_add(pins, "netsub");
+      g_hash_table_add(pins, "service");
+      g_hash_table_add(pins, "corp");
+      g_hash_table_add(pins, "firstphonepuk");
+      g_hash_table_add(pins, "networkpuk");
+      g_hash_table_add(pins, "netsubpuk");
+      g_hash_table_add(pins, "servicepuk");
+      g_hash_table_add(pins, "corppuk");
+
+      while (g_variant_iter_loop(&i, "s", &locked_pin))
+      {
+        if (g_hash_table_contains(pins, locked_pin))
+        {
+          locked = TRUE;
+          g_free(locked_pin);
+          break;
         }
-        //g_variant_unref(v);
+      }
 
-        if (has_error)
-            *has_error = FALSE;
-    }
-
-    return locked;
-#endif
-}
-
-guint
-connui_cell_sim_get_status()
-{
-    /* XXX: DRY against present_changed */
-    fprintf(stderr, "conn_cell_sim_get_status\n");
-    guint present_status;
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
-
-    OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
-
-    GVariant* v = ofono_object_get_property(obj, "Present", NULL);
-    gboolean present;
-    g_variant_get(v, "b", &present);
-
-    CONNUI_ERR("** present: %d", present);
-
-
-    if (present) {
-        if (connui_cell_sim_needs_pin(NULL)) {
-            present_status = 7;
-        } else {
-            present_status = 1;
-        }
+      g_hash_table_unref(pins);
     }
     else
-        present_status = 0;
+    {
+      g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_FOUND,
+                  "No LockedPins property");
+    }
+  }
 
-    return present_status;
+  connui_cell_context_destroy(ctx);
+
+  return locked;
 }
 
 gboolean
-connui_cell_sim_deactivate_lock(const gchar *pin_code, gint *error_value)
+connui_cell_sim_deactivate_lock(const char *modem_id, const gchar *pin_code,
+                                GError **error)
 {
-    gboolean ok = FALSE;
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  sim_data *sd;
+  gboolean ok = FALSE;
 
-    connui_cell_context *ctx = connui_cell_context_get();
-    g_return_val_if_fail(ctx != NULL, FALSE);
+  g_return_val_if_fail(ctx != NULL, FALSE);
 
-    /* XXX: detect pin type, since function doesn't show it, or just pick "pin"
-     * (and not "pin2") for now? */
-    ok = ofono_simmgr_unlock_pin(ctx->ofono_sim_manager, "pin", pin_code);
+  sd = _sim_data_get(modem_id, error);
 
-    if (!ok && error_value) {
-        *error_value = TRUE;
-    }
+  if (sd)
+  {
+    ok = org_ofono_sim_manager_call_unlock_pin_sync(
+          sd->proxy, sd->pin_required_s, pin_code, NULL, error);
+  }
 
-    connui_cell_context_destroy(ctx);
+  connui_cell_context_destroy(ctx);
 
-    return ok;
+  return ok;
 }
 
 guint
-connui_cell_sim_verify_attempts_left(guint code_type, gint *error_value)
+connui_cell_sim_verify_attempts_left(const char *modem_id,
+                                     connui_sim_security_code_type code_type,
+                                     GError **error)
 {
-    /* TODO: Use `Retries` property for the right code type, see
-     * include/connui-cellular.h for the SIM code types - SIM_SECURITY_CODE_PIN
-     * and other security_code_type ; map to ofono types. */
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  sim_data *sd;
+  guchar attempts_left = 0;
 
-    connui_cell_context *ctx = connui_cell_context_get();
-    guchar attempts_left = 0;
+  g_return_val_if_fail(ctx != NULL, 0);
 
-    g_return_val_if_fail(ctx != NULL, attempts_left);
+  sd = _sim_data_get(modem_id, error);
 
-    if (!ctx->ofono_sim_manager) {
-        *error_value = 1;
-        goto cleanup;
-    }
+  if (sd)
+  {
+    GVariant *v = _get_property(sd, "Retries", error);
 
-    // XXX: free obj? deref obj? nothing?
-    OfonoObject* obj = ofono_simmgr_object(ctx->ofono_sim_manager);
+    if (v)
+    {
+      GVariant *v2;
 
-    GVariant* v = ofono_object_get_property(obj, "Retries", NULL);
-    if (!v) {
-        *error_value = 1;
-        goto cleanup;
-    }
-
-    GVariant *v2;
-
-    switch (code_type) {
-        case SIM_SECURITY_CODE_PIN:
-            v2 = g_variant_lookup_value(v, "pin", G_VARIANT_TYPE_BYTE);
-            break;
-        case SIM_SECURITY_CODE_PUK:
-            v2 = g_variant_lookup_value(v, "puk", G_VARIANT_TYPE_BYTE);
-            break;
-        case SIM_SECURITY_CODE_PIN2:
-            v2 = g_variant_lookup_value(v, "pin2", G_VARIANT_TYPE_BYTE);
-            break;
-        /* TODO: UPIN, UPUK == puk2? */
+      switch (code_type)
+      {
+        case CONNUI_SIM_SECURITY_CODE_PIN:
+          v2 = g_variant_lookup_value(v, "pin", G_VARIANT_TYPE_BYTE);
+          break;
+        case CONNUI_SIM_SECURITY_CODE_PUK:
+          v2 = g_variant_lookup_value(v, "puk", G_VARIANT_TYPE_BYTE);
+          break;
+        case CONNUI_SIM_SECURITY_CODE_PIN2:
+          v2 = g_variant_lookup_value(v, "pin2", G_VARIANT_TYPE_BYTE);
+          break;
+        case CONNUI_SIM_SECURITY_CODE_PUK2:
+          v2 = g_variant_lookup_value(v, "puk2", G_VARIANT_TYPE_BYTE);
+          break;
         default:
-            CONNUI_ERR("Invalid code_type: %d", code_type);
-            *error_value = 1;
-            goto cleanup;
+          g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_INVALID_ARGS,
+                      "Invalid code_type %d", code_type);
+          goto cleanup;
+      }
+
+      g_variant_get(v2, "y", &attempts_left);
+      g_variant_unref(v2);
     }
+    else
+    {
+      g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_FOUND,
+                  "No Retries property");
+    }
+  }
 
-    g_variant_get(v2, "y", &attempts_left);
-    g_variant_unref(v2);
+cleanup:
+  connui_cell_context_destroy(ctx);
 
-    *error_value = 0;
+  return (guint)attempts_left;
+}
 
-    cleanup:
+gboolean
+connui_cell_security_code_register(cell_sec_code_query_cb cb,
+                                   gpointer user_data)
+{
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+
+  g_debug("Register new sim security code callback %p", cb);
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  ctx->sec_code_cbs = connui_utils_notify_add(ctx->sec_code_cbs, cb, user_data);
+
+  _notify_security_code_all(ctx);
+
+  connui_cell_context_destroy(ctx);
+
+  return TRUE;
+}
+
+void
+connui_cell_security_code_close(cell_sec_code_query_cb cb)
+{
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+
+  g_debug("Close sim security code callback %p", cb);
+
+  g_return_if_fail(ctx != NULL);
+
+  ctx->sec_code_cbs = connui_utils_notify_remove(ctx->sec_code_cbs, cb);
+
+  connui_cell_context_destroy(ctx);
+}
+
+connui_sim_security_code_type
+connui_cell_security_code_get_active(const char *modem_id, GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  connui_sim_security_code_type rv = CONNUI_SIM_SECURITY_CODE_UNKNOWN;
+  sim_data *sd;
+
+  g_return_val_if_fail(ctx != NULL, CONNUI_SIM_SECURITY_CODE_UNKNOWN);
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (sd)
+    rv = sd->pin_required;
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+gboolean
+connui_cell_security_code_get_enabled(const char *modem_id, GError **error)
+{
+  return connui_cell_security_code_get_active(modem_id, error) ==
+      CONNUI_SIM_SECURITY_CODE_PIN;
+}
+
+gboolean
+connui_cell_security_code_set_active(const char *modem_id,
+                                     connui_sim_security_code_type code_type,
+                                     GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  code_query_callback_data cbd = {NULL, NULL};
+  gboolean rv = FALSE;
+  gchar *code = NULL;
+  sim_data *sd;
+  GError *local_error = NULL;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  g_return_val_if_fail(ctx->sec_code_cbs != NULL,
+                       (connui_cell_context_destroy(ctx),
+                        g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_ACTIVE,
+                                    "No security callback registered"),
+                        FALSE));
+  g_return_val_if_fail(code_type == CONNUI_SIM_SECURITY_CODE_PIN ||
+                       code_type == CONNUI_SIM_SECURITY_CODE_PIN2,
+                       (connui_cell_context_destroy(ctx),
+                        g_set_error(error, CONNUI_ERROR,
+                                    CONNUI_ERROR_INVALID_ARGS,
+                                    "Invalid PIN type"),
+                        FALSE));
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (!sd)
+  {
     connui_cell_context_destroy(ctx);
+    return FALSE;
+  }
 
-    return (guint)attempts_left;
+  if (sec_code_query(sd->ctx, modem_id, code_type, &code, NULL, &cbd))
+  {
+    rv = org_ofono_sim_manager_call_lock_pin_sync(
+          sd->proxy, code_type == CONNUI_SIM_SECURITY_CODE_PIN ?
+            "pin" : "pin2", code, NULL,
+          &local_error);
+  }
+  else
+  {
+    g_set_error(&local_error, CONNUI_ERROR, CONNUI_ERROR_CANCELED,
+                "PIN entry cancelled");
+  }
+
+  sec_code_cb(&cbd, modem_id, code_type, rv, local_error);
+
+  if (local_error)
+  {
+    if (error)
+      *error = g_error_copy(local_error);
+
+    g_error_free(local_error);
+  }
+
+  g_free(code);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+
+gboolean
+connui_cell_security_code_set_enabled(const char *modem_id, gboolean active,
+                                      GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  code_query_callback_data cbd = {NULL, NULL};
+  gchar *code = NULL;
+  gboolean rv = FALSE;
+  sim_data *sd;
+  GError *local_error = NULL;
+  const connui_sim_security_code_type type = CONNUI_SIM_SECURITY_CODE_PIN;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (!sd)
+  {
+    connui_cell_context_destroy(ctx);
+    return FALSE;
+  }
+
+  if (sec_code_query(ctx, modem_id, type, &code, NULL, &cbd))
+  {
+    if (active)
+    {
+      rv = org_ofono_sim_manager_call_lock_pin_sync(
+            sd->proxy, "pin", code, NULL, &local_error);
+    }
+    else
+    {
+      rv = org_ofono_sim_manager_call_unlock_pin_sync(
+            sd->proxy, "pin", code, NULL, &local_error);
+    }
+  }
+  else
+  {
+    g_set_error(&local_error, CONNUI_ERROR, CONNUI_ERROR_CANCELED,
+                "PIN entry cancelled");
+  }
+
+  sec_code_cb(&cbd, modem_id, type, rv, local_error);
+
+  if (local_error)
+  {
+    if (error)
+      *error = g_error_copy(local_error);
+
+    g_error_free(local_error);
+  }
+
+  g_free(code);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+gboolean
+connui_cell_security_code_change(const char *modem_id,
+                                 connui_sim_security_code_type code_type,
+                                 GError **error)
+{
+  connui_cell_context *ctx = connui_cell_context_get(error);
+  gboolean rv = FALSE;
+  code_query_callback_data cbd = {NULL, NULL};
+  gchar *new = NULL;
+  gchar *old = NULL;
+  GError *local_error = NULL;
+  sim_data *sd;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  g_return_val_if_fail(ctx->sec_code_cbs != NULL,
+                       (connui_cell_context_destroy(ctx),
+                        g_set_error(error, CONNUI_ERROR, CONNUI_ERROR_NOT_ACTIVE,
+                                    "No security callback registered"),
+                        FALSE));
+  g_return_val_if_fail(code_type == CONNUI_SIM_SECURITY_CODE_PIN ||
+                       code_type == CONNUI_SIM_SECURITY_CODE_PIN2,
+                       (connui_cell_context_destroy(ctx),
+                        g_set_error(error, CONNUI_ERROR,
+                                    CONNUI_ERROR_INVALID_ARGS,
+                                    "Invalid PIN type"),
+                        FALSE));
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (!sd)
+  {
+    connui_cell_context_destroy(ctx);
+    return FALSE;
+  }
+
+  if (sec_code_query(ctx, modem_id, code_type, &old, &new, &cbd) && new && *new)
+  {
+    if (connui_cell_security_code_get_enabled(modem_id, &local_error) ||
+        code_type != CONNUI_SIM_SECURITY_CODE_PIN)
+    {
+      rv = verify_code(sd, code_type, old, new, &cbd, &local_error);
+    }
+    else if (org_ofono_sim_manager_call_lock_pin_sync(sd->proxy, "pin", old,
+                                                      NULL, &local_error))
+    {
+      rv = verify_code(sd, CONNUI_SIM_SECURITY_CODE_PIN, old, new,
+                       &cbd, &local_error);
+
+      if (rv)
+      {
+        rv = org_ofono_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
+                                                        new, NULL,
+                                                        &local_error);
+      }
+      else
+      {
+        rv = org_ofono_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
+                                                        old, NULL,
+                                                        &local_error);
+      }
+    }
+  }
+  else
+  {
+    g_set_error(&local_error, CONNUI_ERROR, CONNUI_ERROR_CANCELED,
+                "PIN entry cancelled");
+  }
+
+  sec_code_cb(&cbd, modem_id, code_type, rv, local_error);
+
+  if (local_error)
+  {
+    if (error)
+      *error = g_error_copy(local_error);
+
+    g_error_free(local_error);
+  }
+
+  g_free(old);
+  g_free(new);
+  connui_cell_context_destroy(ctx);
+
+  return rv;
 }

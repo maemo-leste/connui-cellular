@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+  "http://standards.freedesktop.org/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.ofono.VoiceCallManager">
+    <method name="GetProperties">
+      <arg name="properties" type="a{sv}" direction="out"/>
+    </method>
+    <method name="GetCalls">
+      <arg name="calls" type="a(oa{sv})" direction="out"/>
+    </method>
+    <method name="Dial">
+      <arg name="number" type="s" direction="in"/>
+      <arg name="hide_callerid" type="s" direction="in"/>
+      <arg name="call" type="o" direction="out"/>
+    </method>
+    <method name="DialLast">
+      <arg name="call" type="o" direction="out"/>
+    </method>
+    <method name="DialMemory">
+      <arg name="memory_position" type="s" direction="in"/>
+      <arg name="hide_callerid" type="s" direction="in"/>
+      <arg name="call" type="o" direction="out"/>
+    </method>
+    <method name="Transfer"/>
+    <method name="SwapCalls"/>
+    <method name="ReleaseAndAnswer"/>
+    <method name="ReleaseAndSwap"/>
+    <method name="HoldAndAnswer"/>
+    <method name="HangupAll"/>
+    <method name="PrivateChat">
+      <arg name="call" type="o" direction="in"/>
+      <arg name="calls" type="a(o)" direction="out"/>
+    </method>
+    <method name="CreateMultiparty">
+      <arg name="calls" type="a(o)" direction="out"/>
+    </method>
+    <method name="HangupMultiparty"/>
+    <method name="SendTones">
+      <arg name="tones" type="s" direction="in"/>
+    </method>
+
+    <signal name="CallAdded">
+      <arg name="call" type="o"/>
+      <arg name="properties" type="a{sv}"/>
+    </signal>
+    <signal name="CallRemoved">
+      <arg name="call" type="o"/>
+    </signal>
+    <signal name="PropertyChanged">
+      <arg name="name" type="s"/>
+      <arg name="value" type="v"/>
+    </signal>
+    <signal name="BarringActive">
+      <arg name="type" type="s"/>
+    </signal>
+    <signal name="Forwarded">
+      <arg name="type" type="s"/>
+    </signal>
+
+  </interface>
+</node>

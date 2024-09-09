@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "connui-cellular.h"
+#include "connui-cell-note.h"
 
 #include "net-selection.h"
 #include "data-counter.h"
@@ -27,6 +28,7 @@ struct _cell_settings
 {
   GtkWidget *dialog;
   GtkWidget *pannable_area;
+  GtkWidget *modem_selector;
   GtkWidget *selection_dialog;
   GtkWidget *contact_chooser;
   GtkWidget *datacounter_dialog;
@@ -63,6 +65,7 @@ struct _cell_settings
   int caller_id;
   guint call_forwarding_id;
   guint call_wating_id;
+  gchar *modem_id;
 };
 
 struct caller_id_select_cb_data
@@ -112,14 +115,20 @@ cellular_settings_call_status_cb(int status, gpointer user_data)
     gtk_widget_set_sensitive((*settings)->network_mode, TRUE);
 }
 
+/* FIXME - we shall track SIM status, we don't care that much for modem state */
 static void
-cellular_settings_cs_status_cb(gboolean active, gpointer user_data)
+cellular_settings_modem_status_cb(const char *modem_id,
+                                  const connui_modem_status *status,
+                                  gpointer user_data)
 {
   cell_settings **settings = user_data;
 
   g_return_if_fail(settings != NULL && *settings != NULL);
 
-  if (!active)
+  if (strcmp(modem_id, (*settings)->modem_id))
+    return;
+
+  if (*status < CONNUI_MODEM_STATUS_POWERED)
   {
     (*settings)->cs_status_inactive = TRUE;
 
@@ -131,20 +140,26 @@ cellular_settings_cs_status_cb(gboolean active, gpointer user_data)
 static void
 cellular_settings_destroy(cell_settings **settings)
 {
-  connui_cell_net_cancel_service_call((*settings)->call_forwarding_id);
-  connui_cell_net_cancel_service_call((*settings)->call_wating_id);
+  cell_settings *s = *settings;
 
-  if ((*settings)->idle_id)
-    g_source_remove((*settings)->idle_id);
+  connui_cell_sups_cancel_service_call(s->call_forwarding_id);
+  connui_cell_sups_cancel_service_call((*settings)->call_wating_id);
+
+  if (s->idle_id)
+    g_source_remove(s->idle_id);
 
   connui_cell_call_status_close(cellular_settings_call_status_cb);
-  connui_cell_cs_status_close(cellular_settings_cs_status_cb);
-  g_free((*settings)->divert_phone_number);
-  g_free((*settings)->cid_presentation);
+  connui_cell_modem_status_close(cellular_settings_modem_status_cb);
+  g_free(s->divert_phone_number);
+  g_free(s->cid_presentation);
   connui_cell_code_ui_destroy();
   cellular_net_selection_destroy();
-  gtk_widget_destroy((*settings)->dialog);
-  g_free(*settings);
+
+  if (s->dialog)
+    gtk_widget_destroy(s->dialog);
+
+  g_free(s->modem_id);
+  g_free(s);
   *settings = NULL;
 }
 
@@ -286,11 +301,12 @@ cellular_net_selection_response(GtkDialog *dialog, gint response_id,
 
   if (response_id == GTK_RESPONSE_CANCEL)
   {
-    gint error_value = 0;
-    guchar mode = connui_cell_net_get_network_selection_mode(&error_value);
+    connui_net_selection_mode mode =
+        connui_cell_net_get_network_selection_mode((*settings)->modem_id, NULL);
 
     (*settings)->network_selection_mode_manual =
-        !(mode == NETWORK_SELECT_MODE_AUTOMATIC);
+        mode == CONNUI_NET_SELECT_MODE_UNKNOWN ||
+        mode == CONNUI_NET_SELECT_MODE_MANUAL;
 
     cellular_net_selection_hide();
     cellular_net_selection_reset_network();
@@ -384,6 +400,8 @@ network_mode_create()
   return create_touch_selector(_("conn_va_phone_network_mode_b"),
                                _("conn_va_phone_network_mode_3g"),
                                _("conn_va_phone_network_mode_2g"),
+                               _("conn_va_phone_network_mode_lte"),
+                               _("conn_va_phone_network_mode_nr"),
                                  NULL);
 }
 
@@ -916,7 +934,7 @@ network_pin_changed_cb(cell_settings **settings)
 {
   if (!(*settings)->user_activated)
   {
-    connui_cell_code_ui_change_code(SIM_SECURITY_CODE_PIN);
+    connui_cell_code_ui_change_code(CONNUI_SIM_SECURITY_CODE_PIN);
 
     (*settings)->user_activated = TRUE;
     hildon_entry_set_text(HILDON_ENTRY((*settings)->network_pin), "1234");
@@ -948,6 +966,25 @@ init_sim_options(cell_settings **settings, GtkWidget *parent,
                            G_CALLBACK(network_pin_changed_cb), settings);
 }
 
+GtkWidget *create_modem_selector(GList *modems)
+{
+  GtkWidget *button;
+  HildonTouchSelector *selector;
+  GList *l;
+
+  selector = HILDON_TOUCH_SELECTOR(hildon_touch_selector_new_text());
+  button = hildon_picker_button_new(HILDON_SIZE_FINGER_HEIGHT,
+                                    HILDON_BUTTON_ARRANGEMENT_VERTICAL);
+  hildon_picker_button_set_selector(HILDON_PICKER_BUTTON(button), selector);
+
+  for (l = modems; l; l = l->next)
+    hildon_touch_selector_append_text(selector, /* _("conn_ni_no_cell_network")*/ "MODEM");
+
+  picker_button_set_inactive(button);
+
+  return button;
+}
+
 static osso_return_t
 cellular_settings_show(cell_settings **settings, GtkWindow *parent)
 {
@@ -965,6 +1002,7 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   GtkSizeGroup *size_group;
   GtkWidget *vbox;
   int i;
+  GList *modems, *l;
 
   g_return_val_if_fail(settings != NULL && *settings != NULL, OSSO_ERROR);
 
@@ -978,11 +1016,35 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
     return OSSO_OK;
   }
 
+  /* FIXME - register callback first, to avoid context destruction */
+  modems = connui_cell_modem_get_modems();
+
+  if (!modems)
+    goto no_net;
+
+  /* find first online modem */
+  /* FIXME - is it enough for modem to be only powered? */
+  for (l = modems; l; l = l->next)
+  {
+    if (connui_cell_modem_is_online(l->data, NULL))
+    {
+      (*settings)->modem_id = g_strdup(l->data);
+      break;
+    }
+  }
+
+  if (!l)
+  {
+    g_list_free_full(modems, g_free);
+    goto no_net;
+  }
+
   (*settings)->dialog = gtk_dialog_new_with_buttons(
         _("conn_ti_phone_cpa"), parent,
-        GTK_DIALOG_NO_SEPARATOR|GTK_DIALOG_DESTROY_WITH_PARENT|GTK_DIALOG_MODAL,
-        dgettext("hildon-libs", "wdgt_bd_save"), GTK_RESPONSE_OK,
-        NULL);
+        GTK_DIALOG_NO_SEPARATOR |
+        GTK_DIALOG_DESTROY_WITH_PARENT |
+        GTK_DIALOG_MODAL,
+        dgettext("hildon-libs", "wdgt_bd_save"), GTK_RESPONSE_OK, NULL);
 
   (*settings)->pannable_area = hildon_pannable_area_new();
 
@@ -994,6 +1056,12 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   size_group = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
 
   vbox = gtk_vbox_new(0, 8);
+
+  (*settings)->modem_selector = create_modem_selector(modems);
+  g_list_free_full(modems, g_free);
+
+  gtk_box_pack_start(
+        GTK_BOX(vbox), (*settings)->modem_selector, FALSE, FALSE, 0);
 
   for(i = 0; i < G_N_ELEMENTS(options); i++)
   {
@@ -1027,22 +1095,41 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   g_signal_connect(G_OBJECT((*settings)->dialog), "response",
                    (GCallback)cellular_settings_response, settings);
 
-  if (!connui_cell_code_ui_init(GTK_WINDOW((*settings)->dialog), 0))
+  if (connui_cell_code_ui_init((*settings)->modem_id,
+                                GTK_WINDOW((*settings)->dialog), FALSE))
   {
-    cellular_settings_destroy(settings);
-    return OSSO_ERROR;
+
+    connui_cell_call_status_register(cellular_settings_call_status_cb, settings);
+    connui_cell_modem_status_register(cellular_settings_modem_status_cb,
+                                      settings);
+
+    if ((*settings)->call_divert_to)
+      gtk_widget_hide_all((*settings)->call_divert_to);
+
+    gtk_widget_hide_all((*settings)->call_divert_contact);
+  }
+  else
+  {
+//    cellular_settings_destroy(settings);
+  //  return OSSO_ERROR;
   }
 
-  connui_cell_call_status_register(cellular_settings_call_status_cb, settings);
-  connui_cell_cs_status_register(cellular_settings_cs_status_cb, settings);
   gtk_widget_show_all((*settings)->dialog);
 
-  if ((*settings)->call_divert_to)
-    gtk_widget_hide_all((*settings)->call_divert_to);
-
-  gtk_widget_hide_all((*settings)->call_divert_contact);
-
   return OSSO_OK;
+
+no_net:
+  {
+    GtkWidget *note = connui_cell_note_new_information(
+          parent,
+          connui_cell_code_ui_error_note_type_to_text(
+            (*settings)->modem_id, "no_network"));
+    gtk_dialog_run(GTK_DIALOG(note));
+    gtk_widget_destroy(note);
+    cellular_settings_destroy(settings);
+  }
+
+  return OSSO_ERROR;
 }
 
 static gboolean
@@ -1163,17 +1250,17 @@ cellular_settings_stop_progress_indicator(cell_settings **settings)
 }
 
 static void
-cellular_settings_get_call_forwarding_cb(gboolean enabled, int error_value,
+cellular_settings_get_call_forwarding_cb(gboolean enabled,
                                          const gchar *phone_number,
-                                         gpointer user_data)
+                                         gpointer user_data, GError *error)
 {
   cell_settings **settings = user_data;
   gint active_index;
 
   g_return_if_fail(settings != NULL && *settings != NULL);
 
-  if (error_value)
-    CONNUI_ERR("Error in while fetching call forwarding: %d", error_value);
+  if (error)
+    CONNUI_ERR("Error in while fetching call forwarding: %s", error->message);
 
   if (enabled)
   {
@@ -1184,12 +1271,13 @@ cellular_settings_get_call_forwarding_cb(gboolean enabled, int error_value,
   }
   else
   {
-    if ((*settings)->call_forwarding_type <= 3) /* no answer */
+    if ((*settings)->call_forwarding_type <= CONNUI_SUPS_NO_REPLY)
     {
-      (*settings)->call_forwarding_type++;
+      (*settings)->call_forwarding_type <<= 1;
 
       (*settings)->call_forwarding_id =
-          connui_cell_net_get_call_forwarding_enabled(
+          connui_cell_sups_get_call_forwarding_enabled(
+            (*settings)->modem_id,
             (*settings)->call_forwarding_type,
             cellular_settings_get_call_forwarding_cb, settings);
 
@@ -1217,18 +1305,19 @@ cellular_settings_get_call_forwarding_cb(gboolean enabled, int error_value,
 }
 
 static void
-cellular_settings_get_call_waiting_cb(gboolean enabled, gint error_value,
-                                      const gchar *phone_number,
-                                      gpointer user_data)
+cellular_settings_get_call_waiting_cb(gboolean enabled, gpointer user_data,
+                                      GError *error)
 {
   cell_settings **settings = user_data;
 
   g_return_if_fail(settings != NULL && *settings != NULL);
 
-  (*settings)->call_forwarding_type = 2; /* busy */
+  (*settings)->call_forwarding_type = CONNUI_SUPS_BUSY;
 
-  (*settings)->call_forwarding_id = connui_cell_net_get_call_forwarding_enabled(
-        2, cellular_settings_get_call_forwarding_cb, settings);
+  (*settings)->call_forwarding_id =
+      connui_cell_sups_get_call_forwarding_enabled(
+        (*settings)->modem_id, CONNUI_SUPS_BUSY,
+        cellular_settings_get_call_forwarding_cb, settings);
 
   if ((*settings)->call_forwarding_id)
     (*settings)->svc_call_in_progress++;
@@ -1237,8 +1326,8 @@ cellular_settings_get_call_waiting_cb(gboolean enabled, gint error_value,
 
   cellular_settings_stop_progress_indicator(settings);
 
-  if (error_value)
-    CONNUI_ERR("Error while fetching call waiting: %d", error_value);
+  if (error)
+    CONNUI_ERR("Error while fetching call waiting: %s", error->message);
 
   (*settings)->call_waiting_enabled = enabled;
   hildon_check_button_set_active(HILDON_CHECK_BUTTON((*settings)->call_waiting),
@@ -1255,8 +1344,9 @@ cellular_settings_get_caller_id_cb(gboolean unk, gint error_value,
 
   g_return_if_fail(settings != NULL && *settings != NULL);
 
-  (*settings)->call_wating_id = connui_cell_net_get_call_waiting_enabled(
-        cellular_settings_get_call_waiting_cb, user_data);
+  (*settings)->call_wating_id = connui_cell_sups_get_call_waiting_enabled(
+        (*settings)->modem_id, cellular_settings_get_call_waiting_cb,
+        user_data);
 
   if ((*settings)->call_wating_id)
     (*settings)->svc_call_in_progress++;
@@ -1282,46 +1372,47 @@ cellular_settings_import(gpointer user_data)
 {
   cell_settings **settings = user_data;
   gchar net_select_mode;
-  guchar radio_access_mode;
-  gint active_rat;
+  connui_net_radio_access_tech rat;
   GConfClient *gconf;
   gboolean security_code_enabled;
-  gint error_value = 0;
+  GError *error = NULL;
 
   (*settings)->idle_id = 0;
 
   hildon_gtk_window_set_progress_indicator(
         GTK_WINDOW((*settings)->dialog), TRUE);
 
-  net_select_mode = connui_cell_net_get_network_selection_mode(&error_value);
+  net_select_mode =
+      connui_cell_net_get_network_selection_mode((*settings)->modem_id, &error);
 
-  if (error_value)
-    CONNUI_ERR("Error while fetching network selection mode: %d", error_value);
+  if (error)
+  {
+    CONNUI_ERR("Error while fetching modem %s network selection mode: %s",
+               (*settings)->modem_id, error->message);
+    g_clear_error(&error);
+  }
 
   (*settings)->network_selection_mode_manual =
-      net_select_mode == NETWORK_SELECT_MODE_MANUAL;
+      net_select_mode == CONNUI_NET_SELECT_MODE_MANUAL;
 
   hildon_picker_button_set_active(
         HILDON_PICKER_BUTTON((*settings)->network_select),
         (*settings)->network_selection_mode_manual);
 
-  radio_access_mode = connui_cell_net_get_radio_access_mode(&error_value);
-  (*settings)->radio_access_mode = radio_access_mode;
-  (*settings)->selected_net_mode = radio_access_mode;
+  rat = connui_cell_net_get_radio_access_mode((*settings)->modem_id, &error);
+  (*settings)->radio_access_mode = rat;
+  (*settings)->selected_net_mode = rat;
 
-  if (error_value)
-    CONNUI_ERR("Error while fetching radio access mode: %d", error_value);
+  if (error)
+  {
+    CONNUI_ERR("Error while fetching modem %s radio access mode: %d",
+               (*settings)->modem_id, error->message);
+    g_clear_error(&error);
+  }
 
-  if (radio_access_mode == NET_GSS_GSM_SELECTED_RAT)
-    active_rat = 2;
-  else if(radio_access_mode == NET_GSS_UMTS_SELECTED_RAT)
-    active_rat = 1;
-  else
-    active_rat = 0;
-
+  /* FIXME - properly detect RAT (dual mode etc) */
   hildon_picker_button_set_active(
-        HILDON_PICKER_BUTTON((*settings)->network_mode),
-        active_rat);
+        HILDON_PICKER_BUTTON((*settings)->network_mode), rat);
 
   gconf = gconf_client_get_default();
   if ( gconf )
@@ -1376,12 +1467,17 @@ cellular_settings_import(gpointer user_data)
   else
     CONNUI_ERR("Unable to get GConf client");
 
-  security_code_enabled = connui_cell_security_code_get_enabled(&error_value);
+  security_code_enabled = connui_cell_security_code_get_enabled(
+        (*settings)->modem_id, &error);
 
   (*settings)->security_code_enabled = security_code_enabled;
 
-  if (error_value != 0)
-    CONNUI_ERR("Error while fetching security code enabled: %d", error_value);
+  if (error)
+  {
+    CONNUI_ERR("Error while fetching security code enabled: %s",
+               error->message);
+    g_clear_error(&error);
+  }
 
   hildon_check_button_set_active(
         HILDON_CHECK_BUTTON((*settings)->network_pin_request),

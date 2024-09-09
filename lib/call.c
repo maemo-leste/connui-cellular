@@ -19,7 +19,7 @@ connui_cell_call_status_change_cb(DBusGProxy *proxy, gboolean call,
 void
 connui_cell_call_status_close(cell_call_status_cb cb)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
   g_return_if_fail(ctx != NULL);
 
@@ -27,10 +27,10 @@ connui_cell_call_status_close(cell_call_status_cb cb)
 
   if (!ctx->call_status_cbs)
   {
-    dbus_g_proxy_disconnect_signal(ctx->csd_call_proxy,
+   /* dbus_g_proxy_disconnect_signal(ctx->csd_call_proxy,
                                    "ServerStatus",
                                    (GCallback)connui_cell_call_status_change_cb,
-                                   ctx);
+                                   ctx);*/
   }
 
   connui_cell_context_destroy(ctx);
@@ -95,7 +95,7 @@ get_call_instances_cb(DBusGProxy *proxy, DBusGProxyCall *call, void *user_data)
 gboolean
 connui_cell_call_status_register(cell_call_status_cb cb, gpointer user_data)
 {
-  connui_cell_context *ctx = connui_cell_context_get();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
   sim_status_data *data;
 
   g_return_val_if_fail(ctx != NULL, FALSE);

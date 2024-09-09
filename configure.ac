@@ -55,10 +55,6 @@ PKG_CHECK_MODULES(CONNUI, connui)
 AC_SUBST(CONNUI_CFLAGS)
 AC_SUBST(CONNUI_LIBS)
 
-PKG_CHECK_MODULES(LIBGOFONO, libgofono libglibutil)
-AC_SUBST(LIBGOFONO_CFLAGS)
-AC_SUBST(LIBGOFONO_LIBS)
-
 PKG_CHECK_MODULES(CONBTUI, conbtui)
 AC_SUBST(CONBTUI_CFLAGS)
 AC_SUBST(CONBTUI_LIBS)
@@ -70,6 +66,10 @@ AC_SUBST(CLUI_LIBS)
 PKG_CHECK_MODULES(GMODULE, gmodule-2.0)
 AC_SUBST(GMODULE_CFLAGS)
 AC_SUBST(GMODULE_LIBS)
+
+PKG_CHECK_MODULES(GIOUNIX, gio-unix-2.0)
+AC_SUBST(GIO_CFLAGS)
+AC_SUBST(GIO_LIBS)
 
 PKG_CHECK_MODULES(GCONF, gconf-2.0)
 AC_SUBST(GCONF_CFLAGS)
@@ -95,6 +95,10 @@ PKG_CHECK_MODULES([CPL], [hildon-control-panel])
 AC_SUBST([CPL_CFLAGS])
 AC_SUBST([CPL_LIBS])
 
+PKG_CHECK_MODULES([XML], [libxml-2.0])
+AC_SUBST([XML_CFLAGS])
+AC_SUBST([XML_LIBS])
+
 dnl Localization
 GETTEXT_PACKAGE=osso-connectivity-ui
 AC_SUBST(GETTEXT_PACKAGE)
@@ -118,6 +122,9 @@ AC_SUBST(conndlgslibdir)
 
 iapsettingslibdir="`$PKG_CONFIG --variable=pluginlibdir connui-iapsettings`"
 AC_SUBST(iapsettingslibdir)
+
+MBPI_DATABASE="`$PKG_CONFIG mobile-broadband-provider-info --variable=database`"
+AC_SUBST(MBPI_DATABASE)
 
 AC_ARG_ENABLE(cast-checks,  [  --disable-cast-checks   compile with GLIB cast checks disabled],[cchecks=${enableval}],cchecks=yes)
 if test "x$cchecks" = "xno"; then

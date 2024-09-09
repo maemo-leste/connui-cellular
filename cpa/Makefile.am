@@ -6,8 +6,8 @@ libcellularsettings_la_SOURCES = data-counter.c \
 
 libcellularsettings_la_CFLAGS = \
 		$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CPL_CFLAGS) $(CONNUI_CFLAGS) \
-		$(LIBGOFONO_CFLAGS) \
-		$(ICD2_CFLAGS) $(CONBTUI_GFLAGS) -I$(top_builddir)/include \
+		$(LIBGOFONO_CFLAGS) $(ICD2_CFLAGS) $(CONBTUI_GFLAGS) \
+		-I$(top_builddir)/include -I$(top_builddir)/lib \
 		-DG_LOG_DOMAIN=\"$(PACKAGE)\" -DOSSOLOG_COMPILE=1
 
 libcellularsettings_la_LDFLAGS = -Wl,--as-needed -module -avoid-version

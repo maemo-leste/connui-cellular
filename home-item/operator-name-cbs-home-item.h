@@ -34,23 +34,6 @@ G_BEGIN_DECLS
 #define IS_OPERATOR_NAME_CBS_HOME_ITEM_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), TYPE_OPERATOR_NAME_CBS_HOME_ITEM))
 #define OPERATOR_NAME_CBS_HOME_ITEM_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), TYPE_OPERATOR_NAME_CBS_HOME_ITEM, OperatorNameCBSHomeItemClass))
 
-typedef struct _OperatorNameCBSHomeItem OperatorNameCBSHomeItem;
-typedef struct _OperatorNameCBSHomeItemClass OperatorNameCBSHomeItemClass;
-typedef struct _OperatorNameCBSHomeItemPrivate OperatorNameCBSHomeItemPrivate;
-
-struct _OperatorNameCBSHomeItem
-{
-  HDHomePluginItem hitem;
-  OperatorNameCBSHomeItemPrivate* priv;
-};
-
-struct _OperatorNameCBSHomeItemClass
-{
-  HDHomePluginItemClass parent;
-};
-
-GType operator_name_cbs_home_item_get_type(void);
-
 G_END_DECLS
 
 #endif

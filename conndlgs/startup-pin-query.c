@@ -16,9 +16,11 @@ static gboolean exit_flightmode;
 static gboolean
 initialize_sim_cb(gpointer user_data)
 {
-  if (connui_cell_code_ui_init(NULL, TRUE))
+  const char *modem_id = user_data;
+
+  if (connui_cell_code_ui_init(modem_id, NULL, TRUE))
   {
-    connui_cell_code_ui_is_sim_locked_with_error();
+    connui_cell_code_ui_is_sim_locked_with_error(modem_id);
     connui_cell_code_ui_destroy();
   }
   else
@@ -46,19 +48,24 @@ flightmode_status_cb(dbus_bool_t offline, gpointer user_data)
     exit_flightmode = TRUE;
   }
 
-  g_idle_add(initialize_sim_cb, NULL);
+  g_idle_add(initialize_sim_cb, user_data);
 }
 
 int
 main(int argc, char **argv)
 {
+  char *modem_id = NULL;
+
   setlocale(LC_ALL, "");
   bindtextdomain(GETTEXT_PACKAGE, "/usr/share/locale");
   textdomain(GETTEXT_PACKAGE);
   hildon_gtk_init(&argc, &argv);
   dbus_g_thread_init();
 
-  if (!connui_flightmode_status(flightmode_status_cb, NULL))
+  if (argc > 1)
+    modem_id = argv[1];
+
+  if (!connui_flightmode_status(flightmode_status_cb, modem_id))
     g_warning("Unable to register flightmode status!");
 
   gtk_main();

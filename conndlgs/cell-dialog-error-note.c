@@ -26,11 +26,20 @@
 #define ICD_UI_DBUS_INTERFACE CELLULAR_UI_DBUS_INTERFACE
 #define ICD_UI_DBUS_PATH CELLULAR_UI_DBUS_PATH
 
-static void cell_dialog_error_note_ssc_state(const gchar *state,
-                                             gpointer user_data);
+#define ICD_UI_GCONF_SETTINGS ICD_GCONF_SETTINGS "/ui/"
+
 static void
-cell_dialog_error_note_net_status(const cell_network_state *status,
+cell_dialog_error_note_modem_state(const char *modem_id,
+                                   const connui_modem_status *status,
+                                   gpointer user_data);
+
+static void
+cell_dialog_error_note_net_status(const char *modem_id,
+                                  const cell_network_state *status,
                                   gpointer user_data);
+
+static void
+check_pending_acks();
 
 static GtkWidget *_dialog;
 static GtkWidget *_label;
@@ -46,16 +55,24 @@ static gboolean _is_home;
 
 static network_entry *_network;
 
+static gboolean home_pending_ack = FALSE;
+static gboolean roaming_pending_ack = FALSE;
+
 IAP_DIALOGS_PLUGIN_DEFINE_EXTENDED(error_note, CELLULAR_UI_SHOW_ERROR_NOTE,
 {
   _prev_net_reg_status = -1;
 
+  check_pending_acks();
+
   if (!connui_cell_net_status_register(cell_dialog_error_note_net_status, NULL))
     CONNUI_ERR("Unable to register cellular net status listener!");
-  if (!connui_cell_ssc_state_register(cell_dialog_error_note_ssc_state, NULL))
+
+  if (!connui_cell_modem_status_register(cell_dialog_error_note_modem_state,
+                                         NULL))
+  {
     CONNUI_ERR("Unable to register modem state callback");
-}
-);
+  }
+});
 
 static const struct
 {
@@ -70,6 +87,64 @@ datacounter_msgid[] =
   {"conn_fi_received_sent_gigabyte", "%s GB" },
   {NULL, NULL}
 };
+
+static void
+check_pending_acks()
+{
+  GConfClient *gconf = gconf_client_get_default();
+
+  if (gconf)
+  {
+    if (!gconf_client_get_bool(
+          gconf, ICD_UI_GCONF_SETTINGS "gprs_data_warning_home_acknowledged",
+          NULL))
+    {
+      home_pending_ack = TRUE;
+    }
+
+    if (!gconf_client_get_bool(
+          gconf, ICD_UI_GCONF_SETTINGS "gprs_data_warning_roaming_acknowledged",
+          NULL))
+    {
+      roaming_pending_ack = TRUE;
+    }
+
+    g_object_unref(G_OBJECT(gconf));
+  }
+}
+
+static gboolean
+ack_pending()
+{
+  return home_pending_ack | roaming_pending_ack;
+}
+
+static gboolean
+show_error_note(const gchar *msg)
+{
+  DBusMessage *mcall;
+
+  mcall = connui_dbus_create_method_call("com.nokia.cellular_ui",
+                                         "/com/nokia/cellular_ui",
+                                         "com.nokia.cellular_ui",
+                                         "show_error_note",
+                                         DBUS_TYPE_INVALID);
+  if (mcall)
+  {
+    if (dbus_message_append_args(mcall, DBUS_TYPE_STRING, &msg, NULL))
+      connui_dbus_send_system_mcall(mcall, -1, NULL, NULL, NULL);
+    else
+      CONNUI_ERR("Could not append args to show error note method call");
+
+    dbus_message_unref(mcall);
+  }
+  else
+  {
+    CONNUI_ERR("could not create show error note method call");
+  }
+
+  return FALSE;
+}
 
 /* there is absolutely the same code in data-counter.c, FIXME someday */
 static gchar *
@@ -97,12 +172,14 @@ format_data_counter(float val, int pow)
 }
 
 static void
-cell_dialog_error_note_ssc_state(const gchar *state, gpointer user_data)
+cell_dialog_error_note_modem_state(const char *modem_id,
+                                   const connui_modem_status *status,
+                                   gpointer user_data)
 {
-  if (!g_strcmp0(state, "poweroff"))
+  if (*status == CONNUI_MODEM_STATUS_REMOVED)
   {
     const char *description =
-        connui_cell_code_ui_error_note_type_to_text("modem_poweroff");
+        connui_cell_code_ui_error_note_type_to_text(modem_id, "modem_poweroff");
     GtkWidget *note = hildon_note_new_information(NULL, description);
 
     gtk_dialog_run(GTK_DIALOG(note));
@@ -135,54 +212,61 @@ cell_dialog_error_note_close(gboolean process_pending)
   }
 }
 
-static
-void cell_dialog_error_note_close_no_process_pending()
+static void
+cell_dialog_error_note_close_no_process_pending()
 {
   cell_dialog_error_note_close(FALSE);
 }
 
 static void
-cell_dialog_error_note_net_status(const cell_network_state *status,
+cell_dialog_error_note_net_status(const char *modem_id,
+                                  const cell_network_state *status,
                                   gpointer user_data)
 {
   gint reg_status;
   int net_selection_mode;
   const char *description = NULL;
-  gint32 error_value = 0;
 
   g_return_if_fail(status != NULL);
 
   reg_status = status->reg_status;
 
-  if (reg_status == NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW)
-    description = connui_cell_code_ui_error_note_type_to_text("sim_reg_fail");
+  if (roaming_pending_ack && reg_status == CONNUI_NET_REG_STATUS_ROAMING)
+  {
+    roaming_pending_ack = FALSE;
+    g_idle_add((GSourceFunc)show_error_note, "roaming_notification");
+  }
+  else if (home_pending_ack && reg_status == CONNUI_NET_REG_STATUS_HOME)
+  {
+    home_pending_ack = FALSE;
+    g_idle_add((GSourceFunc)show_error_note, "home_notification");
+  }
+
+  if (reg_status == CONNUI_NET_REG_STATUS_DENIED)
+  {
+    description = connui_cell_code_ui_error_note_type_to_text(modem_id,
+                                                              "sim_reg_fail");
+  }
   else
   {
-    if (reg_status != NETWORK_REG_STATUS_NSPS &&
-        reg_status != NETWORK_REG_STATUS_NOSERV_NOTSEARCHING &&
-        reg_status != NETWORK_REG_STATUS_NSPS_NO_COVERAGE)
+    if (reg_status != CONNUI_NET_REG_STATUS_UNKNOWN)
     {
-      if ((_prev_net_reg_status == NETWORK_REG_STATUS_NSPS ||
-           _prev_net_reg_status == NETWORK_REG_STATUS_NOSERV_NOTSEARCHING ||
-           _prev_net_reg_status == NETWORK_REG_STATUS_NSPS_NO_COVERAGE) &&
-          _dialog)
-      {
+      if (_prev_net_reg_status == CONNUI_NET_REG_STATUS_UNKNOWN && _dialog)
         cell_dialog_error_note_close(FALSE);
-      }
       else
         goto out;
     }
-    else if (_prev_net_reg_status != NETWORK_REG_STATUS_NOSERV_NOTSEARCHING &&
-             _prev_net_reg_status != NETWORK_REG_STATUS_NSPS &&
-             _prev_net_reg_status != NETWORK_REG_STATUS_NSPS_NO_COVERAGE)
+    else
     {
       net_selection_mode =
-          connui_cell_net_get_network_selection_mode(&error_value);
+          connui_cell_net_get_network_selection_mode(modem_id, NULL);
 
-      if (error_value || net_selection_mode == NETWORK_SELECT_MODE_MANUAL)
+      if (net_selection_mode == CONNUI_NET_SELECT_MODE_UNKNOWN ||
+          net_selection_mode == CONNUI_NET_SELECT_MODE_MANUAL)
       {
         description =
-            connui_cell_code_ui_error_note_type_to_text("sim_select_network");
+            connui_cell_code_ui_error_note_type_to_text(modem_id,
+                                                        "sim_select_network");
       }
     }
   }
@@ -204,13 +288,11 @@ cell_dialog_error_note_net_status(const cell_network_state *status,
   if (!description || (description && done_func_dialog_id == -1))
     CONNUI_ERR("Unable to show SIM registration failed dialog");
 
-  if (reg_status == NETWORK_REG_STATUS_NOSERV_SIM_REJECTED_BY_NW)
+  if (reg_status == CONNUI_NET_REG_STATUS_DENIED)
     connui_cell_net_status_close(cell_dialog_error_note_net_status);
 
 out:
   _prev_net_reg_status = reg_status;
-
-  return;
 }
 
 static gboolean
@@ -298,7 +380,7 @@ iap_dialog_error_note_psd_auto_dialog(const char *err_text)
       gtk_dialog_new_with_buttons(
         _("conn_ti_use_device_psd_auto"), NULL,
         GTK_DIALOG_NO_SEPARATOR | GTK_DIALOG_DESTROY_WITH_PARENT |
-                                                               GTK_DIALOG_MODAL,
+        GTK_DIALOG_MODAL,
         NULL);
 
   gtk_dialog_add_button(GTK_DIALOG(_dialog),
@@ -409,7 +491,7 @@ disconnect_button_clicked_cb(GtkButton *button, gpointer user_data)
 }
 
 static void
-iap_dialog_error_note_counters()
+iap_dialog_error_note_counters(const char *modem_id)
 {
   const char *note_text;
   float rx_bytes = 0.0f;
@@ -427,15 +509,15 @@ iap_dialog_error_note_counters()
 
   if (_is_home)
   {
-    note_text =
-        connui_cell_code_ui_error_note_type_to_text("home_notification");
+    note_text = connui_cell_code_ui_error_note_type_to_text(
+          modem_id, "home_notification");
     rx = gconf_client_get_string(_gconf, GPRS_HOME_RX_BYTES, NULL);
     tx = gconf_client_get_string(_gconf, GPRS_HOME_TX_BYTES, NULL);
   }
   else
   {
-    note_text =
-        connui_cell_code_ui_error_note_type_to_text("roaming_notification");
+    note_text = connui_cell_code_ui_error_note_type_to_text(
+          modem_id, "roaming_notification");
     rx = gconf_client_get_string(_gconf, GPRS_ROAM_RX_BYTES, NULL);
     tx = gconf_client_get_string(_gconf, GPRS_ROAM_TX_BYTES, NULL);
   }
@@ -522,7 +604,7 @@ cell_dialog_error_note_disable_warning_cb(GtkButton *button, gpointer user_data)
 }
 
 static GtkWidget*
-iap_dialog_error_note_limit_dialog(const char *note_type)
+iap_dialog_error_note_limit_dialog(const char *modem_id, const char *note_type)
 {
   GtkWidget *button_disable_warning;
   GtkWidget *button_disconnect;
@@ -530,7 +612,7 @@ iap_dialog_error_note_limit_dialog(const char *note_type)
       gtk_dialog_new_with_buttons(
         _("conn_ti_phone_limit_dialog"), NULL,
         GTK_DIALOG_NO_SEPARATOR | GTK_DIALOG_DESTROY_WITH_PARENT |
-                                                               GTK_DIALOG_MODAL,
+        GTK_DIALOG_MODAL,
         NULL);
 
   _label = gtk_label_new("");
@@ -541,7 +623,7 @@ iap_dialog_error_note_limit_dialog(const char *note_type)
   if (!g_strcmp0(note_type, "home_notification"))
     _is_home = TRUE;
 
-  iap_dialog_error_note_counters();
+  iap_dialog_error_note_counters(modem_id);
 
   button_disable_warning = hildon_button_new_with_text(
         HILDON_SIZE_FINGER_HEIGHT,HILDON_BUTTON_ARRANGEMENT_VERTICAL,
@@ -563,17 +645,17 @@ iap_dialog_error_note_limit_dialog(const char *note_type)
     CONNUI_ERR("Unable to query inetstate");
   }
 
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(_dialog)->vbox),
+  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
                      _label, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(_dialog)->vbox),
+  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
                      _sent_label, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(_dialog)->vbox),
+  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
                      _received_label, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(_dialog)->vbox),
+  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
                      button_disable_warning, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(_dialog)->vbox),
+  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
                      button_disconnect, FALSE, FALSE, 0);
-  g_signal_connect(G_OBJECT(_dialog), "response",
+  g_signal_connect(G_OBJECT(dialog), "response",
                    G_CALLBACK(iap_dialog_error_note_limit_dialog_response_cb),
                    NULL);
   cell_dialog_error_set_warning_acknowledged(FALSE);
@@ -614,34 +696,57 @@ static void
 gconf_notify_cb(GConfClient *client, guint cnxn_id, GConfEntry *entry,
                 gpointer user_data)
 {
-  iap_dialog_error_note_counters();
+  /* FIXME - we shall support counters per modem/IMEI/IMSI */
+  iap_dialog_error_note_counters(NULL);
 }
 
 static gboolean
 iap_dialog_error_note_show(int iap_id, DBusMessage *message,
-                                   iap_dialogs_showing_fn showing,
-                                   iap_dialogs_done_fn done,
-                                   osso_context_t *libosso)
+                           iap_dialogs_showing_fn showing,
+                           iap_dialogs_done_fn done,
+                           osso_context_t *libosso)
 {
-  GConfClient *gconf;
-
   const char *err_text;
   DBusError dbus_error;
   GError *error = NULL;
   const char *note_type = NULL;
-
+  const char *modem_id = NULL;
+  DBusMessageIter iter;
+  gboolean has_modem_id = FALSE;
+  gboolean failed;
   dbus_error_init(&dbus_error);
+  dbus_message_iter_init (message, &iter);
 
-  if (!dbus_message_get_args(message, &dbus_error,
-                             DBUS_TYPE_STRING, &note_type,
-                             DBUS_TYPE_INVALID))
+  if (dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_STRING)
+  {
+    dbus_message_iter_next (&iter);
+
+    if (dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_STRING)
+      has_modem_id = TRUE;
+  }
+
+  if (has_modem_id)
+  {
+    failed = !dbus_message_get_args(message, &dbus_error,
+                                    DBUS_TYPE_STRING, &note_type,
+                                    DBUS_TYPE_STRING, &modem_id,
+                                    DBUS_TYPE_INVALID);
+  }
+  else
+  {
+    failed = !dbus_message_get_args(message, &dbus_error,
+                                    DBUS_TYPE_STRING, &note_type,
+                                    DBUS_TYPE_INVALID);
+  }
+
+  if (failed)
   {
     CONNUI_ERR("could not get arguments: %s", dbus_error.message);
     dbus_error_free(&dbus_error);
     return FALSE;
   }
 
-  err_text = connui_cell_code_ui_error_note_type_to_text(note_type);
+  err_text = connui_cell_code_ui_error_note_type_to_text(modem_id, note_type);
 
   if (!err_text)
   {
@@ -652,22 +757,25 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
   if (!g_strcmp0(note_type, "no_network"))
   {
     hildon_banner_show_information(
-          NULL, NULL, connui_cell_code_ui_error_note_type_to_text(note_type));
+          NULL, NULL,
+          connui_cell_code_ui_error_note_type_to_text(modem_id, note_type));
     return TRUE;
   }
 
   done_func_dialog_id = iap_id;
   done_func = done;
-  gconf = gconf_client_get_default();
 
-  if (!gconf)
+  if (!_gconf)
+    _gconf = gconf_client_get_default();
+
+  if (!_gconf)
   {
     CONNUI_ERR("Could not get default gconf client");
     return FALSE;
   }
 
   _gconf_notify = gconf_client_notify_add(
-        gconf, ICD_GCONF_NETWORK_MAPPING_GPRS, gconf_notify_cb, NULL, NULL,
+        _gconf, ICD_GCONF_NETWORK_MAPPING_GPRS, gconf_notify_cb, NULL, NULL,
         &error);
 
   if (error)
@@ -676,7 +784,7 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
     g_clear_error(&error);
   }
 
-  gconf_client_add_dir(gconf, ICD_GCONF_NETWORK_MAPPING_GPRS,
+  gconf_client_add_dir(_gconf, ICD_GCONF_NETWORK_MAPPING_GPRS,
                        GCONF_CLIENT_PRELOAD_ONELEVEL, &error);
   if (error)
   {
@@ -687,9 +795,9 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
   showing();
 
   if ((!g_strcmp0(note_type, "home_notification") &&
-       !gconf_client_get_bool(gconf, GPRS_HOME_NTFY_ENABLE, NULL)) ||
+       !gconf_client_get_bool(_gconf, GPRS_HOME_NTFY_ENABLE, NULL)) ||
       (!g_strcmp0(note_type, "roaming_notification") &&
-       !gconf_client_get_bool(gconf, GPRS_ROAM_NTFY_ENABLE, NULL)))
+       !gconf_client_get_bool(_gconf, GPRS_ROAM_NTFY_ENABLE, NULL)))
   {
     cell_dialog_error_note_close(FALSE);
     return TRUE;
@@ -699,12 +807,12 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
   if (!g_strcmp0(note_type, "home_notification") ||
       !g_strcmp0(note_type, "roaming_notification"))
   {
-    _dialog = iap_dialog_error_note_limit_dialog(note_type);
+    _dialog = iap_dialog_error_note_limit_dialog(modem_id, note_type);
   }
   else if (!g_strcmp0(note_type, "req_autoconn_confirmation_dlg"))
   {
     if (gconf_client_get_bool(
-          gconf,
+          _gconf,
           "/system/osso/connectivity/ui/gprs_auto_connect_asked", NULL) ||
         iap_dialog_error_note_autoconnect_enabled())
     {
