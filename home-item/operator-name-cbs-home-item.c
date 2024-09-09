@@ -63,8 +63,6 @@ static void get_operator_name(OperatorNameCBSHomeItem *item,
 typedef struct
 {
   gchar *operator_name;
-  gchar *service_provider_name;
-  gboolean show_service_provider;
   connui_net_registration_status reg_status;
   connui_net_radio_access_tech rat_name;
 }
@@ -87,7 +85,6 @@ update_widget(OperatorNameCBSHomeItemPrivate *priv)
   GList *modems = connui_cell_modem_get_modems();
   GList *l;
   GString *s = g_string_new(NULL);
-  gchar *display_name;
   int count = 0;
 
   /* support only 2 modems in the status area */
@@ -100,8 +97,6 @@ update_widget(OperatorNameCBSHomeItemPrivate *priv)
     {
       if (!IS_EMPTY(modem->operator_name))
         op = modem->operator_name;
-      else if (!IS_EMPTY(modem->service_provider_name))
-        op = modem->service_provider_name;
     }
 
     if (!op)
@@ -116,10 +111,8 @@ update_widget(OperatorNameCBSHomeItemPrivate *priv)
   }
 
   g_list_free_full(modems, g_free);
-  display_name = g_string_free(s, FALSE);
-
-  gtk_label_set_text(GTK_LABEL(priv->label), display_name);
-  g_free(display_name);
+  gtk_label_set_text(GTK_LABEL(priv->label), s->str);
+  g_string_free(s, TRUE);
 
   gtk_widget_queue_draw(priv->label);
 }
@@ -127,7 +120,6 @@ update_widget(OperatorNameCBSHomeItemPrivate *priv)
 static void
 destroy_modem(home_item_modem *modem)
 {
-  g_free(modem->service_provider_name);
   g_free(modem->operator_name);
   g_free(modem);
 }
@@ -272,33 +264,6 @@ get_operator_name(OperatorNameCBSHomeItem *item, const char *modem_id,
     }
     else
       g_free(name);
-  }
-
-  if (!modem->service_provider_name)
-  {
-    modem->service_provider_name =
-        connui_cell_sim_get_service_provider(modem_id, NULL);
-    update_widget(priv);
-  }
-
-  if (!IS_EMPTY(modem->service_provider_name) &&
-      ((modem->reg_status == CONNUI_NET_REG_STATUS_HOME) ||
-       (connui_cell_sim_is_network_in_service_provider_info(
-          atoi(net->country_code), atoi(net->operator_code)))))
-  {
-    if (modem->operator_name)
-    {
-      if (strcasecmp(modem->operator_name, modem->service_provider_name))
-      {
-        modem->show_service_provider = TRUE;
-        update_widget(priv);
-      }
-    }
-  }
-  else if (modem->service_provider_name)
-  {
-    modem->show_service_provider = TRUE;
-    update_widget(priv);
   }
 }
 
