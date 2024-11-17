@@ -1,5 +1,5 @@
 /*
- * call-settings.h
+ * cellular-settings-modem.h
  *
  * Copyright (C) 2024 Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
  *
@@ -17,18 +17,12 @@
  *
  */
 
-#ifndef __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
-#define __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
+#ifndef CELLULARSETTINGSMODEM_H
+#define CELLULARSETTINGSMODEM_H
 
-#include "ofono.h"
-#include "org.ofono.Modem.h"
-#include "org.ofono.SupplementaryServices.h"
+void _modem_destroy(cellular_settings *cs);
 
-void
-connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
-                                             const char *path);
+GtkWidget *
+_modem_widgets_create(cellular_settings *cs);
 
-void
-connui_cell_modem_remove_supplementary_services(OrgOfonoModem *modem);
-
-#endif /* __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__ */
+#endif // CELLULARSETTINGSMODEM_H

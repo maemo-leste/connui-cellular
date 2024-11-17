@@ -75,20 +75,33 @@ _modem_added_cb(OrgOfonoManager *manager, const gchar *path,
 }
 
 static void
-_modem_removed_cb(OrgOfonoManager *manager, const gchar *path,
-                  gpointer user_data)
-{
-  connui_cell_context *ctx = user_data;
-
-  /* that should call all the _xxx_data_destroy() functions */
-  g_hash_table_remove(ctx->modems, path);
-}
-
-static void
 _destroy_modem(gpointer modem)
 {
   connui_cell_modem_remove(modem);
   g_object_unref(modem);
+}
+
+static void
+_modem_removed_cb(OrgOfonoManager *manager, const gchar *path,
+                  gpointer user_data)
+{
+  connui_cell_context *ctx = user_data;
+  gpointer key;
+  gpointer value;
+
+  /* keep it alive in case callbacks call connui_cell_context_destroy() */
+  g_object_ref(manager);
+
+  /* we can't use g_hash_table_remove() here, as _destroy_modem() may call
+   * connui_cell_context_destroy(), because of the registered callbacks */
+  if (g_hash_table_steal_extended(ctx->modems, path, &key, &value))
+  {
+    /* that should call all the _xxx_data_destroy() functions */
+    g_free(key);
+    _destroy_modem(value);
+  }
+
+  g_object_unref(manager);
 }
 
 static gboolean
@@ -170,18 +183,23 @@ connui_cell_context_get(GError **error)
 __attribute__((visibility("hidden"))) void
 connui_cell_context_destroy(connui_cell_context *ctx)
 {
+  if (!ctx->initialized)
+    return;
+
   if (ctx->modem_cbs)
     return;
 
   if (ctx->sim_status_cbs || ctx->sec_code_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
-      ctx->service_calls || ctx->clir_cb)
+      ctx->service_calls)
   {
     return;
   }
 
   g_debug("Destroy context");
 
+  g_signal_handler_disconnect(G_OBJECT(ctx->manager), ctx->modem_added_id);
+  g_signal_handler_disconnect(G_OBJECT(ctx->manager), ctx->modem_removed_id);
   g_hash_table_unref(ctx->modems);
   g_object_unref(G_OBJECT(ctx->manager));
 

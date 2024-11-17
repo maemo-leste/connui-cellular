@@ -105,12 +105,15 @@ void
 connui_cell_security_code_close(cell_sec_code_query_cb cb);
 
 gboolean
-connui_cell_security_code_get_enabled(const char *modem_id, GError **error);
-
-gboolean
 connui_cell_security_code_change(const char *modem_id,
                                  connui_sim_security_code_type code_type,
                                  GError **error);
+
+gboolean
+connui_cell_security_code_get_enabled(const char *modem_id,
+                                      connui_sim_security_code_type code_type,
+                                      GError **error);
+
 gboolean
 connui_cell_security_code_set_enabled(const char *modem_id,
                                       gboolean active, GError **error);

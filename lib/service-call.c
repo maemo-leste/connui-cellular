@@ -48,26 +48,13 @@ service_call_add(connui_cell_context *ctx, guint id, GCallback cb,
   return scd;
 }
 
-static service_call_data *
-service_call_find(connui_cell_context *ctx, guint id)
-{
-  service_call_data *call =
-      g_hash_table_lookup(ctx->service_calls, GUINT_TO_POINTER(id));
-
-  if (!call)
-    CONNUI_ERR("Unable to find call ID %d", id);
-
-  return call;
-}
-
 __attribute__((visibility("hidden"))) void
 service_call_destroy(service_call_data *scd)
 {
   if (!scd)
     return;
 
-  if (scd->error)
-    g_error_free(scd->error);
+  g_clear_error(&scd->error);
 
   if (scd->cancellable)
     g_object_unref(scd->cancellable);
@@ -79,6 +66,18 @@ service_call_destroy(service_call_data *scd)
   }
 
   g_free(scd);
+}
+
+__attribute__((visibility("hidden"))) service_call_data *
+service_call_find(connui_cell_context *ctx, guint id)
+{
+  service_call_data *call =
+      g_hash_table_lookup(ctx->service_calls, GUINT_TO_POINTER(id));
+
+  if (!call)
+    CONNUI_ERR("Unable to find call ID %d", id);
+
+  return call;
 }
 
 __attribute__((visibility("hidden"))) void

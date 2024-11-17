@@ -221,69 +221,58 @@ connui_cell_modem_get_modems(GError **error)
   return modems;
 }
 
+#define GET(x, type, default, copy) \
+  connui_cell_context *ctx; \
+  modem_data *md; \
+  type x = default; \
+\
+  g_return_val_if_fail(modem_id != NULL, x); \
+  ctx = connui_cell_context_get(error); \
+  g_return_val_if_fail(ctx != NULL, x); \
+\
+  if ((md = _modem_get_data(modem_id, error))) \
+    x = copy(md->x); \
+\
+  connui_cell_context_destroy(ctx); \
+\
+  return x;
+
 gboolean
 connui_cell_modem_is_online(const char *modem_id, GError **error)
 {
-  connui_cell_context *ctx;
-  modem_data *md;
-  gboolean online = FALSE;
-
-  g_return_val_if_fail(modem_id != NULL, online);
-
-  ctx = connui_cell_context_get(error);
-
-  g_return_val_if_fail(ctx != NULL, online);
-
-  if ((md = _modem_get_data(modem_id, error)))
-    online = md->online;
-
-  connui_cell_context_destroy(ctx);
-
-  return online;
+  GET(online, gboolean, FALSE, )
 }
 
 gboolean
 connui_cell_modem_is_powered(const char *modem_id, GError **error)
 {
-  connui_cell_context *ctx = connui_cell_context_get(error);
-  modem_data *md;
-  gboolean powered = FALSE;
-
-  g_return_val_if_fail(modem_id != NULL, powered);
-
-  ctx = connui_cell_context_get(error);
-
-  g_return_val_if_fail(ctx != NULL, powered);
-
-  if ((md = _modem_get_data(modem_id, error)))
-    powered = md->powered;
-
-  connui_cell_context_destroy(ctx);
-
-  return powered;
+  GET(powered, gboolean, FALSE, )
 }
 
 gchar *
 connui_cell_modem_get_model(const char *modem_id, GError **error)
 {
-  connui_cell_context *ctx = connui_cell_context_get(error);
-  modem_data *md;
-  gchar *model = NULL;
-
-  g_return_val_if_fail(modem_id != NULL, model);
-
-  ctx = connui_cell_context_get(error);
-
-  g_return_val_if_fail(ctx != NULL, model);
-
-
-  if ((md = _modem_get_data(modem_id, error)))
-    model = g_strdup(md->model);
-
-  connui_cell_context_destroy(ctx);
-
-  return model;
+  GET(model, gchar *, NULL, g_strdup)
 }
+
+gchar *
+connui_cell_modem_get_serial(const char *modem_id, GError **error)
+{
+  GET(serial, gchar *, NULL, g_strdup)
+}
+
+gchar *
+connui_cell_modem_get_revision(const char *modem_id, GError **error)
+{
+  GET(revision, gchar *, NULL, g_strdup)
+}
+
+gchar *
+connui_cell_modem_get_manufacturer(const char *modem_id, GError **error)
+{
+  GET(manufacturer, gchar *, NULL, g_strdup)
+}
+
 static void
 _parse_interfaces(modem_data *md, GVariant *value)
 {

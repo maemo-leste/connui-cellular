@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), libhildon1-dev, libconnui-dev (>= 2.89.0),
  osso-af-settings, libosso-dev, icd2-dev, icd2-osso-ic-dev,
  libhildondesktop1-dev, osso-af-settings, libcodelockui1-dev,
  hildon-control-panel-dev, libtelepathy-glib-dev, maemo-launcher-dev,
- maemo-system-services-dev, libxml2-dev
+ maemo-system-services-dev, libxml2-dev, libosso-abook-dev
 Standards-Version: 3.7.2
 
 Package: connui-iapsettings-gprs
@@ -20,7 +20,8 @@ Description: Internet Settings UI for GPRS IAPs
 Package: connui-statusbar-cellular
 Architecture: any
 Replaces: osso-connectivity-ui-statusbar
-Depends: ${shlibs:Depends}, ${misc:Depends}, osso-icons-default | osso-icons, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Depends: ${shlibs:Depends}, ${misc:Depends}, osso-icons-default | osso-icons,
+ osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
 Conflicts: osso-connectivity-ui-statusbar
 Description: Cellular Connectivity statusbar plugin
  This package provides the Cellular Connectivity statusbar plugin.
@@ -55,13 +56,16 @@ Description: Cellular UI operator name home plugin
  
 Package:  connui-cellular-settings
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
 Description: Cellular UI control panel applet
  Cellular settings as a control panel applet
 
 Package: connui-conndlgs-cellular
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${launcher:Depends}, connui-conndlgs, matchbox-window-manager, osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${launcher:Depends},
+ connui-conndlgs, matchbox-window-manager,
+ osso-connectivity-ui-l10n-mr | osso-connectivity-ui-l10n-mr0
 Description: Cellular UI Dialogs
  This package provides the dialogs for cellular that are activated via
  Conndlgs daemon.

@@ -1,5 +1,5 @@
 /*
- * call-settings.h
+ * cellular-settings-abook.h
  *
  * Copyright (C) 2024 Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
  *
@@ -17,18 +17,16 @@
  *
  */
 
-#ifndef __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
-#define __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
+#ifndef CELLULARSETTINGSABOOK_H
+#define CELLULARSETTINGSABOOK_H
 
-#include "ofono.h"
-#include "org.ofono.Modem.h"
-#include "org.ofono.SupplementaryServices.h"
-
-void
-connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
-                                             const char *path);
+GtkDialog *
+cellular_abook_show(GtkWindow *parent, osso_context_t *osso);
 
 void
-connui_cell_modem_remove_supplementary_services(OrgOfonoModem *modem);
+cellular_abook_destroy();
 
-#endif /* __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__ */
+char *
+cellular_abook_get_selected_number();
+
+#endif // CELLULARSETTINGSABOOK_H

@@ -23,9 +23,9 @@
 typedef struct _service_call_data
 {
   guint id;
-  gchar *path;
 
   GCallback callback;
+  gpointer data;
   gpointer user_data;
 
   GAsyncReadyCallback async_cb;
@@ -47,6 +47,8 @@ void
 service_call_destroy(service_call_data *scd);
 void
 service_call_remove(connui_cell_context *ctx, guint id);
+service_call_data *
+service_call_find(connui_cell_context *ctx, guint id);
 service_call_data *
 service_call_take(connui_cell_context *ctx, guint id);
 

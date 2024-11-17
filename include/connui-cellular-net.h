@@ -76,7 +76,9 @@ typedef void (*cell_cs_status_cb) (gboolean active, gpointer user_data);
 typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
 typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
 typedef void (*cell_datacounter_cb) (guint64 rx_bytes, guint64 tx_bytes, time_t reset_time, gboolean notification_enabled, const gchar *warning_limit, gpointer user_data);
-typedef void (*cell_clir_cb)(gboolean success, gint error_value, const gchar *presentation, gpointer user_data);
+typedef void (*cell_get_anonymity_cb)(guint anonymity, GError *error, gpointer user_data);
+
+typedef void (*cell_set_cb)(GError *error, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
 cell_network *connui_cell_network_dup(const cell_network *network);
@@ -165,7 +167,7 @@ void connui_cell_net_status_close(cell_network_state_cb cb);
 gchar *connui_cell_net_get_operator_name(cell_network *network, GError **error);
 
 connui_net_selection_mode
-connui_cell_net_get_network_selection_mode(const char *modem_id,
+connui_cell_net_get_network_selection_mode(const gchar *modem_id,
                                            GError **error);
 
 connui_net_radio_access_tech
@@ -173,7 +175,6 @@ connui_cell_net_get_radio_access_mode(const char *modem_id,
                                       GError **error);
 
 guint connui_cell_net_set_call_forwarding_enabled(gboolean enabled, const gchar *phone_number, service_call_cb_f cb, gpointer user_data);
-guint connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb, gpointer user_data);
 
 gboolean connui_cell_net_list(cell_net_list_cb cb, gpointer user_data);
 
@@ -187,8 +188,8 @@ void connui_cell_net_cancel_list(cell_net_list_cb cb);
 const cell_network *connui_cell_net_get_current();
 
 gboolean connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value);
-gboolean connui_cell_net_get_caller_id_presentation(cell_clir_cb clir_cb, gpointer clir_cb_data);
-gboolean connui_cell_net_set_caller_id_presentation(const gchar *presentation, cell_clir_cb cb, gpointer user_data);
+gboolean connui_cell_net_get_caller_id_anonymity(cell_get_anonymity_cb clir_cb, gpointer user_data);
+gboolean connui_cell_net_set_caller_id_anonymity(guint anonymity, cell_set_cb cb, gpointer user_data);
 void connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id);
 
 #endif /* __CONNUI_CELLULAR_NET_H_INCLUDED__ */

@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "context.h"
+#include "service-call.h"
 
 #include "net.h"
 
@@ -539,7 +540,7 @@ connui_cell_net_get_operator_name(cell_network *network, GError **error)
 }
 
 connui_net_selection_mode
-connui_cell_net_get_network_selection_mode(const char *modem_id,
+connui_cell_net_get_network_selection_mode(const gchar *modem_id,
                                            GError **error)
 {
   connui_net_selection_mode mode = CONNUI_NET_SELECT_MODE_UNKNOWN;
@@ -604,66 +605,6 @@ add_service_call(connui_cell_context *ctx, guint call_id, DBusGProxy *proxy,
   g_hash_table_insert(ctx->service_calls, GUINT_TO_POINTER(call_id), call);
 
   return call;
-}
-
-static service_call *
-find_service_call_for_removal(connui_cell_context *ctx, guint call_id,
-                              gboolean reset)
-{
-  service_call *call =
-      g_hash_table_lookup(ctx->service_calls, GUINT_TO_POINTER(call_id));
-
-  if (call)
-  {
-    if (reset)
-    {
-      call->unk = 0;
-      call->proxy = NULL;
-      call->proxy_call = NULL;
-    }
-  }
-  else
-    CONNUI_ERR("Unable to find call ID %d for removal", call_id);
-
-  return call;
-}
-
-static void
-remove_service_call(connui_cell_context *ctx, guint call_id)
-{
-  service_call *call;
-
-  if (!ctx->service_calls)
-  {
-    CONNUI_ERR("Unable to find any service calls for removal");
-    return;
-  }
-
-  call = find_service_call_for_removal(ctx, call_id, FALSE);
-
-  if (call)
-  {
-#if 0
-    if (call->proxy && call->proxy_call)
-      dbus_g_proxy_cancel_call(call->proxy, call->proxy_call);
-#endif
-
-    if (call->unk)
-    {
-      g_source_remove(call->unk);
-      call->unk = 0;
-    }
-
-    g_hash_table_remove(ctx->service_calls, GUINT_TO_POINTER(call_id));
-    g_free(call);
-
-    if (!g_hash_table_size(ctx->service_calls))
-    {
-      g_hash_table_destroy(ctx->service_calls);
-      ctx->service_call_id = 0;
-      ctx->service_calls = NULL;
-    }
-  }
 }
 
 static guint
@@ -836,135 +777,6 @@ connui_cell_net_set_call_forwarding_enabled(gboolean enabled,
 
   add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
 
-  connui_cell_context_destroy(ctx);
-
-  return call_id;
-}
-
-
-typedef void (*net_waiting_reply_f)(DBusGProxy *, GError *, gpointer);
-
-static void
-waiting_activate_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
-{
-  sim_status_data *data = user_data;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
-  ((net_waiting_reply_f)data->cb)(proxy, error, data->data);
-}
-
-static void
-connui_cell_net_waiting_activate_reply(DBusGProxy *proxy, GError *error,
-                                       gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get(NULL);
-  guint call_id = GPOINTER_TO_UINT(user_data);
-  service_call *service_call;
-
-  g_return_if_fail(ctx != NULL);
-
-  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
-  {
-    CONNUI_ERR("Unable to get call ID %d", call_id);
-    return;
-  }
-
-  if (error)
-  {
-    CONNUI_ERR("Error in call: %s", error->message);
-
-    if (service_call->cb)
-      service_call->cb(FALSE, 1, NULL, service_call->data);
-  }
-  else
-  {
-    if (service_call->cb)
-      service_call->cb(TRUE, 0, NULL, service_call->data);
-  }
-
-  remove_service_call(ctx, call_id);
-  connui_cell_context_destroy(ctx);
-}
-
-static void
-waiting_cancel_cb(DBusGProxy *proxy, DBusGProxyCall *call_id, void *user_data)
-{
-  sim_status_data *data = user_data;
-  GError *error = NULL;
-
-  dbus_g_proxy_end_call(proxy, call_id, &error, G_TYPE_INVALID);
-  ((net_waiting_reply_f)data->cb)(proxy, error, data->data);
-}
-
-static void
-connui_cell_net_waiting_cancel_reply(DBusGProxy *proxy, GError *error,
-                                     gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get(NULL);
-  guint call_id = GPOINTER_TO_UINT(user_data);
-  service_call *service_call;
-
-  g_return_if_fail(ctx != NULL);
-
-  if (!(service_call = find_service_call_for_removal(ctx, call_id, TRUE)))
-  {
-    CONNUI_ERR("Unable to get call ID %d", call_id);
-    return;
-  }
-
-  if (error)
-  {
-    CONNUI_ERR("Error in call: %s", error->message);
-
-    if (service_call->cb)
-      service_call->cb(FALSE, 1, NULL, service_call->data);
-  }
-  else
-  {
-    if (service_call->cb)
-      service_call->cb(FALSE, 0, NULL, service_call->data);
-  }
-
-  remove_service_call(ctx, call_id);
-  connui_cell_context_destroy(ctx);
-}
-
-guint
-connui_cell_net_set_call_waiting_enabled(gboolean enabled, service_call_cb_f cb,
-                                         gpointer user_data)
-{
-  connui_cell_context *ctx = connui_cell_context_get(NULL);
-  DBusGProxy *proxy = ctx->csd_ss_proxy;
-  guint call_id;
-  DBusGProxyCall *proxy_call;
-  sim_status_data *data;
-
-  g_return_val_if_fail(ctx != NULL, 0);
-
-  call_id = get_next_call_id(ctx);
-
-  data = g_slice_new(sim_status_data);
-  data->data = GUINT_TO_POINTER(call_id);
-
-  if (enabled)
-  {
-    data->cb = (GCallback)connui_cell_net_waiting_activate_reply;
-    proxy_call = dbus_g_proxy_begin_call(proxy, "WaitingActivate",
-                                         waiting_activate_cb, data,
-                                         destroy_sim_status_data,
-                                         G_TYPE_INVALID);
-  }
-  else
-  {
-    data->cb = (GCallback)connui_cell_net_waiting_cancel_reply;
-    proxy_call = dbus_g_proxy_begin_call(proxy, "WaitingCancel",
-                                         waiting_cancel_cb, data,
-                                         destroy_sim_status_data,
-                                         G_TYPE_INVALID);
-  }
-
-  add_service_call(ctx, call_id, proxy, proxy_call, cb, user_data);
   connui_cell_context_destroy(ctx);
 
   return call_id;
@@ -1382,36 +1194,6 @@ connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value)
 
 }
 
-static gboolean
-connui_cell_order_mc_accounts(GAsyncReadyCallback async_cb,
-                              const gchar *presentation, cell_clir_cb cb,
-                              gpointer cb_data)
-{
-  TpAccountManager *manager;
-  connui_cell_context *ctx = connui_cell_context_get(NULL);
-
-  g_return_val_if_fail(ctx != NULL, FALSE);
-
-  manager = tp_account_manager_dup();
-
-  if (!manager)
-  {
-    CONNUI_ERR("Can't create TpAccountManager");
-    connui_cell_context_destroy(ctx);
-    return FALSE;
-  }
-
-  ctx->clir_cb = cb;
-  ctx->clir_cb_data = cb_data;
-
-  tp_proxy_prepare_async (manager, NULL, async_cb, (gpointer)presentation);
-  g_object_unref (manager);
-
-  connui_cell_context_destroy(ctx);
-
-  return TRUE;
-}
-
 static TpAccount *
 find_ring_account(TpAccountManager *manager)
 {
@@ -1438,137 +1220,144 @@ find_ring_account(TpAccountManager *manager)
 }
 
 static void
-connui_cell_net_get_caller_id_presentation_cb(GObject *object,
-                                              GAsyncResult *res,
-                                              gpointer user_data)
+_cid_get_cb(GObject *object, GAsyncResult *res, gpointer user_data)
 {
-  const gchar *privacy = NULL;
-  connui_cell_context *ctx;
+  guint32 anonymity = 0;
   TpAccountManager *manager = (TpAccountManager *)object;
-  GError *error = NULL;
-  gboolean success = TRUE;
+  service_call_data *scd = user_data;
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
 
-  if (!tp_proxy_prepare_finish(object, res, &error))
+  g_assert(ctx);
+
+  if (tp_proxy_prepare_finish(object, res, &scd->error))
   {
-    CONNUI_ERR("Error preparing TpAccountManager: %s", error->message);
-    g_clear_error(&error);
-    success = FALSE;
+    TpAccount *ring = find_ring_account(manager);
+
+    if (ring)
+    {
+      const GHashTable *parameters = tp_account_get_parameters (ring);
+
+      anonymity = tp_asv_get_uint32(
+            parameters, TP_PROP_CONNECTION_INTERFACE_ANONYMITY_ANONYMITY_MODES,
+            NULL);
+      g_object_unref(ring);
+    }
+  }
+  else
+    CONNUI_ERR("Error preparing TpAccountManager: %s", scd->error->message);
+
+  ((cell_get_anonymity_cb)scd->callback)(anonymity, scd->error, scd->user_data);
+
+  service_call_remove(ctx, scd->id);
+  connui_cell_context_destroy(ctx);
+}
+
+gboolean
+connui_cell_net_get_caller_id_anonymity(cell_get_anonymity_cb cb,
+                                        gpointer user_data)
+{
+  TpAccountManager *manager = tp_account_manager_dup();
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+  gboolean rv = FALSE;
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  if (manager)
+  {
+    gint id = service_call_next_id(ctx);
+    service_call_data *scd;
+
+    scd = service_call_add(ctx, id, (GCallback)cb, user_data);
+    tp_proxy_prepare_async(manager, NULL, _cid_get_cb, scd);
+    g_object_unref(manager);
+    rv = TRUE;
+  }
+  else
+    CONNUI_ERR("Can't create TpAccountManager");
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
+}
+
+static void
+_cid_update_parameter_cb(GObject *object, GAsyncResult *res, gpointer user_data)
+{
+  service_call_data *scd = user_data;
+  TpAccount *account = (TpAccount *)object;
+  GStrv reconnect_required = NULL;
+
+  if (!tp_account_update_parameters_finish(account, res, &reconnect_required,
+                                           &scd->error))
+  {
+    CONNUI_ERR("Error updating TpAccount parameter: %s", scd->error->message);
   }
 
-  ctx = connui_cell_context_get(NULL);
+  g_strfreev(reconnect_required);
 
-  g_return_if_fail(ctx != NULL);
+  if (scd->callback)
+    ((cell_set_cb)scd->callback)(scd->error, scd->user_data);
 
-  if (success)
+  service_call_destroy(scd);
+}
+
+static void
+_cid_set_cb(GObject *object, GAsyncResult *res, gpointer user_data)
+{
+  service_call_data *scd = user_data;
+  TpAccountManager *manager = (TpAccountManager *)object;
+
+  if (tp_proxy_prepare_finish(object, res, &scd->error))
   {
     TpAccount *ring_account = find_ring_account(manager);
 
     if (ring_account)
     {
-      privacy = tp_asv_get_string(
-            tp_account_get_parameters(ring_account),
-            "com.nokia.Telepathy.Connection.Interface.GSM.Privacy");
+      guint anonymity = GPOINTER_TO_UINT(scd->async_data);
+      const gchar *unset[] = {NULL};
+
+      GHashTable *set = tp_asv_new(
+            TP_PROP_CONNECTION_INTERFACE_ANONYMITY_ANONYMITY_MODES,
+            G_TYPE_UINT, anonymity, NULL);
+
+      tp_account_update_parameters_async(
+            ring_account, set, unset, _cid_update_parameter_cb, user_data);
       g_object_unref(ring_account);
     }
   }
-
-  if (!privacy)
-    privacy = "";
-
-  if (ctx->clir_cb)
-  {
-    ctx->clir_cb(TRUE, 0, privacy, ctx->clir_cb_data);
-    ctx->clir_cb = NULL;
-  }
   else
-    CONNUI_ERR("CLIR callback is NULL");
-
-  ctx->clir_cb_data = NULL;
-  connui_cell_context_destroy(ctx);
-}
-
-gboolean
-connui_cell_net_get_caller_id_presentation(cell_clir_cb cb,
-                                           gpointer user_data)
-{
-  return connui_cell_order_mc_accounts(
-        connui_cell_net_get_caller_id_presentation_cb, NULL, cb, user_data);
-}
-
-static void
-connui_cell_net_get_caller_id_update_parameter_cb(GObject *object,
-                                                  GAsyncResult *res,
-                                                  gpointer user_data)
-{
-  connui_cell_context *ctx;
-  TpAccount *account = (TpAccount *)object;
-  GError *error = NULL;
-  GStrv reconnect_required = NULL;
-
-  if (!tp_account_update_parameters_finish(account, res, &reconnect_required,
-                                           &error))
   {
-    CONNUI_ERR("Error updating TpAccount parameter: %s", error->message);
-    g_clear_error(&error);
-  }
+    CONNUI_ERR("Error preparing TpAccountManager: %s", scd->error->message);
 
-  g_strfreev(reconnect_required);
+    if (scd->callback)
+      ((cell_set_cb)scd->callback)(scd->error, scd->user_data);
 
-  ctx = connui_cell_context_get(NULL);
-
-  g_return_if_fail(ctx != NULL);
-
-  if (ctx->clir_cb)
-  {
-    ctx->clir_cb(FALSE, 0, NULL, ctx->clir_cb_data);
-    ctx->clir_cb = NULL;
-  }
-  else
-    CONNUI_ERR("CLIR callback is NULL");
-
-  ctx->clir_cb_data = NULL;
-  connui_cell_context_destroy(ctx);
-}
-
-static void
-connui_cell_net_set_caller_id_presentation_cb(GObject *object,
-                                              GAsyncResult *res,
-                                              gpointer user_data)
-{
-  TpAccountManager *manager = (TpAccountManager *)object;
-  GError *error = NULL;
-
-  /* Failure should be handled better I guess, like calling the cb, etc. */
-  if (!tp_proxy_prepare_finish(object, res, &error))
-  {
-    CONNUI_ERR("Error preparing TpAccountManager: %s", error->message);
-    g_clear_error(&error);
-    return;
-  }
-
-  TpAccount *ring_account = find_ring_account(manager);
-
-  if (ring_account)
-  {
-    const gchar *unset[] = {NULL};
-    GHashTable *set = tp_asv_new(
-          "com.nokia.Telepathy.Connection.Interface.GSM.Privacy",
-          G_TYPE_STRING, (const gchar *)user_data, NULL);
-
-    tp_account_update_parameters_async(
-          ring_account, set, unset,
-          connui_cell_net_get_caller_id_update_parameter_cb, user_data);
-    g_object_unref(ring_account);
+    service_call_destroy(scd);
   }
 }
 
 gboolean
-connui_cell_net_set_caller_id_presentation(const gchar *presentation,
-                                           cell_clir_cb cb, gpointer user_data)
+connui_cell_net_set_caller_id_anonymity(guint anonimity, cell_set_cb cb,
+                                        gpointer user_data)
 {
-  return connui_cell_order_mc_accounts(
-        connui_cell_net_set_caller_id_presentation_cb, presentation, cb,
-        user_data);
+  TpAccountManager *manager = tp_account_manager_dup();
+  service_call_data *scd;
+
+  if (!manager)
+  {
+    CONNUI_ERR("Can't create TpAccountManager");
+    return FALSE;
+  }
+
+  scd = g_new0(service_call_data, 1);
+  scd->callback = G_CALLBACK(cb);
+  scd->user_data = user_data;
+  scd->async_data = GUINT_TO_POINTER(anonimity);
+
+  tp_proxy_prepare_async(manager, NULL, _cid_set_cb, scd);
+  g_object_unref(manager);
+
+  return TRUE;
 }
 
 void
@@ -1596,4 +1385,3 @@ connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id)
     CONNUI_ERR("unable to create dbus message");
 
 }
-

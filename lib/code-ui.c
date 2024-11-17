@@ -31,7 +31,7 @@ typedef enum {
   CONNUI_CELL_CODE_UI_STATE_PIN_RETRY,
   CONNUI_CELL_CODE_UI_STATE_OK,
   CONNUI_CELL_CODE_UI_STATE_STARTUP,
-  CONNUI_CELL_CODE_UI_STATE_PIN,
+  CONNUI_CELL_CODE_UI_STATE_PIN_ENABLE,
   CONNUI_CELL_CODE_UI_STATE_NEW_PIN,
   CONNUI_CELL_CODE_UI_SIM_UNLOCK,
   CONNUI_CELL_CODE_UI_STATE_CONFIRM_PIN
@@ -52,7 +52,7 @@ struct _cell_code_ui
   gchar *code;
   gboolean pin_verified;
   guint sim_status_timeout;
-  gboolean current_pin_entered;
+  gboolean get_current_pin;
   gboolean show_status_notes;
   GStrv emergency_numbers;
   gchar *clui_em_number;
@@ -300,9 +300,9 @@ connui_cell_code_ui_get_code(connui_sim_security_code_type code_type,
         break;
       }
       case CONNUI_CELL_CODE_UI_STATE_STARTUP:
-      case CONNUI_CELL_CODE_UI_STATE_PIN:
+      case CONNUI_CELL_CODE_UI_STATE_PIN_ENABLE:
       {
-        if (code_ui->current_pin_entered)
+        if (code_ui->get_current_pin)
         {
           clui_title = _("conn_ti_enter_current_pin_code");
           break;
@@ -444,14 +444,11 @@ connui_cell_code_ui_verify_code_cb(const char *modem_id,
       }
 
       g_spawn_close_pid(pid);
-      connui_cell_code_ui_pin_correct(code_ui);
     }
     else
-    {
       code_ui->verified_ok = TRUE;
-      connui_cell_code_ui_pin_correct(code_ui);
-    }
 
+    connui_cell_code_ui_pin_correct(code_ui);
     return;
   }
 
@@ -536,14 +533,14 @@ connui_cell_code_ui_code_cb(const char *modem_id,
   cell_code_ui *code_ui = user_data;
   gchar *code;
 
-  g_return_if_fail(
-        code_ui != NULL && code_ui->state != CONNUI_CELL_CODE_UI_STATE_NONE);
-
   if (strcmp(modem_id, code_ui->modem_id))
     return;
 
+  g_return_if_fail(
+        code_ui != NULL && code_ui->state != CONNUI_CELL_CODE_UI_STATE_NONE);
+
   if (code_ui->state != CONNUI_CELL_CODE_UI_STATE_STARTUP)
-    code_ui->state = CONNUI_CELL_CODE_UI_STATE_PIN;
+    code_ui->state = CONNUI_CELL_CODE_UI_STATE_PIN_ENABLE;
 
   if (*old_code && *code_type == CONNUI_SIM_SECURITY_CODE_PIN && code_ui->code)
     **old_code = g_strdup(code_ui->code);
@@ -818,6 +815,8 @@ connui_cell_code_ui_init(const char *modem_id,
     while (modem_status == CONNUI_MODEM_STATUS_UNKNOWN)
       g_main_context_iteration(NULL, TRUE);
 
+    connui_cell_modem_status_close(connui_cell_code_ui_modem_state_cb);
+
     if (modem_status != CONNUI_MODEM_STATUS_ONLINE)
     {
       GtkWidget *note;
@@ -836,11 +835,8 @@ connui_cell_code_ui_init(const char *modem_id,
       gtk_dialog_run(GTK_DIALOG(note));
       gtk_widget_destroy(code_ui->note);
       code_ui->note = NULL;
-      connui_cell_modem_status_close(connui_cell_code_ui_modem_state_cb);
       goto out;
     }
-
-    connui_cell_modem_status_close(connui_cell_code_ui_modem_state_cb);
   }
   else
   {
@@ -1179,7 +1175,7 @@ connui_cell_code_ui_change_code(connui_sim_security_code_type code_type)
     return TRUE;
 
   _code_ui->verified_ok = FALSE;
-  _code_ui->current_pin_entered = TRUE;
+  _code_ui->get_current_pin = TRUE;
 
   do
   {
@@ -1196,7 +1192,7 @@ connui_cell_code_ui_change_code(connui_sim_security_code_type code_type)
   }
   while (!ok && !STATE_IS_ERROR(_code_ui->state) && !_code_ui->verified_ok);
 
-  _code_ui->current_pin_entered = FALSE;
+  _code_ui->get_current_pin = FALSE;
 
   return ok;
 }
@@ -1241,6 +1237,8 @@ connui_cell_code_ui_set_current_code_active(gboolean active)
   if (STATE_IS_ERROR(_code_ui->state))
     return FALSE;
 
+  _code_ui->get_current_pin = TRUE;
+
   while ((_code_ui->sim_status == CONNUI_SIM_STATUS_OK_PUK_REQUIRED ||
           !(rv = connui_cell_security_code_set_enabled(_code_ui->modem_id,
                                                        active, NULL))) &&
@@ -1248,6 +1246,8 @@ connui_cell_code_ui_set_current_code_active(gboolean active)
   {
     g_main_context_iteration(NULL, TRUE);
   }
+
+  _code_ui->get_current_pin = FALSE;
 
   return rv;
 }

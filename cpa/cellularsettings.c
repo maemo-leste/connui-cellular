@@ -32,9 +32,9 @@ struct _cell_settings
   GtkWidget *selection_dialog;
   GtkWidget *contact_chooser;
   GtkWidget *datacounter_dialog;
-  GtkWidget *send_call_id;
+  GtkWidget *call_send_id;
   GtkWidget *call_waiting;
-  GtkWidget *call_divert;
+  GtkWidget *call_divert_option;
   GtkWidget *call_divert_to;
   GtkWidget *call_divert_contact;
   GtkWidget *network_select;
@@ -44,8 +44,8 @@ struct _cell_settings
   GtkWidget *network_pin;
   osso_context_t *osso;
   gboolean network_selection_mode_manual;
-  gboolean user_activated;
-  gint exporting_settings;
+  gboolean disable;
+  gint applying;
   gboolean set_forwarding_has_error;
   gboolean set_call_has_error;
   gboolean security_code_enabled;
@@ -61,7 +61,7 @@ struct _cell_settings
   gboolean rat_changed;
   int call_status;
   guint idle_id;
-  gint svc_call_in_progress;
+  gint pending;
   int caller_id;
   guint call_forwarding_id;
   guint call_wating_id;
@@ -77,7 +77,7 @@ struct caller_id_select_cb_data
 typedef struct _cell_settings cell_settings;
 
 static void cellular_settings_quit(cell_settings **settings);
-static void activate_widgets(cell_settings **settings);
+static void cellular_settings_enable_widgets(cell_settings **settings);
 
 static cell_settings **
 get_settings()
@@ -93,26 +93,26 @@ get_settings()
 static void
 cellular_settings_call_status_cb(int status, gpointer user_data)
 {
-  cell_settings **settings = user_data;
+  cell_settings *s = user_data;
 
-  g_return_if_fail(settings != NULL && *settings != NULL);
+  g_return_if_fail(s != NULL);
 
-  (*settings)->call_status = status;
+  s->call_status = status;
 
   if (status)
   {
     HildonTouchSelector *selector = hildon_picker_button_get_selector(
-          HILDON_PICKER_BUTTON((*settings)->network_mode));
+          HILDON_PICKER_BUTTON(s->network_mode));
     GtkWidget *dialog =
         gtk_widget_get_ancestor(GTK_WIDGET(selector), GTK_TYPE_DIALOG);
 
     if (GTK_IS_DIALOG(dialog))
       gtk_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
 
-    gtk_widget_set_sensitive((*settings)->network_mode, FALSE);
+    gtk_widget_set_sensitive(s->network_mode, FALSE);
   }
   else
-    gtk_widget_set_sensitive((*settings)->network_mode, TRUE);
+    gtk_widget_set_sensitive(s->network_mode, TRUE);
 }
 
 /* FIXME - we shall track SIM status, we don't care that much for modem state */
@@ -143,7 +143,7 @@ cellular_settings_destroy(cell_settings **settings)
   cell_settings *s = *settings;
 
   connui_cell_sups_cancel_service_call(s->call_forwarding_id);
-  connui_cell_sups_cancel_service_call((*settings)->call_wating_id);
+  connui_cell_sups_cancel_service_call(s->call_wating_id);
 
   if (s->idle_id)
     g_source_remove(s->idle_id);
@@ -152,6 +152,7 @@ cellular_settings_destroy(cell_settings **settings)
   connui_cell_modem_status_close(cellular_settings_modem_status_cb);
   g_free(s->divert_phone_number);
   g_free(s->cid_presentation);
+
   connui_cell_code_ui_destroy();
   cellular_net_selection_destroy();
 
@@ -179,7 +180,7 @@ save_state(osso_context_t *osso, gpointer data)
 }
 
 static void
-picker_button_set_inactive(GtkWidget *button)
+hildon_picker_button_init(GtkWidget *button)
 {
   hildon_picker_button_set_active(HILDON_PICKER_BUTTON(button), FALSE);
   gtk_button_set_alignment(GTK_BUTTON(button), 0.0, 0.5);
@@ -205,7 +206,7 @@ create_touch_selector(const gchar *text1, ...)
       text1 = va_arg(ap, const gchar *);
   }
 
-  picker_button_set_inactive(button);
+  hildon_picker_button_init(button);
 
   return button;
 }
@@ -371,7 +372,7 @@ network_select_value_changed_cb(HildonPickerButton *button, gpointer user_data)
   cell_settings **settings = user_data;
   gboolean active;
 
-  if ((*settings)->user_activated || (*settings)->network_select_in_sync)
+  if ((*settings)->disable || (*settings)->network_select_in_sync)
     return;
 
   active = hildon_picker_button_get_active(button);
@@ -482,7 +483,7 @@ cellular_settings_set_call_forwarding_cb(gboolean enabled,
                error_value);
   }
 
-  (*settings)->svc_call_in_progress--;
+  (*settings)->pending--;
 
   return;
 }
@@ -502,11 +503,11 @@ cellular_settings_set_call_cb(gboolean enabled, gint error_value,
                error_value);
   }
 
-  (*settings)->svc_call_in_progress--;
+  (*settings)->pending--;
 }
 
 static void
-cellular_settings_export(cell_settings **settings)
+cellular_settings_apply(cell_settings **settings)
 {
   gboolean divert_active;
   const gchar *divert_phone = NULL;
@@ -520,7 +521,7 @@ cellular_settings_export(cell_settings **settings)
   GtkTreeModel *model;
 
   divert_active = hildon_picker_button_get_active(
-        HILDON_PICKER_BUTTON((*settings)->call_divert)) == 0;
+        HILDON_PICKER_BUTTON((*settings)->call_divert_option)) == 0;
 
   if (divert_active)
   {
@@ -537,10 +538,10 @@ cellular_settings_export(cell_settings **settings)
             divert_active, divert_phone,
             cellular_settings_set_call_forwarding_cb, settings))
       {
-        (*settings)->svc_call_in_progress++;
+        (*settings)->pending++;
       }
 
-      while ((*settings)->svc_call_in_progress > 0)
+      while ((*settings)->pending > 0)
         g_main_context_iteration(NULL, TRUE);
     }
   }
@@ -556,10 +557,10 @@ cellular_settings_export(cell_settings **settings)
             call_waiting_enabled, cellular_settings_set_call_cb,
             settings))
       {
-        (*settings)->svc_call_in_progress++;
+        (*settings)->pending++;
       }
 
-      while ((*settings)->svc_call_in_progress > 0)
+      while ((*settings)->pending > 0)
         g_main_context_iteration(NULL, TRUE);
     }
 
@@ -614,7 +615,7 @@ cellular_settings_export(cell_settings **settings)
     cid_presentation = "";
 
     selector = hildon_picker_button_get_selector(
-          HILDON_PICKER_BUTTON((*settings)->send_call_id));
+          HILDON_PICKER_BUTTON((*settings)->call_send_id));
     model = hildon_touch_selector_get_model(selector, 0);
 
     if (hildon_touch_selector_get_selected(selector, 0, &iter))
@@ -625,10 +626,10 @@ cellular_settings_export(cell_settings **settings)
       if (connui_cell_net_set_caller_id_presentation(
             cid_presentation, cellular_settings_set_call_cb, settings))
       {
-        (*settings)->svc_call_in_progress++;
+        (*settings)->pending++;
       }
 
-      while ((*settings)->svc_call_in_progress > 0);
+      while ((*settings)->pending > 0);
           g_main_context_iteration(NULL, TRUE);
 
       if (!strcmp(cid_presentation, "no-id"))
@@ -712,7 +713,7 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
 
   g_return_if_fail(settings != NULL && *settings != NULL);
 
-  if ((*settings)->exporting_settings)
+  if ((*settings)->applying)
     return;
 
   switch (response_id)
@@ -746,7 +747,7 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
           hildon_entry_get_text(HILDON_ENTRY((*settings)->call_divert_to));
 
       if (hildon_picker_button_get_active(
-           HILDON_PICKER_BUTTON((*settings)->call_divert)) == 0 &&
+           HILDON_PICKER_BUTTON((*settings)->call_divert_option)) == 0 &&
           (!divert_phone || !*divert_phone) )
       {
         hildon_banner_show_information(
@@ -757,11 +758,11 @@ cellular_settings_response(GtkDialog *dialog, gint response_id,
       }
 
       (*settings)->set_forwarding_has_error = FALSE;
-      (*settings)->exporting_settings = TRUE;
+      (*settings)->applying = TRUE;
       (*settings)->set_call_has_error = FALSE;
       disable_ui(TRUE, settings);
-      cellular_settings_export(settings);
-      (*settings)->exporting_settings = FALSE;
+      cellular_settings_apply(settings);
+      (*settings)->applying = FALSE;
 
       if ((*settings)->set_forwarding_has_error)
       {
@@ -843,7 +844,7 @@ send_call_id_create()
                                     HILDON_BUTTON_ARRANGEMENT_VERTICAL);
 
   hildon_picker_button_set_selector(HILDON_PICKER_BUTTON(button), selector);
-  picker_button_set_inactive(button);
+  hildon_picker_button_init(button);
 
   return button;
 }
@@ -862,8 +863,8 @@ call_divert_value_changed_cb(HildonPickerButton *widget,
 {
   cell_settings **settings = user_data;
 
-  if (!(*settings)->user_activated)
-    activate_widgets(settings);
+  if (!(*settings)->disable)
+    cellular_settings_enable_widgets(settings);
 }
 
 static void
@@ -875,12 +876,12 @@ call_divert_contact_clicked_cb(GtkButton *button, gpointer user_data)
 }
 
 static void
-init_call_options(cell_settings **settings, GtkWidget *parent,
-                  GtkSizeGroup *size_group)
+_call_widgets_create(cell_settings **settings, GtkWidget *parent,
+                     GtkSizeGroup *size_group)
 {
   cell_settings *cs = *settings;
 
-  cs->send_call_id = create_widget(parent, size_group,
+  cs->call_send_id = create_widget(parent, size_group,
                                    _("conn_fi_phone_send_call_id"),
                                    send_call_id_create);
 
@@ -888,10 +889,10 @@ init_call_options(cell_settings **settings, GtkWidget *parent,
                                    _("conn_fi_phone_call_waiting"),
                                    create_check_button);
 
-  cs->call_divert = create_widget(parent, size_group,
+  cs->call_divert_option = create_widget(parent, size_group,
                                   _("conn_fi_phone_call_divert"),
                                   call_divert_create_widget);
-  g_signal_connect(G_OBJECT(cs->call_divert), "value-changed",
+  g_signal_connect(G_OBJECT(cs->call_divert_option), "value-changed",
                    (GCallback)call_divert_value_changed_cb, settings);
 
   cs->call_divert_to = create_widget(parent, size_group,
@@ -911,15 +912,15 @@ network_pin_request_toggled_cb(HildonCheckButton *button, gpointer user_data)
 {
   cell_settings **settings = user_data;
 
-  if (!(*settings)->user_activated)
+  if (!(*settings)->disable)
   {
     gboolean active = hildon_check_button_get_active(button);
 
     if (!connui_cell_code_ui_set_current_code_active(active))
     {
-      (*settings)->user_activated = TRUE;
+      (*settings)->disable = TRUE;
       hildon_check_button_set_active(button, active == 0);
-      (*settings)->user_activated = FALSE;
+      (*settings)->disable = FALSE;
     }
 
     call_divert_value_changed_cb((HildonPickerButton *)button, settings);
@@ -932,13 +933,13 @@ network_pin_request_toggled_cb(HildonCheckButton *button, gpointer user_data)
 static void
 network_pin_changed_cb(cell_settings **settings)
 {
-  if (!(*settings)->user_activated)
+  if (!(*settings)->disable)
   {
     connui_cell_code_ui_change_code(CONNUI_SIM_SECURITY_CODE_PIN);
 
-    (*settings)->user_activated = TRUE;
+    (*settings)->disable = TRUE;
     hildon_entry_set_text(HILDON_ENTRY((*settings)->network_pin), "1234");
-    (*settings)->user_activated = FALSE;
+    (*settings)->disable = FALSE;
 
     if ((*settings)->cs_status_inactive)
       cellular_settings_quit(settings);
@@ -966,8 +967,32 @@ init_sim_options(cell_settings **settings, GtkWidget *parent,
                            G_CALLBACK(network_pin_changed_cb), settings);
 }
 
-GtkWidget *create_modem_selector(GList *modems)
+static void
+modem_selection_changed(HildonTouchSelector *selector, gint column,
+                        gpointer user_data)
 {
+  cell_settings **settings = user_data, *s = *settings;
+
+  connui_cell_sups_cancel_service_call(s->call_forwarding_id);
+  connui_cell_sups_cancel_service_call(s->call_wating_id);
+
+  g_free(s->modem_id);
+  s->modem_id = hildon_touch_selector_get_current_text(selector);
+
+  g_free(s->divert_phone_number);
+  s->divert_phone_number = NULL;
+
+  g_free(s->cid_presentation);
+  s->cid_presentation = NULL;
+
+  connui_cell_code_ui_init(s->modem_id, GTK_WINDOW(s->dialog), FALSE);
+
+}
+
+static GtkWidget *
+create_modem_selector(GList *modems, cell_settings **settings)
+{
+  GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
   GtkWidget *button;
   HildonTouchSelector *selector;
   GList *l;
@@ -977,10 +1002,28 @@ GtkWidget *create_modem_selector(GList *modems)
                                     HILDON_BUTTON_ARRANGEMENT_VERTICAL);
   hildon_picker_button_set_selector(HILDON_PICKER_BUTTON(button), selector);
 
-  for (l = modems; l; l = l->next)
-    hildon_touch_selector_append_text(selector, /* _("conn_ni_no_cell_network")*/ "MODEM");
+  hildon_touch_selector_set_model(selector, 0, GTK_TREE_MODEL(store));
 
-  picker_button_set_inactive(button);
+  for (l = modems; l; l = l->next)
+  {
+    gchar *model = connui_cell_modem_get_model(l->data, NULL);
+    gchar *serial = connui_cell_modem_get_serial(l->data, NULL);
+    gchar *text = g_strdup_printf("%s(%s)", model, serial);
+
+    gtk_list_store_insert_with_values(store, NULL, -1, 0, text, 1, l->data, -1);
+
+    g_free(text);
+    g_free(serial);
+    g_free(model);
+  }
+
+  hildon_button_set_title(HILDON_BUTTON(button), _("conn_ti_phone_modem"));
+  hildon_picker_button_init(button);
+
+  g_signal_connect (G_OBJECT (selector), "changed",
+                    G_CALLBACK (modem_selection_changed), settings);
+
+  (*settings)->modem_id = g_strdup(modems->data);
 
   return button;
 }
@@ -988,6 +1031,7 @@ GtkWidget *create_modem_selector(GList *modems)
 static osso_return_t
 cellular_settings_show(cell_settings **settings, GtkWindow *parent)
 {
+  cell_settings *s;
   struct
   {
     const char *text;
@@ -995,73 +1039,56 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   }
   options[] =
   {
-    {_("conn_ti_phone_call"), init_call_options},
+    {_("conn_ti_phone_call"), _call_widgets_create},
     {_("conn_ti_phone_network"), init_network_options},
     {_("conn_ti_phone_sim"), init_sim_options}
   };
   GtkSizeGroup *size_group;
   GtkWidget *vbox;
   int i;
-  GList *modems, *l;
 
   g_return_val_if_fail(settings != NULL && *settings != NULL, OSSO_ERROR);
 
-  if ((*settings)->dialog)
-  {
-    gtk_widget_show_all((*settings)->dialog);
+  s = *settings;
 
-    if ((*settings)->selection_dialog)
-      gtk_widget_show_all((*settings)->selection_dialog);
+  if (s->dialog)
+  {
+    gtk_widget_show_all(s->dialog);
+
+    if (s->selection_dialog)
+      gtk_widget_show_all(s->selection_dialog);
 
     return OSSO_OK;
   }
 
   /* FIXME - register callback first, to avoid context destruction */
-  modems = connui_cell_modem_get_modems();
+  GList *modems = connui_cell_modem_get_modems();
 
   if (!modems)
     goto no_net;
 
-  /* find first online modem */
-  /* FIXME - is it enough for modem to be only powered? */
-  for (l = modems; l; l = l->next)
-  {
-    if (connui_cell_modem_is_online(l->data, NULL))
-    {
-      (*settings)->modem_id = g_strdup(l->data);
-      break;
-    }
-  }
-
-  if (!l)
-  {
-    g_list_free_full(modems, g_free);
-    goto no_net;
-  }
-
-  (*settings)->dialog = gtk_dialog_new_with_buttons(
+  s->dialog = gtk_dialog_new_with_buttons(
         _("conn_ti_phone_cpa"), parent,
         GTK_DIALOG_NO_SEPARATOR |
         GTK_DIALOG_DESTROY_WITH_PARENT |
         GTK_DIALOG_MODAL,
         dgettext("hildon-libs", "wdgt_bd_save"), GTK_RESPONSE_OK, NULL);
 
-  (*settings)->pannable_area = hildon_pannable_area_new();
+  s->pannable_area = hildon_pannable_area_new();
 
   hildon_pannable_area_set_center_on_child_focus(
-        HILDON_PANNABLE_AREA((*settings)->pannable_area), TRUE);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(((*settings)->dialog))->vbox),
-                    (*settings)->pannable_area);
-  gtk_widget_set_size_request((*settings)->pannable_area, 800, 350);
+        HILDON_PANNABLE_AREA(s->pannable_area), TRUE);
+  gtk_container_add(GTK_CONTAINER(GTK_DIALOG((s->dialog))->vbox),
+                    s->pannable_area);
+  gtk_widget_set_size_request(s->pannable_area, 800, 350);
   size_group = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
 
   vbox = gtk_vbox_new(0, 8);
 
-  (*settings)->modem_selector = create_modem_selector(modems);
+  s->modem_selector = create_modem_selector(modems, settings);
   g_list_free_full(modems, g_free);
 
-  gtk_box_pack_start(
-        GTK_BOX(vbox), (*settings)->modem_selector, FALSE, FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(vbox), s->modem_selector, FALSE, FALSE, 0);
 
   for(i = 0; i < G_N_ELEMENTS(options); i++)
   {
@@ -1089,32 +1116,25 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
   g_object_unref(size_group);
 
   hildon_pannable_area_add_with_viewport(
-        HILDON_PANNABLE_AREA((*settings)->pannable_area), vbox);
-  iap_common_set_close_response((*settings)->dialog, GTK_RESPONSE_CANCEL);
+        HILDON_PANNABLE_AREA(s->pannable_area), vbox);
+  iap_common_set_close_response(s->dialog, GTK_RESPONSE_CANCEL);
 
-  g_signal_connect(G_OBJECT((*settings)->dialog), "response",
+  g_signal_connect(G_OBJECT(s->dialog), "response",
                    (GCallback)cellular_settings_response, settings);
 
-  if (connui_cell_code_ui_init((*settings)->modem_id,
-                                GTK_WINDOW((*settings)->dialog), FALSE))
+  if (connui_cell_code_ui_init(s->modem_id, GTK_WINDOW(s->dialog), FALSE))
   {
-
-    connui_cell_call_status_register(cellular_settings_call_status_cb, settings);
+    connui_cell_call_status_register(cellular_settings_call_status_cb, s);
     connui_cell_modem_status_register(cellular_settings_modem_status_cb,
                                       settings);
 
-    if ((*settings)->call_divert_to)
-      gtk_widget_hide_all((*settings)->call_divert_to);
+    if (s->call_divert_to)
+      gtk_widget_hide_all(s->call_divert_to);
 
-    gtk_widget_hide_all((*settings)->call_divert_contact);
-  }
-  else
-  {
-//    cellular_settings_destroy(settings);
-  //  return OSSO_ERROR;
+    gtk_widget_hide_all(s->call_divert_contact);
   }
 
-  gtk_widget_show_all((*settings)->dialog);
+  gtk_widget_show_all(s->dialog);
 
   return OSSO_OK;
 
@@ -1123,7 +1143,7 @@ no_net:
     GtkWidget *note = connui_cell_note_new_information(
           parent,
           connui_cell_code_ui_error_note_type_to_text(
-            (*settings)->modem_id, "no_network"));
+            s->modem_id, "no_network"));
     gtk_dialog_run(GTK_DIALOG(note));
     gtk_widget_destroy(note);
     cellular_settings_destroy(settings);
@@ -1145,13 +1165,13 @@ cellular_settings_restore_state(gpointer user_data)
 }
 
 static void
-activate_all_widgets(cell_settings **settings, gboolean sensitive)
+cellular_settings_set_sensitive(cell_settings **settings, gboolean sensitive)
 {
   GtkWidget *widgets[] =
   {
-    (*settings)->send_call_id,
+    (*settings)->call_send_id,
     (*settings)->call_waiting,
-    (*settings)->call_divert,
+    (*settings)->call_divert_option,
     (*settings)->call_divert_to,
     (*settings)->call_divert_contact,
     NULL
@@ -1172,25 +1192,25 @@ activate_all_widgets(cell_settings **settings, gboolean sensitive)
 }
 
 static void
-activate_widgets(cell_settings **settings)
+cellular_settings_enable_widgets(cell_settings **settings)
 {
-  if ((*settings)->user_activated)
+  if ((*settings)->disable)
   {
-    activate_all_widgets(settings, FALSE);
+    cellular_settings_set_sensitive(settings, FALSE);
     gtk_widget_queue_draw((*settings)->dialog);
   }
   else
   {
     gint call_divert_active = hildon_picker_button_get_active(
-          HILDON_PICKER_BUTTON((*settings)->call_divert));
+          HILDON_PICKER_BUTTON((*settings)->call_divert_option));
     gboolean sensitive = call_divert_active == 0;
 
-    activate_all_widgets(settings, TRUE);
+    cellular_settings_set_sensitive(settings, TRUE);
 
     gtk_widget_set_sensitive((*settings)->call_divert_to, sensitive);
     gtk_widget_set_sensitive((*settings)->call_divert_contact, sensitive);
 
-    if ( sensitive )
+    if (sensitive)
     {
       GtkWidget *parent = gtk_widget_get_parent((*settings)->call_divert_to);
 
@@ -1237,22 +1257,22 @@ caller_id_select_cb(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter,
 static void
 cellular_settings_stop_progress_indicator(cell_settings **settings)
 {
-  (*settings)->svc_call_in_progress--;
+  (*settings)->pending--;
 
-  if (!(*settings)->svc_call_in_progress)
+  if (!(*settings)->pending)
   {
-    (*settings)->user_activated = FALSE;
-    (*settings)->exporting_settings = FALSE;
+    (*settings)->disable = FALSE;
+    (*settings)->applying = FALSE;
     hildon_gtk_window_set_progress_indicator(
           GTK_WINDOW((*settings)->dialog), FALSE);
-    activate_widgets(settings);
+    cellular_settings_enable_widgets(settings);
   }
 }
 
 static void
-cellular_settings_get_call_forwarding_cb(gboolean enabled,
-                                         const gchar *phone_number,
-                                         gpointer user_data, GError *error)
+_get_call_forwarding_cb(gboolean enabled,
+                        const gchar *phone_number,
+                        gpointer user_data, GError *error)
 {
   cell_settings **settings = user_data;
   gint active_index;
@@ -1279,7 +1299,7 @@ cellular_settings_get_call_forwarding_cb(gboolean enabled,
           connui_cell_sups_get_call_forwarding_enabled(
             (*settings)->modem_id,
             (*settings)->call_forwarding_type,
-            cellular_settings_get_call_forwarding_cb, settings);
+            _get_call_forwarding_cb, settings);
 
       if ((*settings)->call_forwarding_id)
         return;
@@ -1292,7 +1312,7 @@ cellular_settings_get_call_forwarding_cb(gboolean enabled,
   }
 
   hildon_picker_button_set_active(
-        HILDON_PICKER_BUTTON((*settings)->call_divert), active_index);
+        HILDON_PICKER_BUTTON((*settings)->call_divert_option), active_index);
 
   if (phone_number)
   {
@@ -1317,10 +1337,10 @@ cellular_settings_get_call_waiting_cb(gboolean enabled, gpointer user_data,
   (*settings)->call_forwarding_id =
       connui_cell_sups_get_call_forwarding_enabled(
         (*settings)->modem_id, CONNUI_SUPS_BUSY,
-        cellular_settings_get_call_forwarding_cb, settings);
+        _get_call_forwarding_cb, settings);
 
   if ((*settings)->call_forwarding_id)
-    (*settings)->svc_call_in_progress++;
+    (*settings)->pending++;
 
   (*settings)->call_wating_id = 0;
 
@@ -1349,26 +1369,26 @@ cellular_settings_get_caller_id_cb(gboolean unk, gint error_value,
         user_data);
 
   if ((*settings)->call_wating_id)
-    (*settings)->svc_call_in_progress++;
+    (*settings)->pending++;
 
   (*settings)->caller_id = 0;
 
   if (error_value)
     CONNUI_ERR("Error while fetching caller ID: %d", error_value);
 
-  data.button = (*settings)->send_call_id;
+  data.button = (*settings)->call_send_id;
   data.caller_id = caller_id;
 
   (*settings)->cid_presentation = g_strdup(caller_id);
 
   selector = hildon_picker_button_get_selector(
-        HILDON_PICKER_BUTTON((*settings)->send_call_id));
+        HILDON_PICKER_BUTTON((*settings)->call_send_id));
   gtk_tree_model_foreach(hildon_touch_selector_get_model(selector, 0),
                          caller_id_select_cb, &data);
 }
 
 static gboolean
-cellular_settings_import(gpointer user_data)
+cellular_settings_get_state(gpointer user_data)
 {
   cell_settings **settings = user_data;
   gchar net_select_mode;
@@ -1508,10 +1528,10 @@ execute(osso_context_t *osso, gpointer data, gboolean user_activated)
 
   if (user_activated)
   {
-    (*settings)->user_activated = TRUE;
-    activate_widgets(settings);
+    (*settings)->disable = TRUE;
+    cellular_settings_enable_widgets(settings);
 
-    (*settings)->idle_id = g_idle_add(cellular_settings_import, settings);
+    (*settings)->idle_id = g_idle_add(cellular_settings_get_state, settings);
   }
   else
   {

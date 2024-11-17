@@ -31,8 +31,6 @@ struct _connui_cell_context
   /* Move this above dbus stuff? */
   int service_call_id;
   GSList *call_status_cbs;
-  cell_clir_cb clir_cb;
-  gpointer clir_cb_data;
 
   /* sim.c properties */
   gulong ofono_sim_present_changed_valid_id;

@@ -26,6 +26,7 @@ typedef struct _sim_data
   gchar *spn;
   connui_sim_security_code_type pin_required;
   gchar *pin_required_s;
+  gboolean locked_pin[4];
 
   gulong properties_changed_id;
   guint idle_status_id;
@@ -179,7 +180,25 @@ _notify_security_code_all(connui_cell_context *ctx)
     _notify_security_code(g_object_get_data(G_OBJECT(modem), DATA));
 }
 
-void
+static connui_sim_security_code_type
+_get_code_type(const gchar *type)
+{
+
+  if (!strcmp(type, "none"))
+    return CONNUI_SIM_SECURITY_CODE_NONE;
+  else if (!strcmp(type, "pin"))
+    return  CONNUI_SIM_SECURITY_CODE_PIN;
+  else if (!strcmp(type, "puk"))
+    return CONNUI_SIM_SECURITY_CODE_PUK;
+  else if (!strcmp(type, "pin2"))
+    return CONNUI_SIM_SECURITY_CODE_PIN2;
+  else if (!strcmp(type, "puk2"))
+    return CONNUI_SIM_SECURITY_CODE_PUK2;
+  else
+    return CONNUI_SIM_SECURITY_CODE_UNSUPPORTED;
+}
+
+static void
 _get_pin_required(sim_data *sd, GVariant *value)
 {
   const gchar *pin_required;
@@ -190,19 +209,33 @@ _get_pin_required(sim_data *sd, GVariant *value)
   pin_required = g_variant_get_string(value, NULL);
   g_free(sd->pin_required_s);
   sd->pin_required_s = g_strdup(pin_required);
+  sd->pin_required = _get_code_type(pin_required);
+}
 
-  if (!strcmp(pin_required, "none"))
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_NONE;
-  else if (!strcmp(pin_required, "pin"))
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PIN;
-  else if (!strcmp(pin_required, "puk"))
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PUK;
-  else if (!strcmp(pin_required, "pin2"))
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PIN2;
-  else if (!strcmp(pin_required, "puk2"))
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_PUK2;
-  else
-    sd->pin_required = CONNUI_SIM_SECURITY_CODE_UNSUPPORTED;
+static void
+_get_locked_pins(sim_data *sd, GVariant *value)
+{
+  const gchar **pins;
+  const gchar **pin;
+  int i;
+
+  for (i = 0; i < G_N_ELEMENTS(sd->locked_pin); i++)
+    sd->locked_pin[i] = FALSE;
+
+  pins = g_variant_get_strv(value, NULL);
+
+  if (!pins)
+    return;
+
+  for (pin = pins; *pin; pin++)
+  {
+    int idx = _get_code_type(*pin) - 1;
+
+    if (idx >= 0 && idx < G_N_ELEMENTS(sd->locked_pin))
+      sd->locked_pin[idx] = TRUE;
+  }
+
+  g_free(pins);
 }
 
 static gboolean
@@ -237,6 +270,8 @@ _parse_property(sim_data *sd, const gchar *name, GVariant *value)
     _get_pin_required(sd, value);
     notify = TRUE;
   }
+  else if (!strcmp(name, OFONO_SIMMGR_PROPERTY_LOCKED_PINS))
+    _get_locked_pins(sd, value);
 
   return notify;
 }
@@ -801,10 +836,29 @@ connui_cell_security_code_get_active(const char *modem_id, GError **error)
 }
 
 gboolean
-connui_cell_security_code_get_enabled(const char *modem_id, GError **error)
+connui_cell_security_code_get_enabled(const char *modem_id,
+                                      connui_sim_security_code_type code_type,
+                                      GError **error)
 {
-  return connui_cell_security_code_get_active(modem_id, error) ==
-      CONNUI_SIM_SECURITY_CODE_PIN;
+  connui_cell_context *ctx;
+  sim_data *sd;
+  gboolean rv = FALSE;
+
+  g_return_val_if_fail(code_type >= CONNUI_SIM_SECURITY_CODE_PIN &&
+                       code_type <= CONNUI_SIM_SECURITY_CODE_PUK2, FALSE);
+
+  ctx = connui_cell_context_get(error);
+
+  g_return_val_if_fail(ctx != NULL, FALSE);
+
+  sd = _sim_data_get(modem_id, error);
+
+  if (sd)
+    rv = sd->locked_pin[code_type - 1];
+
+  connui_cell_context_destroy(ctx);
+
+  return rv;
 }
 
 gboolean
@@ -967,7 +1021,8 @@ connui_cell_security_code_change(const char *modem_id,
 
   if (sec_code_query(ctx, modem_id, code_type, &old, &new, &cbd) && new && *new)
   {
-    if (connui_cell_security_code_get_enabled(modem_id, &local_error) ||
+    if (connui_cell_security_code_get_active(
+          modem_id, &local_error) == CONNUI_SIM_SECURITY_CODE_PIN ||
         code_type != CONNUI_SIM_SECURITY_CODE_PIN)
     {
       rv = verify_code(sd, code_type, old, new, &cbd, &local_error);

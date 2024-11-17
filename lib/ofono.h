@@ -88,6 +88,7 @@
 #define OFONO_SIMMGR_PROPERTY_MNC                "MobileNetworkCode"
 #define OFONO_SIMMGR_PROPERTY_SPN                "ServiceProviderName"
 #define OFONO_SIMMGR_PROPERTY_PIN_REQUIRED       "PinRequired"
+#define OFONO_SIMMGR_PROPERTY_LOCKED_PINS        "LockedPins"
 
 /* org.ofono.ConnectionManager */
 #define OFONO_CONNMGR_PROPERTY_ATTACHED          "Attached"
