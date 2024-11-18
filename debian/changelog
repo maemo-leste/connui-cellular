@@ -1,3 +1,9 @@
+connui-cellular (3.99.1) unstable; urgency=medium
+
+  * Initial multi-modem support
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Mon, 18 Nov 2024 17:42:11 +0200
+
 connui-cellular (3.2.5) unstable; urgency=medium
 
   * do not install startup-pin-query xsession script
