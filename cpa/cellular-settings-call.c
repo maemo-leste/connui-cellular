@@ -33,7 +33,7 @@ static void
 _call_divert_contact_clicked_cb(gpointer user_data);
 
 static void
-_call_divert_option_value_changed_cb(HildonPickerButton *button,
+_call_forward_option_value_changed_cb(HildonPickerButton *button,
                                      gpointer user_data);
 
 static GtkWidget *
@@ -125,7 +125,7 @@ _call_widgets_create(cellular_settings *cs, GtkWidget *parent,
         _create_call_divert_widget);
 
   g_signal_connect(G_OBJECT(cs->call.forward.option), "value-changed",
-                   (GCallback)_call_divert_option_value_changed_cb, cs);
+                   (GCallback)_call_forward_option_value_changed_cb, cs);
 
   cs->call.forward.to = cellular_settings_create_widget(
         parent, size_group, _("conn_fi_phone_call_divert_to"),
@@ -150,7 +150,7 @@ _call_divert_contact_clicked_cb(gpointer user_data)
 }
 
 static void
-_call_divert_option_value_changed_cb(HildonPickerButton *button,
+_call_forward_option_value_changed_cb(HildonPickerButton *button,
                                      gpointer user_data)
 {
   cellular_settings *cs = user_data;
@@ -196,32 +196,6 @@ _get_clir_cb(guint anonymity, GError *error, gpointer user_data)
 }
 
 static void
-_get_call_waiting_cb(const char *modem_id, gboolean enabled, GError *error,
-                     gpointer user_data)
-{
-  cellular_settings *cs = user_data;
-
-  cs->call.waiting.svc_call_id = 0;
-
-  if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-  {
-    cs->pending--;
-    return;
-  }
-
-  cellular_settings_stop_progress_indicator(cs);
-
-  if (error)
-    CONNUI_ERR("Error while fetching call waiting: %s", error->message);
-
-  cs->call.waiting.enabled = enabled;
-  hildon_check_button_set_active(
-        HILDON_CHECK_BUTTON(cs->call.waiting.button), enabled);
-  if (!error)
-    gtk_widget_set_sensitive(cs->call.waiting.button, TRUE);
-}
-
-static void
 _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
                         const gchar *phone_number, gpointer user_data,
                         GError *error)
@@ -229,7 +203,7 @@ _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
   cellular_settings *cs = user_data;
   gint active = 1;
 
-  cs->call.forward.svc_call_id = 0;
+  cs->call.svc_call_id = 0;
 
   if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
   {
@@ -254,11 +228,10 @@ _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
           break;
       }
 
-      cs->call.forward.svc_call_id =
-          connui_cell_sups_get_call_forwarding_enabled(
+      cs->call.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
             modem_id, cs->call.forward.type, _get_call_forwarding_cb, cs);
 
-      if (cs->call.forward.svc_call_id)
+      if (cs->call.svc_call_id)
         return;
     }
   }
@@ -285,27 +258,57 @@ _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
   gtk_widget_set_sensitive(cs->call.forward.option, !error);
 }
 
+static void
+_get_call_waiting_cb(const char *modem_id, gboolean enabled, GError *error,
+                     gpointer user_data)
+{
+  cellular_settings *cs = user_data;
+
+  cs->call.svc_call_id = 0;
+
+  if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+  {
+    cs->pending--;
+    return;
+  }
+
+  if (error)
+    CONNUI_ERR("Error while fetching call waiting: %s", error->message);
+
+  cs->call.waiting.enabled = enabled;
+  hildon_check_button_set_active(
+        HILDON_CHECK_BUTTON(cs->call.waiting.button), enabled);
+
+  if (!error)
+    gtk_widget_set_sensitive(cs->call.waiting.button, TRUE);
+
+  cs->call.forward.type = CONNUI_SUPS_BUSY;
+  cs->call.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
+        modem_id, CONNUI_SUPS_BUSY, _get_call_forwarding_cb, cs);
+
+  if (!cs->call.svc_call_id)
+    cellular_settings_stop_progress_indicator(cs);
+}
+
 void
 _call_show(cellular_settings *cs, const gchar *modem_id)
 {
   _disable_widgets(cs);
 
+  cs->call.forward.enabled = FALSE;
+  cs->call.waiting.enabled = FALSE;
+
+  hildon_picker_button_set_active(
+        HILDON_PICKER_BUTTON(cs->call.forward.option), 1);
+
   if (connui_cell_net_get_caller_id_anonymity(_get_clir_cb, cs))
     cs->pending++;
 
-  cs->call.waiting.svc_call_id = connui_cell_sups_get_call_waiting_enabled(
+  cs->call.svc_call_id = connui_cell_sups_get_call_waiting_enabled(
         modem_id, _get_call_waiting_cb, cs);
 
-  if (cs->call.waiting.svc_call_id)
+  if (cs->call.svc_call_id)
     cs->pending++;
-
-  cs->call.forward.type = CONNUI_SUPS_BUSY;
-  cs->call.forward.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
-        modem_id, CONNUI_SUPS_BUSY, _get_call_forwarding_cb, cs);
-
-  if (cs->call.forward.svc_call_id)
-    cs->pending++;
-
 }
 
 static void
@@ -385,9 +388,6 @@ _call_apply(cellular_settings *cs, const gchar *modem_id)
 void
 _call_cancel(cellular_settings *cs)
 {
-  if (cs->call.waiting.svc_call_id)
-    connui_cell_sups_cancel_service_call(cs->call.waiting.svc_call_id);
-
-  if (cs->call.forward.svc_call_id)
-    connui_cell_sups_cancel_service_call(cs->call.forward.svc_call_id);
+  if (cs->call.svc_call_id)
+    connui_cell_sups_cancel_service_call(cs->call.svc_call_id);
 }

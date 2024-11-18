@@ -44,6 +44,13 @@ struct _CellularSettings
   {
     GtkWidget *send_cid;
     guint anonimity;
+    guint svc_call_id;
+
+    struct
+    {
+      GtkWidget *button;
+      gboolean enabled;
+    } waiting;
 
     struct
     {
@@ -51,15 +58,8 @@ struct _CellularSettings
       GtkWidget *to;
       GtkWidget *contact;
       connui_sups_call_forward type;
-      guint svc_call_id;
       gboolean enabled;
     } forward;
-    struct
-    {
-      GtkWidget *button;
-      guint svc_call_id;
-      gboolean enabled;
-    } waiting;
   } call;
 
   gint pending;
