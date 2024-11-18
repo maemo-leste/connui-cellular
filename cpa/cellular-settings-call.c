@@ -196,9 +196,8 @@ _get_clir_cb(guint anonymity, GError *error, gpointer user_data)
 }
 
 static void
-_get_call_forwarding_cb(const char *modem_id,
-                        const connui_sups_call_forward *cf, gpointer user_data,
-                        GError *error)
+_get_call_forward_cb(const char *modem_id, const connui_sups_call_forward *cf,
+                     gpointer user_data, GError *error)
 {
   cellular_settings *cs = user_data;
   const char *number = NULL;
@@ -213,15 +212,17 @@ _get_call_forwarding_cb(const char *modem_id,
     return;
   }
 
-  if (error)
+  if (!error)
+  {
+    if ((enabled = cf->cond.busy.enabled))
+      number = cf->cond.busy.number;
+    else if ((enabled = cf->cond.no_reply.enabled))
+      number = cf->cond.no_reply.number;
+    else if ((enabled = cf->cond.unreachable.enabled))
+      number = cf->cond.unreachable.number;
+  }
+  else
     CONNUI_ERR("Error in while fetching call forwarding: %s", error->message);
-
-  if ((enabled = cf->cond.busy.enabled))
-    number = cf->cond.busy.number;
-  else if ((enabled = cf->cond.no_reply.enabled))
-    number = cf->cond.no_reply.number;
-  else if ((enabled = cf->cond.unreachable.enabled))
-    number = cf->cond.unreachable.number;
 
   active = enabled ? 0 : 1;
 
@@ -270,7 +271,7 @@ _get_call_waiting_cb(const char *modem_id, gboolean enabled, GError *error,
     gtk_widget_set_sensitive(cs->call.waiting.button, TRUE);
 
   cs->call.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
-        modem_id, _get_call_forwarding_cb, cs);
+        modem_id, _get_call_forward_cb, cs);
 
   if (!cs->call.svc_call_id)
     cellular_settings_stop_progress_indicator(cs);
