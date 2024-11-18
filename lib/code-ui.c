@@ -95,6 +95,7 @@ gchar *connui_cell_code_ui_error_note_type_to_text(const char *modem_id,
                                                    const char *note_type)
 {
   gchar *text;
+  gchar *model = NULL;
 
   g_return_val_if_fail(note_type != NULL, NULL);
 
@@ -125,7 +126,20 @@ gchar *connui_cell_code_ui_error_note_type_to_text(const char *modem_id,
   else
     text = NULL;
 
-  return g_strdup(text);
+  if (text)
+  {
+    if (modem_id)
+      model = connui_cell_modem_get_model(modem_id, NULL);
+
+    if (model)
+      text = g_strdup_printf("%s\n%s", model, text);
+    else
+      text = g_strdup(text);
+
+    g_free(model);
+  }
+
+  return text;
 }
 
 gboolean
@@ -176,16 +190,18 @@ connui_cell_code_ui_launch_note(const gchar *modem_id, cell_code_ui *code_ui,
 
   if (!strcmp(note_type, "no_network"))
   {
-    hildon_banner_show_information(
-          NULL, NULL,
-          connui_cell_code_ui_error_note_type_to_text(modem_id, note_type));
+    gchar *text = connui_cell_code_ui_error_note_type_to_text(
+          modem_id, note_type);
+    hildon_banner_show_information(NULL, NULL, text);
+    g_free(text);
   }
   else
   {
-    code_ui->note = connui_cell_note_new_information(
-          code_ui->parent,
-          connui_cell_code_ui_error_note_type_to_text(modem_id, note_type));
+    gchar *text = connui_cell_code_ui_error_note_type_to_text(modem_id,
+                                                              note_type);
+    code_ui->note = connui_cell_note_new_information(code_ui->parent, text);
 
+    g_free(text);
     gtk_dialog_run(GTK_DIALOG(code_ui->note));
     gtk_widget_destroy(code_ui->note);
     code_ui->note = NULL;
@@ -821,16 +837,16 @@ connui_cell_code_ui_init(const char *modem_id,
     {
       GtkWidget *note;
       const char *note_type;
+      gchar *text;
 
       if (modem_status == CONNUI_MODEM_STATUS_POWERED)
         note_type = "modem_failure";
       else
         note_type = "modem_poweroff";
 
-      note = connui_cell_note_new_information(
-            code_ui->parent,
-            connui_cell_code_ui_error_note_type_to_text(modem_id, note_type));
-
+      text = connui_cell_code_ui_error_note_type_to_text(modem_id, note_type);
+      note = connui_cell_note_new_information(code_ui->parent, text);
+      g_free(text);
       code_ui->note = note;
       gtk_dialog_run(GTK_DIALOG(note));
       gtk_widget_destroy(code_ui->note);
@@ -845,12 +861,12 @@ connui_cell_code_ui_init(const char *modem_id,
     if (!connui_cell_modem_is_powered(modem_id, NULL))
     {
       GtkWidget *note;
+      gchar *text = connui_cell_code_ui_error_note_type_to_text(
+            modem_id, "no_network");
 
       g_warning("Phone is deactivated. Phone settings will not be opened.");
-      note = connui_cell_note_new_information(
-            code_ui->parent,
-            connui_cell_code_ui_error_note_type_to_text(modem_id,
-                                                        "no_network"));
+      note = connui_cell_note_new_information(code_ui->parent, text);
+      g_free(text);
       gtk_dialog_run(GTK_DIALOG(note));
       gtk_widget_destroy(note);
       connui_cell_code_ui_destroy();

@@ -1140,10 +1140,11 @@ cellular_settings_show(cell_settings **settings, GtkWindow *parent)
 
 no_net:
   {
-    GtkWidget *note = connui_cell_note_new_information(
-          parent,
-          connui_cell_code_ui_error_note_type_to_text(
-            s->modem_id, "no_network"));
+    gchar *text = connui_cell_code_ui_error_note_type_to_text(
+          s->modem_id, "no_network");
+    GtkWidget *note = connui_cell_note_new_information(parent, text);
+
+    g_free(text);
     gtk_dialog_run(GTK_DIALOG(note));
     gtk_widget_destroy(note);
     cellular_settings_destroy(settings);

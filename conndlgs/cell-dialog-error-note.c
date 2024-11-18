@@ -178,12 +178,20 @@ cell_dialog_error_note_modem_state(const char *modem_id,
 {
   if (*status == CONNUI_MODEM_STATUS_REMOVED)
   {
-    const char *description =
-        connui_cell_code_ui_error_note_type_to_text(modem_id, "modem_poweroff");
-    GtkWidget *note = hildon_note_new_information(NULL, description);
+    GList *modems = connui_cell_modem_get_modems(NULL);
 
-    gtk_dialog_run(GTK_DIALOG(note));
-    gtk_widget_destroy(note);
+    if (!modems)
+    {
+      gchar *text =
+          connui_cell_code_ui_error_note_type_to_text(NULL, "modem_poweroff");
+      GtkWidget *note = hildon_note_new_information(NULL, text);
+
+      g_free(text);
+      gtk_dialog_run(GTK_DIALOG(note));
+      gtk_widget_destroy(note);
+    }
+
+    g_list_free(modems);
   }
 }
 
@@ -225,7 +233,7 @@ cell_dialog_error_note_net_status(const char *modem_id,
 {
   gint reg_status;
   int net_selection_mode;
-  const char *description = NULL;
+  gchar *description = NULL;
 
   g_return_if_fail(status != NULL);
 
@@ -292,6 +300,7 @@ cell_dialog_error_note_net_status(const char *modem_id,
     connui_cell_net_status_close(cell_dialog_error_note_net_status);
 
 out:
+  g_free(description);
   _prev_net_reg_status = reg_status;
 }
 
@@ -493,7 +502,7 @@ disconnect_button_clicked_cb(GtkButton *button, gpointer user_data)
 static void
 iap_dialog_error_note_counters(const char *modem_id)
 {
-  const char *note_text;
+  gchar *note_text = NULL;
   float rx_bytes = 0.0f;
   float tx_bytes = 0.0f;
   float ttl_bytes;
@@ -510,14 +519,14 @@ iap_dialog_error_note_counters(const char *modem_id)
   if (_is_home)
   {
     note_text = connui_cell_code_ui_error_note_type_to_text(
-          modem_id, "home_notification");
+          NULL, "home_notification");
     rx = gconf_client_get_string(_gconf, GPRS_HOME_RX_BYTES, NULL);
     tx = gconf_client_get_string(_gconf, GPRS_HOME_TX_BYTES, NULL);
   }
   else
   {
     note_text = connui_cell_code_ui_error_note_type_to_text(
-          modem_id, "roaming_notification");
+          NULL, "roaming_notification");
     rx = gconf_client_get_string(_gconf, GPRS_ROAM_RX_BYTES, NULL);
     tx = gconf_client_get_string(_gconf, GPRS_ROAM_TX_BYTES, NULL);
   }
@@ -559,6 +568,7 @@ iap_dialog_error_note_counters(const char *modem_id)
   gtk_label_set_text(GTK_LABEL(_received_label), rx_text);
   g_free(rx_fmt);
   g_free(rx_text);
+  g_free(note_text);
 }
 
 static void
@@ -706,7 +716,7 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
                            iap_dialogs_done_fn done,
                            osso_context_t *libosso)
 {
-  const char *err_text;
+  gchar *err_text = NULL;
   DBusError dbus_error;
   GError *error = NULL;
   const char *note_type = NULL;
@@ -756,11 +766,13 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
 
   if (!g_strcmp0(note_type, "no_network"))
   {
-    hildon_banner_show_information(
-          NULL, NULL,
-          connui_cell_code_ui_error_note_type_to_text(modem_id, note_type));
+    hildon_banner_show_information(NULL, NULL, err_text);
+    g_free(err_text);
     return TRUE;
   }
+
+  g_free(err_text);
+  err_text = NULL;
 
   done_func_dialog_id = iap_id;
   done_func = done;
@@ -801,7 +813,6 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
   {
     cell_dialog_error_note_close(FALSE);
     return TRUE;
-
   }
 
   if (!g_strcmp0(note_type, "home_notification") ||
@@ -820,10 +831,12 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
       return TRUE;
     }
 
+    err_text = connui_cell_code_ui_error_note_type_to_text(modem_id, note_type);
     _dialog = iap_dialog_error_note_psd_auto_dialog(err_text);
   }
   else
   {
+    err_text = connui_cell_code_ui_error_note_type_to_text(modem_id, note_type);
     _dialog = hildon_note_new_information(NULL, err_text);
     g_signal_connect(
           G_OBJECT(_dialog), "response",
@@ -831,6 +844,7 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
 
   }
 
+  g_free(err_text);
   gtk_widget_show_all(_dialog);
 
   return TRUE;
