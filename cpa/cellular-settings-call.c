@@ -196,12 +196,14 @@ _get_clir_cb(guint anonymity, GError *error, gpointer user_data)
 }
 
 static void
-_get_call_forwarding_cb(const char *modem_id, gboolean enabled,
-                        const gchar *phone_number, gpointer user_data,
+_get_call_forwarding_cb(const char *modem_id,
+                        const connui_sups_call_forward *cf, gpointer user_data,
                         GError *error)
 {
   cellular_settings *cs = user_data;
-  gint active = 1;
+  const char *number = NULL;
+  gboolean enabled = FALSE;
+  gint active;
 
   cs->call.svc_call_id = 0;
 
@@ -214,29 +216,14 @@ _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
   if (error)
     CONNUI_ERR("Error in while fetching call forwarding: %s", error->message);
 
-  if (!enabled)
-  {
-    if (cs->call.forward.type != CONNUI_SUPS_UNREACHABLE)
-    {
-      switch (cs->call.forward.type)
-      {
-        case CONNUI_SUPS_BUSY:
-          cs->call.forward.type = CONNUI_SUPS_NO_REPLY;
-          break;
-        case CONNUI_SUPS_NO_REPLY:
-          cs->call.forward.type = CONNUI_SUPS_UNREACHABLE;
-          break;
-      }
+  if ((enabled = cf->cond.busy.enabled))
+    number = cf->cond.busy.number;
+  else if ((enabled = cf->cond.no_reply.enabled))
+    number = cf->cond.no_reply.number;
+  else if ((enabled = cf->cond.unreachable.enabled))
+    number = cf->cond.unreachable.number;
 
-      cs->call.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
-            modem_id, cs->call.forward.type, _get_call_forwarding_cb, cs);
-
-      if (cs->call.svc_call_id)
-        return;
-    }
-  }
-  else
-    active = 0;
+  active = enabled ? 0 : 1;
 
   cellular_settings_stop_progress_indicator(cs);
   cs->call.forward.enabled = enabled;
@@ -244,13 +231,13 @@ _get_call_forwarding_cb(const char *modem_id, gboolean enabled,
   hildon_picker_button_set_active(
         HILDON_PICKER_BUTTON(cs->call.forward.option), active);
 
-  _call_divert_option_show_widgets(cs, active == 0 && !error);
+  _call_divert_option_show_widgets(cs, enabled && !error);
 
-  if (phone_number)
+  if (number)
   {
     g_object_set_data_full(G_OBJECT(cs->call.forward.to), "phone_number",
-                           g_strdup(phone_number), g_free);
-    hildon_entry_set_text(HILDON_ENTRY(cs->call.forward.to), phone_number);
+                           g_strdup(number), g_free);
+    hildon_entry_set_text(HILDON_ENTRY(cs->call.forward.to), number);
   }
   else
     g_object_set_data(G_OBJECT(cs->call.forward.to), "phone_number", NULL);
@@ -282,9 +269,8 @@ _get_call_waiting_cb(const char *modem_id, gboolean enabled, GError *error,
   if (!error)
     gtk_widget_set_sensitive(cs->call.waiting.button, TRUE);
 
-  cs->call.forward.type = CONNUI_SUPS_BUSY;
   cs->call.svc_call_id = connui_cell_sups_get_call_forwarding_enabled(
-        modem_id, CONNUI_SUPS_BUSY, _get_call_forwarding_cb, cs);
+        modem_id, _get_call_forwarding_cb, cs);
 
   if (!cs->call.svc_call_id)
     cellular_settings_stop_progress_indicator(cs);

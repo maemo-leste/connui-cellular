@@ -50,11 +50,8 @@ static void _call_waiting_get_cb(GObject *object, GAsyncResult* res,
 static void _call_waiting_set_cb(GObject *object, GAsyncResult* res,
                                  gpointer data);
 
-static void _noreply_query_cb(GObject *object, GAsyncResult *res,
-                              gpointer data);
-static void _unreachable_query_cb(GObject *object, GAsyncResult *res,
-                                  gpointer data);
-static void _busy_query_cb(GObject *object, GAsyncResult *res, gpointer data);
+static void _forwarding_query_cb(GObject *object, GAsyncResult *res,
+                                 gpointer data);
 static void _do_call(sups_data *sd, service_call_data *scd);
 
 static void
@@ -170,9 +167,7 @@ _do_call(sups_data *sd, service_call_data *scd)
     org_ofono_supplementary_services_call_initiate(
           sd->proxy, cmd, scd->cancellable, scd->async_cb, scd);
   }
-  else if (scd->async_cb == _noreply_query_cb ||
-           scd->async_cb == _unreachable_query_cb ||
-           scd->async_cb == _busy_query_cb)
+  else if (scd->async_cb == _forwarding_query_cb)
   {
     org_ofono_supplementary_services_call_initiate(
           sd->proxy, "*#004**11#", scd->cancellable, scd->async_cb, scd);
@@ -364,8 +359,7 @@ connui_cell_sups_set_call_waiting_enabled(const char *modem_id,
 }
 
 static void
-_call_forwarding_enabled_cb(connui_sups_call_forward type, GObject *object,
-                            GAsyncResult *res, gpointer data)
+_forwarding_query_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
   OrgOfonoSupplementaryServices *proxy =
       ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
@@ -373,7 +367,11 @@ _call_forwarding_enabled_cb(connui_sups_call_forward type, GObject *object,
   GVariant *value;
   service_call_data *scd = data;
   sups_data *sd = scd->async_data;
-  gchar *phone = NULL;
+  GVariant *busy = NULL;
+  GVariant *nr = NULL;
+  GVariant *ur = NULL;
+  connui_sups_call_forward scf;
+  const connui_sups_call_forward *pscf = NULL;
 
   if (org_ofono_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
@@ -388,95 +386,70 @@ _call_forwarding_enabled_cb(connui_sups_call_forward type, GObject *object,
     {
       GVariant *cf;
       GVariant *dict;
-      GVariant *v;
+      const char *s;
 
       g_variant_get(value, "v", &cf);
       g_variant_get(cf, "(&s&s@a{sv})", NULL, NULL, &dict);
 
-      switch (type)
+      if((busy = g_variant_lookup_value(dict, "VoiceBusy", NULL)) &&
+         (s = g_variant_get_string(busy, NULL)) && *s)
       {
-        case CONNUI_SUPS_NO_REPLY:
-          v = g_variant_lookup_value(dict, "VoiceNoReply", NULL);
-          break;
-        case CONNUI_SUPS_UNREACHABLE:
-          v = g_variant_lookup_value(dict, "VoiceNotReachable", NULL);
-          break;
-        case CONNUI_SUPS_BUSY:
-          v = g_variant_lookup_value(dict, "VoiceBusy", NULL);
-          break;
+        scf.cond.busy.number = s;
       }
+      else
+        scf.cond.busy.number = NULL;
 
-      if (v)
+      if ((nr = g_variant_lookup_value(dict, "VoiceNoReply", NULL)) &&
+          (s = g_variant_get_string(nr, NULL)) && *s)
       {
-        const gchar *s = g_variant_get_string(v, NULL);
-
-        if (s && *s)
-          phone = g_strdup(s);
-
-        g_variant_unref(v);
+        scf.cond.no_reply.number = s;
       }
+      else
+        scf.cond.no_reply.number = NULL;
+
+      if ((ur = g_variant_lookup_value(dict, "VoiceNotReachable", NULL)) &&
+          (s = g_variant_get_string(ur, NULL)) && *s)
+      {
+        scf.cond.unreachable.number = s;
+      }
+      else
+        scf.cond.unreachable.number = NULL;
 
       g_variant_unref(cf);
+
+      /* OFONO API is broken, no way to get disabled phone */
+      scf.cond.busy.enabled = !!scf.cond.busy.number;
+      scf.cond.no_reply.enabled = !!scf.cond.no_reply.number;
+      scf.cond.unreachable.enabled = !!scf.cond.unreachable.number;
+      pscf = &scf;
     }
 
     g_free(result_name);
     g_variant_unref(value);
   }
 
-  /* OFONO API is broken, no way to get disabled phone */
-  ((call_forwarding_get_cb)scd->callback)(sd->path, !!phone, phone,
-                                          scd->user_data, scd->error);
+  ((call_forwarding_get_cb)scd->callback)(
+        sd->path, pscf, scd->user_data, scd->error);
 
-  g_free(phone);
+  if (busy)
+    g_variant_unref(busy);
+
+  if (nr)
+    g_variant_unref(nr);
+
+  if(ur)
+    g_variant_unref(ur);
+
   _remove_call(scd);
-}
-
-static void
-_noreply_query_cb(GObject *object, GAsyncResult *res, gpointer data)
-{
-  _call_forwarding_enabled_cb(CONNUI_SUPS_NO_REPLY, object, res, data);
-}
-
-static void
-_unreachable_query_cb(GObject *object, GAsyncResult *res, gpointer data)
-{
-  _call_forwarding_enabled_cb(CONNUI_SUPS_UNREACHABLE, object, res, data);
-}
-
-static void
-_busy_query_cb(GObject *object, GAsyncResult *res, gpointer data)
-{
-  _call_forwarding_enabled_cb(CONNUI_SUPS_BUSY, object, res, data);
 }
 
 guint
 connui_cell_sups_get_call_forwarding_enabled(const char *modem_id,
-                                             connui_sups_call_forward type,
                                              call_forwarding_get_cb cb,
                                              gpointer user_data)
 {
-  switch (type)
-  {
-    case CONNUI_SUPS_NO_REPLY:
-    {
-      return _sups_service_call(modem_id, _noreply_query_cb,
-                                cb, NULL, user_data);
-    }
-    case CONNUI_SUPS_UNREACHABLE:
-    {
-      return _sups_service_call(modem_id, _unreachable_query_cb,
-                                cb, NULL, user_data);
-    }
-    case CONNUI_SUPS_BUSY:
-    {
-      return _sups_service_call(modem_id, _busy_query_cb,
-                                cb, NULL, user_data);
-    }
-    default:
-      g_assert_not_reached();
-  }
-
-  return 0;
+  return
+      _sups_service_call(modem_id, _forwarding_query_cb, cb, NULL, user_data);
 }
 
 void

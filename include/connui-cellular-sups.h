@@ -22,12 +22,34 @@
 
 typedef enum
 {
-//  CONNUI_SUPS_NONE,
+  CONNUI_SUPS_UNCONDITIONAL,
   CONNUI_SUPS_BUSY,
   CONNUI_SUPS_NO_REPLY,
   CONNUI_SUPS_UNREACHABLE,
-/*  CONNUI_SUPS_ALL_COND,
-  CONNUI_SUPS_ALL*/
+  CONNUI_SUPS_ALL_COND,
+  CONNUI_SUPS_ALL
+} connui_sups_call_forward_type;
+
+typedef struct
+{
+  struct
+  {
+    struct
+    {
+      gboolean enabled;
+      const char *number;
+    } busy;
+    struct
+    {
+      gboolean enabled;
+      const char *number;
+    } no_reply;
+    struct
+    {
+      gboolean enabled;
+      const char *number;
+    } unreachable;
+  } cond;
 } connui_sups_call_forward;
 
 typedef void (*call_waiting_get_cb)(const char *modem_id,
@@ -35,14 +57,14 @@ typedef void (*call_waiting_get_cb)(const char *modem_id,
                                     GError *error,
                                     gpointer user_data);
 
-typedef void (*call_forwarding_get_cb)(const char *modem_id,
-                                       gboolean enabled,
-                                       const gchar *phone_number,
-                                       gpointer user_data,
-                                       GError *error);
 typedef void (*call_waiting_set_cb)(const char *modem_id,
                                     GError *error,
                                     gpointer user_data);
+
+typedef void (*call_forwarding_get_cb)(const char *modem_id,
+                                       const connui_sups_call_forward *cf,
+                                       gpointer user_data,
+                                       GError *error);
 
 guint
 connui_cell_sups_get_call_waiting_enabled(const char *modem_id,
@@ -56,7 +78,6 @@ connui_cell_sups_set_call_waiting_enabled(const char *modem_id,
 
 guint
 connui_cell_sups_get_call_forwarding_enabled(const char *modem_id,
-                                             connui_sups_call_forward type,
                                              call_forwarding_get_cb cb,
                                              gpointer user_data);
 

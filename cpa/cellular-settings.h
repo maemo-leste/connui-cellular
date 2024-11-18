@@ -57,7 +57,6 @@ struct _CellularSettings
       GtkWidget *option;
       GtkWidget *to;
       GtkWidget *contact;
-      connui_sups_call_forward type;
       gboolean enabled;
     } forward;
   } call;
