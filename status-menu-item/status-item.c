@@ -227,7 +227,7 @@ connui_cellular_status_item_update_icon(ConnuiCellularStatusItem *item,
     gdk_pixbuf_fill(pixbuf, 0);
   }
 
-  for (l = modems; l && count < 2; l = l->next)
+  for (l = modems; l && count; l = l->next)
   {
     modem = _find_modem(item, l->data);
 
@@ -249,7 +249,7 @@ connui_cellular_status_item_update_icon(ConnuiCellularStatusItem *item,
       }
     }
 
-    count++;
+    count--;
     x += 18;
   }
 
