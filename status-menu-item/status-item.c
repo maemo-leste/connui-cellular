@@ -1,4 +1,5 @@
 #include <connui/connui.h>
+#include <connui/connui-log.h>
 #include <libhildondesktop/libhildondesktop.h>
 #include <icd/dbus_api.h>
 #include <osso-log.h>
@@ -110,6 +111,8 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
   const gchar *bars = "statusarea_cell_off";
   gboolean changed = FALSE;
 
+  CONNUI_ERR("sim status %d reg_status %d offline %d",
+             modem->sim_status, modem->state.reg_status, offline);
   if (sim_status != CONNUI_SIM_STATE_TIMEOUT &&
       sim_status != CONNUI_SIM_STATUS_UNKNOWN &&
       sim_status != CONNUI_SIM_STATUS_NO_SIM)
@@ -180,6 +183,8 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
 
   modem->bars = bars;
   modem->mode = mode;
+
+  CONNUI_ERR("bars %s mode %s changed %d", bars, mode, changed);
 
   return changed;
 }
