@@ -50,7 +50,7 @@ static void _call_waiting_get_cb(GObject *object, GAsyncResult* res,
 static void _call_waiting_set_cb(GObject *object, GAsyncResult* res,
                                  gpointer data);
 
-static void _forwarding_query_cb(GObject *object, GAsyncResult *res,
+static void _forwarding_get_cb(GObject *object, GAsyncResult *res,
                                  gpointer data);
 static void _do_call(sups_data *sd, service_call_data *scd);
 
@@ -167,7 +167,7 @@ _do_call(sups_data *sd, service_call_data *scd)
     org_ofono_supplementary_services_call_initiate(
           sd->proxy, cmd, scd->cancellable, scd->async_cb, scd);
   }
-  else if (scd->async_cb == _forwarding_query_cb)
+  else if (scd->async_cb == _forwarding_get_cb)
   {
     org_ofono_supplementary_services_call_initiate(
           sd->proxy, "*#004**11#", scd->cancellable, scd->async_cb, scd);
@@ -226,6 +226,12 @@ _sups_data_error_idle(gpointer fn, gpointer cb, gpointer user_data,
 }
 #endif
 
+static void
+_sups_service_call_cancel(service_call_data *scd)
+{
+  scd->async_cb(NULL, NULL, scd);
+}
+
 static guint
 _sups_service_call(const char *modem_id,
                    GAsyncReadyCallback async_cb,
@@ -253,6 +259,7 @@ _sups_service_call(const char *modem_id,
   scd->data = data;
   scd->async_cb = async_cb;
   scd->async_data = sd;
+  scd->cancel = _sups_service_call_cancel;
 
   _do_call(sd, scd);
 
@@ -261,8 +268,28 @@ _sups_service_call(const char *modem_id,
   return id;
 }
 
+
+static gboolean
+_sups_check_cancelled(GAsyncResult *res, service_call_data *scd)
+{
+  if (!res)
+  {
+    sups_data *sd = scd->async_data;
+
+    g_set_error(&scd->error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                "Operation was cancelled.");
+
+    if (sd && sd->pending)
+      g_hash_table_remove(sd->pending, GUINT_TO_POINTER(scd->id));
+
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
 static void
-_call_waiting_get_cb(GObject *object, GAsyncResult* res, gpointer data)
+_call_waiting_get_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
   OrgOfonoSupplementaryServices *proxy =
       ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
@@ -272,7 +299,8 @@ _call_waiting_get_cb(GObject *object, GAsyncResult* res, gpointer data)
   sups_data *sd = scd->async_data;
   gboolean enabled = FALSE;
 
-  if (org_ofono_supplementary_services_call_initiate_finish(
+  if (!_sups_check_cancelled(res, scd)&&
+      org_ofono_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallWaiting"))
@@ -320,7 +348,7 @@ connui_cell_sups_get_call_waiting_enabled(const char *modem_id,
 }
 
 static void
-_call_waiting_set_cb(GObject *object, GAsyncResult* res, gpointer data)
+_call_waiting_set_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
   OrgOfonoSupplementaryServices *proxy =
       ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
@@ -329,7 +357,8 @@ _call_waiting_set_cb(GObject *object, GAsyncResult* res, gpointer data)
   service_call_data *scd = data;
   sups_data *sd = scd->async_data;
 
-  if (org_ofono_supplementary_services_call_initiate_finish(
+  if (!_sups_check_cancelled(res, scd) &&
+      org_ofono_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallWaiting"))
@@ -359,7 +388,7 @@ connui_cell_sups_set_call_waiting_enabled(const char *modem_id,
 }
 
 static void
-_forwarding_query_cb(GObject *object, GAsyncResult *res, gpointer data)
+_forwarding_get_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
   OrgOfonoSupplementaryServices *proxy =
       ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
@@ -373,7 +402,8 @@ _forwarding_query_cb(GObject *object, GAsyncResult *res, gpointer data)
   connui_sups_call_forward scf;
   const connui_sups_call_forward *pscf = NULL;
 
-  if (org_ofono_supplementary_services_call_initiate_finish(
+  if (!_sups_check_cancelled(res, scd) &&
+      org_ofono_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallForwarding"))
@@ -448,37 +478,5 @@ connui_cell_sups_get_call_forwarding_enabled(const char *modem_id,
                                              call_forwarding_get_cb cb,
                                              gpointer user_data)
 {
-  return
-      _sups_service_call(modem_id, _forwarding_query_cb, cb, NULL, user_data);
-}
-
-void
-connui_cell_sups_cancel_service_call(guint id)
-{
-  connui_cell_context *ctx = connui_cell_context_get(NULL);
-
-  g_return_if_fail(ctx != NULL);
-
-  if (ctx->service_calls && id)
-  {
-    service_call_data *scd = service_call_find(ctx, id);
-
-    if (scd)
-    {
-      if (scd->cancellable)
-        g_cancellable_cancel(scd->cancellable);
-      else
-      {
-        sups_data *sd = scd->async_data;
-        service_call_take(ctx, id);
-
-        if (sd && sd->pending)
-          g_hash_table_remove(sd->pending, GUINT_TO_POINTER(id));
-
-        service_call_destroy(scd);
-      }
-    }
-  }
-
-  connui_cell_context_destroy(ctx);
+  return _sups_service_call(modem_id, _forwarding_get_cb, cb, NULL, user_data);
 }

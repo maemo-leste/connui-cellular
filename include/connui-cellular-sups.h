@@ -81,7 +81,4 @@ connui_cell_sups_get_call_forwarding_enabled(const char *modem_id,
                                              call_forwarding_get_cb cb,
                                              gpointer user_data);
 
-void
-connui_cell_sups_cancel_service_call(guint id);
-
 #endif /* __CONNUI_CELLULAR_SUPS_H_INCLUDED__ */

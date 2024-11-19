@@ -376,5 +376,5 @@ void
 _call_cancel(cellular_settings *cs)
 {
   if (cs->call.svc_call_id)
-    connui_cell_sups_cancel_service_call(cs->call.svc_call_id);
+    connui_cell_cancel_service_call(cs->call.svc_call_id);
 }

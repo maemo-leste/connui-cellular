@@ -32,8 +32,8 @@ typedef struct _service_call_data
   gpointer async_data;
 
   GCancellable *cancellable;
+  void (*cancel)(struct _service_call_data *scd);
   GError *error;
-  guint timeout_id;
 }
 service_call_data;
 
@@ -47,8 +47,6 @@ void
 service_call_destroy(service_call_data *scd);
 void
 service_call_remove(connui_cell_context *ctx, guint id);
-service_call_data *
-service_call_find(connui_cell_context *ctx, guint id);
 service_call_data *
 service_call_take(connui_cell_context *ctx, guint id);
 

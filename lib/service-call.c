@@ -59,16 +59,10 @@ service_call_destroy(service_call_data *scd)
   if (scd->cancellable)
     g_object_unref(scd->cancellable);
 
-  if (scd->timeout_id)
-  {
-    g_source_remove(scd->timeout_id);
-    scd->timeout_id = 0;
-  }
-
   g_free(scd);
 }
 
-__attribute__((visibility("hidden"))) service_call_data *
+static service_call_data *
 service_call_find(connui_cell_context *ctx, guint id)
 {
   service_call_data *call =
@@ -115,4 +109,28 @@ service_call_take(connui_cell_context *ctx, guint id)
   }
 
   return scd;
+}
+
+void
+connui_cell_cancel_service_call(guint id)
+{
+  connui_cell_context *ctx = connui_cell_context_get(NULL);
+
+  g_return_if_fail(ctx != NULL);
+
+  if (ctx->service_calls && id)
+  {
+    service_call_data *scd = service_call_find(ctx, id);
+
+    g_return_if_fail(scd != NULL);
+
+    if (scd->cancellable)
+      g_cancellable_cancel(scd->cancellable);
+    else if (scd->cancel)
+      scd->cancel(scd);
+    else
+      service_call_remove(ctx, id);
+  }
+
+  connui_cell_context_destroy(ctx);
 }

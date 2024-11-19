@@ -50,4 +50,7 @@ typedef enum connui_error {
     CONNUI_NUM_ERRORS
 } ConnuiError;
 
+void
+connui_cell_cancel_service_call(guint id);
+
 #endif /* __CONNUI_CELLULAR_H__ */
