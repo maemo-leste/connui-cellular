@@ -1,3 +1,9 @@
+connui-cellular (3.99.2) unstable; urgency=medium
+
+  * experimental WIP
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Tue, 19 Nov 2024 07:34:11 +0200
+
 connui-cellular (3.99.1) unstable; urgency=medium
 
   * Initial multi-modem support
