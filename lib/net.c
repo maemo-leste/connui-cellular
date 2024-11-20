@@ -175,7 +175,7 @@ _reg_status(const gchar *status)
   else if (!strcmp(status, "denied"))
     return CONNUI_NET_REG_STATUS_DENIED;
   else if (!strcmp(status, "roaming"))
-      return CONNUI_NET_REG_STATUS_ROAMING;
+    return CONNUI_NET_REG_STATUS_ROAMING;
   else
     return CONNUI_NET_REG_STATUS_UNKNOWN;
 }
