@@ -111,8 +111,9 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
   const gchar *bars = "statusarea_cell_off";
   gboolean changed = FALSE;
 
-  CONNUI_ERR("sim status %d reg_status %d offline %d",
-             modem->sim_status, modem->state.reg_status, offline);
+  CONNUI_ERR("sim status %d reg_status %d rat %d offline %d",
+             modem->sim_status, modem->state.reg_status,
+             modem->state.rat_name, offline);
   if (sim_status != CONNUI_SIM_STATE_TIMEOUT &&
       sim_status != CONNUI_SIM_STATUS_UNKNOWN &&
       sim_status != CONNUI_SIM_STATUS_NO_SIM)
