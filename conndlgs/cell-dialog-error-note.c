@@ -29,12 +29,12 @@
 #define ICD_UI_GCONF_SETTINGS ICD_GCONF_SETTINGS "/ui/"
 
 static void
-cell_dialog_error_note_modem_state(const char *modem_id,
+_modem_status_cb(const char *modem_id,
                                    const connui_modem_status *status,
                                    gpointer user_data);
 
 static void
-cell_dialog_error_note_net_status(const char *modem_id,
+_net_status_cb(const char *modem_id,
                                   const cell_network_state *status,
                                   gpointer user_data);
 
@@ -46,7 +46,7 @@ static GtkWidget *_label;
 static GtkWidget *_sent_label;
 static GtkWidget *_received_label;
 
-static guchar _prev_net_reg_status;
+static GHashTable *reg_status = NULL;
 static iap_dialogs_done_fn done_func;
 static int done_func_dialog_id;
 static GConfClient *_gconf;
@@ -60,19 +60,22 @@ static gboolean roaming_pending_ack = FALSE;
 
 IAP_DIALOGS_PLUGIN_DEFINE_EXTENDED(error_note, CELLULAR_UI_SHOW_ERROR_NOTE,
 {
-  _prev_net_reg_status = -1;
+  reg_status = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
   check_pending_acks();
 
-  if (!connui_cell_net_status_register(cell_dialog_error_note_net_status, NULL))
+  if (!connui_cell_net_status_register(_net_status_cb, NULL))
     CONNUI_ERR("Unable to register cellular net status listener!");
 
-  if (!connui_cell_modem_status_register(cell_dialog_error_note_modem_state,
-                                         NULL))
-  {
+  if (!connui_cell_modem_status_register(_modem_status_cb, NULL))
     CONNUI_ERR("Unable to register modem state callback");
-  }
-});
+},
+{
+  connui_cell_net_status_close(_net_status_cb);
+  connui_cell_modem_status_close(_modem_status_cb);
+  g_hash_table_destroy(reg_status);
+}
+);
 
 static const struct
 {
@@ -172,13 +175,14 @@ format_data_counter(float val, int pow)
 }
 
 static void
-cell_dialog_error_note_modem_state(const char *modem_id,
-                                   const connui_modem_status *status,
-                                   gpointer user_data)
+_modem_status_cb(const char *modem_id, const connui_modem_status *status,
+                 gpointer user_data)
 {
   if (*status == CONNUI_MODEM_STATUS_REMOVED)
   {
     GList *modems = connui_cell_modem_get_modems(NULL);
+
+    g_hash_table_remove(reg_status, modem_id);
 
     if (!modems)
     {
@@ -192,6 +196,13 @@ cell_dialog_error_note_modem_state(const char *modem_id,
     }
 
     g_list_free(modems);
+
+
+  }
+  else if (!g_hash_table_contains(reg_status, modem_id))
+  {
+    g_hash_table_insert(reg_status, g_strdup(modem_id),
+                        GINT_TO_POINTER(CONNUI_NET_REG_STATUS_UNKNOWN));
   }
 }
 
@@ -226,82 +237,85 @@ cell_dialog_error_note_close_no_process_pending()
   cell_dialog_error_note_close(FALSE);
 }
 
+#define SEARCHING_OR_CONNECTED(status) \
+  ( \
+  status == CONNUI_NET_REG_STATUS_HOME || \
+  status == CONNUI_NET_REG_STATUS_SEARCHING || \
+  status == CONNUI_NET_REG_STATUS_ROAMING \
+  )
+
 static void
-cell_dialog_error_note_net_status(const char *modem_id,
-                                  const cell_network_state *status,
-                                  gpointer user_data)
+_net_status_cb(const char *modem_id, const cell_network_state *status,
+               gpointer user_data)
 {
-  gint reg_status;
-  int net_selection_mode;
-  gchar *description = NULL;
+  gchar *text = NULL;
+  connui_net_registration_status new_rs;
+  connui_net_registration_status old_rs;
+  gpointer p;
 
   g_return_if_fail(status != NULL);
 
-  reg_status = status->reg_status;
+  new_rs = status->reg_status;
 
-  if (roaming_pending_ack && reg_status == CONNUI_NET_REG_STATUS_ROAMING)
+  if (roaming_pending_ack && new_rs == CONNUI_NET_REG_STATUS_ROAMING)
   {
     roaming_pending_ack = FALSE;
     g_idle_add((GSourceFunc)show_error_note, "roaming_notification");
   }
-  else if (home_pending_ack && reg_status == CONNUI_NET_REG_STATUS_HOME)
+  else if (home_pending_ack && new_rs == CONNUI_NET_REG_STATUS_HOME)
   {
     home_pending_ack = FALSE;
     g_idle_add((GSourceFunc)show_error_note, "home_notification");
   }
 
-  if (reg_status == CONNUI_NET_REG_STATUS_DENIED)
-  {
-    description = connui_cell_code_ui_error_note_type_to_text(modem_id,
-                                                              "sim_reg_fail");
-  }
-  else
-  {
-    if (reg_status != CONNUI_NET_REG_STATUS_UNKNOWN)
-    {
-      if (_prev_net_reg_status == CONNUI_NET_REG_STATUS_UNKNOWN && _dialog)
-        cell_dialog_error_note_close(FALSE);
-      else
-        goto out;
-    }
-    else
-    {
-      net_selection_mode =
-          connui_cell_net_get_network_selection_mode(modem_id, NULL);
+  if (!g_hash_table_lookup_extended(reg_status, modem_id, NULL, &p))
+    return;
 
-      if (net_selection_mode == CONNUI_NET_SELECT_MODE_UNKNOWN ||
-          net_selection_mode == CONNUI_NET_SELECT_MODE_MANUAL)
-      {
-        description =
-            connui_cell_code_ui_error_note_type_to_text(modem_id,
-                                                        "sim_select_network");
-      }
+  old_rs = GPOINTER_TO_INT(p);
+
+  if (new_rs == CONNUI_NET_REG_STATUS_DENIED)
+  {
+    text = connui_cell_code_ui_error_note_type_to_text(modem_id,
+                                                       "sim_reg_fail");
+  }
+  else if (SEARCHING_OR_CONNECTED(new_rs))
+  {
+    if (!SEARCHING_OR_CONNECTED(old_rs) && _dialog)
+      cell_dialog_error_note_close(TRUE);
+  }
+  else if (SEARCHING_OR_CONNECTED(old_rs))
+  {
+    if (connui_cell_net_get_network_selection_mode(modem_id, NULL) ==
+        CONNUI_NET_SELECT_MODE_MANUAL)
+    {
+      text = connui_cell_code_ui_error_note_type_to_text(modem_id,
+                                                         "sim_select_network");
     }
   }
 
-  if (description)
+  if (text)
   {
     done_func_dialog_id = iap_dialog_request_dialog(60, &done_func, NULL);
 
     if (done_func_dialog_id != -1)
     {
-      _dialog = hildon_note_new_information(NULL, description);
+      _dialog = hildon_note_new_information(NULL, text);
       g_signal_connect(
             G_OBJECT(_dialog), "response",
             G_CALLBACK(cell_dialog_error_note_close_no_process_pending), NULL);
       gtk_widget_show_all(_dialog);
     }
+    else
+      CONNUI_ERR("Unable to show SIM registration failed dialog");
+
+    g_free(text);
   }
 
-  if (!description || (description && done_func_dialog_id == -1))
-    CONNUI_ERR("Unable to show SIM registration failed dialog");
-
-  if (reg_status == CONNUI_NET_REG_STATUS_DENIED)
-    connui_cell_net_status_close(cell_dialog_error_note_net_status);
-
-out:
-  g_free(description);
-  _prev_net_reg_status = reg_status;
+  if (old_rs != new_rs)
+  {
+    g_hash_table_insert(reg_status, g_strdup(modem_id),
+                        GINT_TO_POINTER(new_rs));
+  }
 }
 
 static gboolean
