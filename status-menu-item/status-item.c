@@ -36,7 +36,6 @@ struct _ConnuiCellularModem
 {
   gchar *id;
   cell_network_state state;
-  connui_sim_status sim_status;
   const gchar *mode;
   const gchar *bars;
 };
@@ -46,10 +45,10 @@ typedef struct _ConnuiCellularModem ConnuiCellularModem;
 struct _ConnuiCellularStatusItemPrivate
 {
   GList *modems;
-  gboolean offline;
   osso_context_t *osso_context;
   ConnuiPixbufCache *pixbuf_cache;
   osso_display_state_t display_state;
+  gboolean offline;
   gboolean display_was_off;
   gboolean modems_changed;
 };
@@ -81,17 +80,24 @@ _find_modem(ConnuiCellularStatusItem *item, const char *modem_id)
 }
 
 static ConnuiCellularModem *
-_get_modem(ConnuiCellularStatusItem *item, const char *modem_id)
+_add_modem(ConnuiCellularStatusItem *item, const char *modem_id)
 {
   ConnuiCellularStatusItemPrivate *priv = PRIVATE(item);
+  ConnuiCellularModem *modem = g_new0(ConnuiCellularModem, 1);
+
+  modem->id = g_strdup(modem_id);
+  priv->modems = g_list_append(priv->modems, modem);
+
+  return modem;
+}
+
+static ConnuiCellularModem *
+_get_modem(ConnuiCellularStatusItem *item, const char *modem_id)
+{
   ConnuiCellularModem *modem = _find_modem(item, modem_id);
 
   if (!modem)
-  {
-    modem = g_new0(ConnuiCellularModem, 1);
-    modem->id = g_strdup(modem_id);
-    priv->modems = g_list_append(priv->modems, modem);
-  }
+    modem = _add_modem(item, modem_id);
 
   return modem;
 }
@@ -106,77 +112,73 @@ _free_modem(ConnuiCellularModem *modem)
 static gboolean
 _get_icons(ConnuiCellularModem *modem, gboolean offline)
 {
-  connui_sim_status sim_status = modem->sim_status;
   const gchar *mode = NULL;
-  const gchar *bars = "statusarea_cell_off";
+  const gchar *bars = NULL;
   gboolean changed = FALSE;
 
-  CONNUI_ERR("sim status %d reg_status %d rat %d offline %d",
-             modem->sim_status, modem->state.reg_status,
-             modem->state.rat_name, offline);
-  if (sim_status != CONNUI_SIM_STATE_TIMEOUT &&
-      sim_status != CONNUI_SIM_STATUS_UNKNOWN &&
-      sim_status != CONNUI_SIM_STATUS_NO_SIM)
+  switch (modem->state.reg_status)
   {
-    switch (modem->state.reg_status)
+    case CONNUI_NET_REG_STATUS_HOME:
+    case CONNUI_NET_REG_STATUS_ROAMING:
     {
-      case CONNUI_NET_REG_STATUS_HOME:
-      case CONNUI_NET_REG_STATUS_ROAMING:
-      {
-        connui_net_radio_access_tech rat = modem->state.rat_name;
+      connui_net_radio_access_tech rat = modem->state.rat_name;
 
-        if (rat == CONNUI_NET_RAT_LTE)
-            mode = "statusarea_cell_mode_4g";
-        else if (rat == CONNUI_NET_RAT_UMTS)
-        {
-          if (modem->state.network_hsdpa_allocated)
-            mode = "statusarea_cell_mode_3_5g";
-          else
-            mode = "statusarea_cell_mode_3g";
-        }
-        else if (rat == CONNUI_NET_RAT_GSM)
-        {
-          if (modem->state.supported_services & NETWORK_MASK_EGPRS_SUPPORT)
-            mode = "statusarea_cell_mode_2_5g";
-          else
-            mode = "statusarea_cell_mode_2g";
-        }
+      if (rat == CONNUI_NET_RAT_LTE)
+        mode = "statusarea_cell_mode_4g";
+      else if (rat == CONNUI_NET_RAT_UMTS)
+      {
+        if (modem->state.network_hsdpa_allocated)
+          mode = "statusarea_cell_mode_3_5g";
         else
-          g_warning("status->rat unknown %hhu!", rat);
-
-        guchar signal_bars = modem->state.network_signals_bar;
-
-        if (signal_bars > 80)
-          bars = "statusarea_cell_level5";
-        else if (signal_bars > 60)
-          bars = "statusarea_cell_level4";
-        else if (signal_bars > 40)
-          bars = "statusarea_cell_level3";
-        else if (signal_bars > 20)
-          bars = "statusarea_cell_level2";
-        else if (signal_bars)
-          bars = "statusarea_cell_level1";
+          mode = "statusarea_cell_mode_3g";
+      }
+      else if (rat == CONNUI_NET_RAT_GSM)
+      {
+        if (modem->state.supported_services & NETWORK_MASK_EGPRS_SUPPORT)
+          mode = "statusarea_cell_mode_2_5g";
         else
-          bars = "statusarea_cell_level0";
+          mode = "statusarea_cell_mode_2g";
+      }
+      else
+        g_warning("status->rat unknown %hhu!", rat);
 
-        break;
-      }
-      case CONNUI_NET_REG_STATUS_UNREGISTERED:
+      guchar signal_bars = modem->state.network_signals_bar;
+
+      if (signal_bars > 80)
+        bars = "statusarea_cell_level5";
+      else if (signal_bars > 60)
+        bars = "statusarea_cell_level4";
+      else if (signal_bars > 40)
+        bars = "statusarea_cell_level3";
+      else if (signal_bars > 20)
+        bars = "statusarea_cell_level2";
+      else if (signal_bars)
+        bars = "statusarea_cell_level1";
+      else
+        bars = "statusarea_cell_level0";
+
+      break;
+    }
+    case CONNUI_NET_REG_STATUS_UNKNOWN:
+    case CONNUI_NET_REG_STATUS_UNREGISTERED:
+    {
+      if (offline)
       {
-        bars = "statusarea_cell_off";
-        break;
-      }
-      default:
-      {
+        mode = "statusarea_offline_mode";
         bars = "statusarea_cell_level0";
         break;
       }
     }
-  }
-  else if (offline)
-  {
-    mode = "statusarea_offline_mode";
-    bars = "statusarea_cell_level0";
+    case CONNUI_NET_REG_STATUS_DENIED:
+    {
+      bars = "statusarea_cell_off";
+      break;
+    }
+    default:
+    {
+      bars = "statusarea_cell_level0";
+      break;
+    }
   }
 
   if (modem->bars != bars || modem->mode != mode)
@@ -184,8 +186,6 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
 
   modem->bars = bars;
   modem->mode = mode;
-
-  CONNUI_ERR("bars %s mode %s changed %d", bars, mode, changed);
 
   return changed;
 }
@@ -308,32 +308,39 @@ connui_cellular_status_item_pin_query(const char *modem_id)
 }
 
 static void
-_sim_status_cb(const char *modem_id, const connui_sim_status *sim_status,
-               gpointer user_data)
+_modem_status_cb(const char *modem_id, const connui_modem_status *status,
+                 gpointer user_data)
 {
   ConnuiCellularStatusItem *item = CONNUI_CELLULAR_STATUS_ITEM(user_data);
   ConnuiCellularStatusItemPrivate *priv = PRIVATE(item);
-  ConnuiCellularModem *modem = _get_modem(item, modem_id);
+  ConnuiCellularModem *modem = _find_modem(item, modem_id);
 
-  if (*sim_status == CONNUI_SIM_STATUS_UNKNOWN)
+  if (*status == CONNUI_MODEM_STATUS_REMOVED)
   {
-    priv->modems_changed = TRUE;
-    priv->modems = g_list_remove(priv->modems, modem);
-    _free_modem(modem);
-    modem_id = NULL;
-  }
-  else
-  {
-    if (*sim_status == CONNUI_SIM_STATUS_OK_PIN_REQUIRED ||
-        *sim_status == CONNUI_SIM_STATUS_OK_PUK_REQUIRED)
+    if (modem)
     {
-      connui_cellular_status_item_pin_query(modem_id);
+      priv->modems_changed = TRUE;
+      priv->modems = g_list_remove(priv->modems, modem);
+      _free_modem(modem);
+      connui_cellular_status_item_update_icon(item, NULL);
     }
-
-    modem->sim_status = *sim_status;
   }
+  else if (!modem)
+  {
+    _add_modem(item, modem_id);
+    connui_cellular_status_item_update_icon(item, NULL);
+  }
+}
 
-  connui_cellular_status_item_update_icon(item, modem_id);
+static void
+_sim_status_cb(const char *modem_id, const connui_sim_status *sim_status,
+               gpointer user_data)
+{
+  if (*sim_status == CONNUI_SIM_STATUS_OK_PIN_REQUIRED ||
+      *sim_status == CONNUI_SIM_STATUS_OK_PUK_REQUIRED)
+  {
+    connui_cellular_status_item_pin_query(modem_id);
+  }
 }
 
 static void
@@ -364,6 +371,7 @@ connui_cellular_status_item_finalize(GObject *object)
     priv->pixbuf_cache = 0;
   }
 
+  connui_cell_modem_status_close(_modem_status_cb);
   connui_cell_net_status_close(_net_status_cb);
   connui_cell_sim_status_close(_sim_status_cb);
   connui_flightmode_close(connui_cellular_status_item_flightmode_cb);
@@ -379,25 +387,36 @@ connui_cellular_status_item_class_init(ConnuiCellularStatusItemClass *klass)
 }
 
 static void
-connui_cellular_status_item_init(ConnuiCellularStatusItem *self)
+connui_cellular_status_item_init(ConnuiCellularStatusItem *item)
 {
-  ConnuiCellularStatusItemPrivate *priv = PRIVATE(self);
-
+  ConnuiCellularStatusItemPrivate *priv = PRIVATE(item);
+  GList *modems;
+  GList *l;
   priv->pixbuf_cache = connui_pixbuf_cache_new();
   priv->osso_context = osso_initialize("connui_cellular_status_item",
                                        PACKAGE_VERSION, TRUE, 0);
 
    osso_hw_set_display_event_cb(priv->osso_context,
-                                connui_cellular_status_item_display_cb, self);
+                                connui_cellular_status_item_display_cb, item);
 
-  if (!connui_flightmode_status(connui_cellular_status_item_flightmode_cb, self))
-    g_warning("Unable to register flightmode status!");
+   if (!connui_flightmode_status(connui_cellular_status_item_flightmode_cb, item))
+     CONNUI_ERR("Unable to register flightmode status!");
 
-  if (!connui_cell_sim_status_register(_sim_status_cb, self))
-    g_warning("Unable to register SIM status");
+  if (!connui_cell_modem_status_register(_modem_status_cb, item))
+    CONNUI_ERR("Unable to register modem status");
 
-  if (!connui_cell_net_status_register(_net_status_cb, self))
-    g_warning("Unable to register cell net status!");
+  if (!connui_cell_sim_status_register(_sim_status_cb, item))
+    CONNUI_ERR("Unable to register SIM status");
 
-  connui_cellular_status_item_update_icon(self, NULL);
+  if (!connui_cell_net_status_register(_net_status_cb, item))
+    CONNUI_ERR("Unable to register cell net status!");
+
+  modems = connui_cell_modem_get_modems();
+
+  for (l = modems; l; l = l->next)
+    _add_modem(item, l->data);
+
+  g_list_free(modems);
+
+  connui_cellular_status_item_update_icon(item, NULL);
 }
