@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
-#define __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__
+#ifndef __CONNUI_INTERNAL_SUPS_H_INCLUDED__
+#define __CONNUI_INTERNAL_SUPS_H_INCLUDED__
 
 #include "ofono.h"
 #include "org.ofono.Modem.h"
@@ -31,4 +31,4 @@ connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
 void
 connui_cell_modem_remove_supplementary_services(OrgOfonoModem *modem);
 
-#endif /* __CONNUI_INTERNAL_CALL_SETTINGS_H_INCLUDED__ */
+#endif /* __CONNUI_INTERNAL_SUPS_H_INCLUDED__ */

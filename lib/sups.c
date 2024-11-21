@@ -116,7 +116,7 @@ connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
 
   if (proxy)
   {
-    sd->proxy = g_object_ref(proxy);
+    sd->proxy = proxy;
 
     GHashTableIter iter;
     service_call_data *scd;
