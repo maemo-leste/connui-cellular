@@ -101,6 +101,7 @@ _sim_data_create(OrgOfonoSimManager *proxy, const gchar *path,
   OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
 
   g_assert(modem);
+  g_assert(g_object_get_data(G_OBJECT(modem), DATA) == NULL);
 
   g_object_set_data_full(G_OBJECT(modem), DATA, sd, _sim_data_destroy);
 

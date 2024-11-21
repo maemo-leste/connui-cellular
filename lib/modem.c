@@ -338,6 +338,8 @@ _parse_interfaces(modem_data *md, GVariant *value)
       connui_cell_modem_remove_netreg(md->proxy);
     else if (!strcmp(iface, OFONO_SUPPLSVCS_INTERFACE_NAME))
       connui_cell_modem_remove_supplementary_services(md->proxy);
+    else if (!strcmp(iface, OFONO_CONNMGR_INTERFACE_NAME))
+      connui_cell_modem_remove_connection_manager(md->proxy);
     else if (!strcmp(iface, OFONO_VOICECALL_MANAGER_INTERFACE_NAME))
     {
       g_object_unref(md->vcm);
