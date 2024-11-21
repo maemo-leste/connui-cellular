@@ -394,7 +394,6 @@ connui_cell_net_status_close(cell_network_state_cb cb)
   connui_cell_context_destroy(ctx);
 }
 
-
 gboolean
 connui_cell_net_status_register(cell_network_state_cb cb, gpointer user_data)
 {

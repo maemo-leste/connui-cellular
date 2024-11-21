@@ -13,6 +13,7 @@
 #include "cellular-settings-sim.h"
 #include "cellular-settings-call.h"
 #include "cellular-settings-abook.h"
+#include "cellular-settings-net.h"
 
 static cellular_settings *_cellular_settings = NULL;
 
@@ -84,9 +85,7 @@ _cellular_settings_applying(cellular_settings *cs, gboolean applying)
 gboolean
 cellular_settings_apply(cellular_settings *cs, gboolean enable_after)
 {
-  HildonTouchSelector *selector;
   const gchar *modem_id;
-
   const gchar *divert_phone =
       hildon_entry_get_text(HILDON_ENTRY(cs->call.forward.to));
 
@@ -103,9 +102,7 @@ cellular_settings_apply(cellular_settings *cs, gboolean enable_after)
 /*
   (*cs)->set_forwarding_has_error = FALSE;
   */
-  selector = hildon_picker_button_get_selector(
-              HILDON_PICKER_BUTTON(cs->modem_picker));
-  modem_id = g_object_get_data(G_OBJECT(selector), "modem_id");
+  modem_id = cellular_settings_get_current_modem_id(cs);
 
   cs->applying = TRUE;
   //(*cs)->set_call_has_error = FALSE;
@@ -213,7 +210,7 @@ create_settings_widgets(GtkWidget *vbox, cellular_settings *cs)
   settings[] =
   {
     {_("conn_ti_phone_call"), _call_widgets_create},
-    /*{_("conn_ti_phone_network"), init_network_options},*/
+    {_("conn_ti_phone_network"), _net_widgets_create},
     {_("conn_ti_phone_sim"), _sim_widgets_create}
   };
 

@@ -36,6 +36,7 @@
 #include "net.h"
 #include "sim.h"
 #include "sups.h"
+#include "connmgr.h"
 
 #include "org.ofono.VoiceCallManager.h"
 
@@ -302,6 +303,8 @@ _parse_interfaces(modem_data *md, GVariant *value)
       connui_cell_modem_add_netreg(md->ctx, md->path);
     else if (!strcmp(iface, OFONO_SUPPLSVCS_INTERFACE_NAME))
       connui_cell_modem_add_supplementary_services(md->ctx, md->path);
+    else if (!strcmp(iface, OFONO_CONNMGR_INTERFACE_NAME))
+      connui_cell_modem_add_connection_manager(md->ctx, md->path);
     else if (!strcmp(iface, OFONO_VOICECALL_MANAGER_INTERFACE_NAME))
     {
       GError *error = NULL;

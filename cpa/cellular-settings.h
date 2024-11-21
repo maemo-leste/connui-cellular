@@ -61,6 +61,13 @@ struct _CellularSettings
     } forward;
   } call;
 
+  struct
+  {
+    struct
+    {
+      GtkWidget *roam;
+    } data;
+  } network;
   gint pending;
   gboolean applying;
 
@@ -75,6 +82,14 @@ gboolean cellular_settings_apply(cellular_settings *cs, gboolean enable_after);
 
 void
 cellular_settings_cancel_service_calls(cellular_settings *cs);
+
+static inline const gchar *
+cellular_settings_get_current_modem_id(cellular_settings *cs)
+{
+  return g_object_get_data(G_OBJECT(hildon_picker_button_get_selector(
+                                      HILDON_PICKER_BUTTON(cs->modem_picker))),
+                           "modem_id");
+}
 
 #define GTK_RESPONSE_CONTACT 10
 

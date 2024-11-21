@@ -19,6 +19,7 @@ struct _connui_cell_context
   GSList *sec_code_cbs;
   DBusGProxyCall *get_sim_status_call_1;
   GSList *net_status_cbs;
+  GSList *conn_status_cbs;
   DBusGProxyCall *get_registration_status_call;
   GSList *net_list_cbs;
   DBusGProxyCall *get_available_network_call;

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-Bus Object Introspection 1.0//EN"
+  "http://standards.freedesktop.org/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.ofono.ConnectionManager">
+    <method name="GetProperties">
+      <arg name="properties" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetProperty">
+      <arg name="property" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <!--
+    <method name="AddContext">
+      <arg name="type" type="s" direction="in"/>
+      <arg name="path" type="o" direction="out"/>
+    </method>
+    <method name="RemoveContext">
+      <arg name="path" type="o" direction="in"/>
+    </method>
+    <method name="DeactivateAll"/>
+    -->
+    <method name="GetContexts">
+      <arg name="contexts_with_properties" type="a(oa{sv})" direction="out"/>
+    </method>
+    <signal name="PropertyChanged">
+      <arg name="name" type="s"/>
+      <arg name="value" type="v"/>
+    </signal>
+    <signal name="ContextAdded">
+      <arg name="path" type="o"/>
+      <arg name="properties" type="v"/>
+    </signal>
+    <signal name="ContextRemoved">
+      <arg name="path" type="o"/>
+    </signal>
+  </interface>
+</node>

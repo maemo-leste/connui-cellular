@@ -94,6 +94,8 @@
 #define OFONO_CONNMGR_PROPERTY_ATTACHED          "Attached"
 #define OFONO_CONNMGR_PROPERTY_ROAMING_ALLOWED   "RoamingAllowed"
 #define OFONO_CONNMGR_PROPERTY_POWERED           "Powered"
+#define OFONO_CONNMGR_PROPERTY_BEARER            "Bearer"
+#define OFONO_CONNMGR_PROPERTY_SUSPENDED         "Suspended"
 
 /* org.ofono.ConnectionContext */
 #define OFONO_CONNCTX_PROPERTY_TYPE              "Type"

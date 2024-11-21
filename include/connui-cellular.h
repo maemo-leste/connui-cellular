@@ -3,6 +3,7 @@
 
 #include <hildon/hildon.h>
 
+#include "connui-cellular-connmgr.h"
 #include "connui-cellular-sim.h"
 #include "connui-cellular-net.h"
 #include "connui-cellular-modem.h"
@@ -10,12 +11,15 @@
 #include "connui-cellular-code-ui.h"
 
 /* CALL */
+typedef void (*cell_call_status_cb) (gboolean calls, gpointer user_data);
+
 void connui_cell_call_status_close(cell_call_status_cb cb);
 gboolean connui_cell_call_status_register(cell_call_status_cb cb, gpointer user_data);
 
 gboolean connui_cell_emergency_call();
 
 /* datacounter */
+typedef void (*cell_datacounter_cb) (guint64 rx_bytes, guint64 tx_bytes, time_t reset_time, gboolean notification_enabled, const gchar *warning_limit, gpointer user_data);
 void connui_cell_datacounter_close(cell_datacounter_cb cb);
 void connui_cell_datacounter_reset();
 gboolean connui_cell_datacounter_register(cell_datacounter_cb cb, gboolean home, gpointer user_data);

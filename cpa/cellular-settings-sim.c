@@ -52,10 +52,12 @@ _sim_pin_init(cellular_settings *cs)
 static void
 _sim_pin_request_toggled_cb(HildonCheckButton *button, cellular_settings *cs)
 {
+  gboolean active ;
+
   if (g_object_get_data(G_OBJECT(button), "guard"))
     return;
 
-  gboolean active = hildon_check_button_get_active(button);
+  active = hildon_check_button_get_active(button);
 
   if (!connui_cell_code_ui_set_current_code_active(active))
   {

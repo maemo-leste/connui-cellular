@@ -125,7 +125,7 @@ _call_widgets_create(cellular_settings *cs, GtkWidget *parent,
         _create_call_divert_widget);
 
   g_signal_connect(G_OBJECT(cs->call.forward.option), "value-changed",
-                   (GCallback)_call_forward_option_value_changed_cb, cs);
+                   G_CALLBACK(_call_forward_option_value_changed_cb), cs);
 
   cs->call.forward.to = cellular_settings_create_widget(
         parent, size_group, _("conn_fi_phone_call_divert_to"),
@@ -169,7 +169,7 @@ _get_clir_cb(guint anonymity, GError *error, gpointer user_data)
   GtkTreeIter iter;
 
   if (error)
-    CONNUI_ERR("Error while fetching caller ID: %d", error);
+    CONNUI_ERR("Error while fetching caller ID: %s", error->message);
 
   cs->call.anonimity = anonymity;
 

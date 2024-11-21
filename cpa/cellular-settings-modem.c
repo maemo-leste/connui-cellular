@@ -22,6 +22,7 @@
 #include "cellular-settings-modem.h"
 #include "cellular-settings-sim.h"
 #include "cellular-settings-call.h"
+#include "cellular-settings-net.h"
 
 #include <glib/gi18n-lib.h>
 
@@ -135,6 +136,7 @@ _modem_show(const gchar *modem_id, cellular_settings *cs)
 
     _sim_show(cs, modem_id);
     _call_show(cs, modem_id);
+    _net_show(cs, modem_id);
   }
   else
   {

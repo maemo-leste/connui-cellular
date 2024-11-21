@@ -171,6 +171,7 @@ connui_cell_context_get(GError **error)
   context.sim_status_cbs = NULL;
   context.sec_code_cbs = NULL;
   context.net_status_cbs = NULL;
+  context.conn_status_cbs = NULL;
   context.net_list_cbs = NULL;
   context.net_select_cbs = NULL;
   context.call_status_cbs = NULL;
@@ -189,7 +190,7 @@ connui_cell_context_destroy(connui_cell_context *ctx)
   if (ctx->modem_cbs)
     return;
 
-  if (ctx->sim_status_cbs || ctx->sec_code_cbs ||
+  if (ctx->sim_status_cbs || ctx->sec_code_cbs || ctx->conn_status_cbs ||
       ctx->net_status_cbs || ctx->net_list_cbs || ctx->net_select_cbs ||
       ctx->service_calls)
   {

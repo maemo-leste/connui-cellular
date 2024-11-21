@@ -71,17 +71,18 @@ typedef struct _cell_network_state cell_network_state;
 typedef void (*cell_network_state_cb) (
     const char *modem_id, const cell_network_state *state, gpointer user_data);
 
-typedef void (*cell_call_status_cb) (gboolean calls, gpointer user_data);
-typedef void (*cell_cs_status_cb) (gboolean active, gpointer user_data);
-typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
-typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
-typedef void (*cell_datacounter_cb) (guint64 rx_bytes, guint64 tx_bytes, time_t reset_time, gboolean notification_enabled, const gchar *warning_limit, gpointer user_data);
 typedef void (*cell_get_anonymity_cb)(guint anonymity, GError *error, gpointer user_data);
 
 typedef void (*cell_set_cb)(GError *error, gpointer user_data);
 
 void connui_cell_network_free(cell_network *network);
 cell_network *connui_cell_network_dup(const cell_network *network);
+
+
+typedef void (*cell_cs_status_cb) (gboolean active, gpointer user_data);
+typedef void (*cell_net_list_cb) (GSList *networks, gpointer user_data);
+typedef void (*cell_net_select_cb) (gboolean success, guint network_reject_code, gpointer user_data);
+
 
 enum network_alpha_tag_name_type
 {
@@ -124,6 +125,7 @@ typedef enum
 }
 connui_net_selection_mode;
 
+#if 0
 // CS performs user reselection. This is currently GSM-specific procedure, which is
 // specified in GSM TS 03.22.
 #define NETWORK_SELECT_MODE_NO_SELECTION  0x04
@@ -139,6 +141,8 @@ connui_net_selection_mode;
 #define NET_GSS_GSM_SELECTED_RAT             0x01
 #define NET_GSS_UMTS_SELECTED_RAT            0x02
 #define NET_GSS_UNKNOWN_SELECTED_RAT         0x03
+
+#endif
 
 #define ICD_GCONF_NETWORK_MAPPING_GPRS ICD_GCONF_NETWORK_MAPPING "/GPRS"
 
@@ -188,6 +192,8 @@ void connui_cell_net_cancel_list(cell_net_list_cb cb);
 const cell_network *connui_cell_net_get_current();
 
 gboolean connui_cell_net_set_radio_access_mode(guchar selected_rat, gint *error_value);
+
+
 gboolean connui_cell_net_get_caller_id_anonymity(cell_get_anonymity_cb clir_cb, gpointer user_data);
 gboolean connui_cell_net_set_caller_id_anonymity(guint anonymity, cell_set_cb cb, gpointer user_data);
 void connui_cell_net_set_caller_id_presentation_bluez(const gchar *caller_id);

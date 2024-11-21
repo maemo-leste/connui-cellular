@@ -14,7 +14,8 @@ OFONO_GDBUS_WRAPPERS = org.ofono.Manager.c\
 		       org.ofono.SimManager.c  \
 		       org.ofono.NetworkRegistration.c \
 		       org.ofono.VoiceCallManager.c \
-		       org.ofono.SupplementaryServices.c
+		       org.ofono.SupplementaryServices.c \
+		       org.ofono.ConnectionManager.c
 
 libconnui_cell_la_SOURCES = $(OFONO_GDBUS_WRAPPERS) \
 			    connui-cell-note.c \
@@ -25,6 +26,7 @@ libconnui_cell_la_SOURCES = $(OFONO_GDBUS_WRAPPERS) \
 			    sim.c \
 			    net.c \
 			    sups.c \
+			    connmgr.c \
 			    modem.c \
 			    emergency.c \
 			    call.c \

@@ -4,6 +4,7 @@ libcellularsettings_la_SOURCES = data-counter.c \
 				 net-selection.c \
 				 cellular-settings-utils.c \
 				 cellular-settings-modem.c \
+				 cellular-settings-net.c \
 				 cellular-settings-sim.c \
 				 cellular-settings-call.c \
 				 cellular-settings-abook.c \
