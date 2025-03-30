@@ -62,11 +62,8 @@ _roaming_value_changed_cb(HildonPickerButton *button, gpointer user_data)
   if (!connui_cell_connection_set_roaming_allowed(
         cellular_settings_get_current_modem_id(cs), !ask, &error))
   {
-    if (error)
-    {
-      CONNUI_ERR("Error while setting roaming allowed: %s",
-                 error ? error->message : "unknown error");
-    }
+    CONNUI_ERR("Error while setting roaming allowed: %s",
+               error ? error->message : "unknown error");
 
     _roaming_set(cs, ask ? 1 : 0);
   }

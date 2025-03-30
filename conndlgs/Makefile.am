@@ -27,7 +27,7 @@ conndlgslib_LTLIBRARIES = \
 	libcell_dialog_oma_cp_ui.la
 
 libcell_dialog_roaming_la_SOURCES = cell-dialog-roaming.c
-libcell_dialog_roaming_la_CFLAGS =  \
+libcell_dialog_roaming_la_CFLAGS = -I$(top_builddir)/include \
 			$(OSSO_CFLAGS) $(HILDON_CFLAGS) $(CONNUI_CFLAGS) \
 			-DG_LOG_DOMAIN=\"$(PACKAGE)\" -DOSSOLOG_COMPILE=1
 libcell_dialog_roaming_la_LIBADD = $(OSSO_LIBS) $(HILDON_LIBS) $(CONNUI_LIBS)

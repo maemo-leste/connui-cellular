@@ -161,6 +161,7 @@ connui_net_selection_mode;
 #define GPRS_ROAM_NTFY_ENABLE ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_enabled"
 #define GPRS_ROAM_LAST_NTFY ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_last_notification"
 #define GPRS_ROAM_NTFY_PERIOD ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_notification_period"
+#define GPRS_ROAM_DISABLED ICD_GCONF_NETWORK_MAPPING_GPRS "/gprs_roaming_disabled"
 
 typedef void (*service_call_cb_f)(gboolean enabled, gint error_value, const gchar *phone_number, gpointer user_data);
 

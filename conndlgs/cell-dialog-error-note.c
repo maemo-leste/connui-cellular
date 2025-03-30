@@ -29,14 +29,12 @@
 #define ICD_UI_GCONF_SETTINGS ICD_GCONF_SETTINGS "/ui/"
 
 static void
-_modem_status_cb(const char *modem_id,
-                                   const connui_modem_status *status,
-                                   gpointer user_data);
+_modem_status_cb(const char *modem_id, const connui_modem_status *status,
+                 gpointer user_data);
 
 static void
-_net_status_cb(const char *modem_id,
-                                  const cell_network_state *status,
-                                  gpointer user_data);
+_net_status_cb(const char *modem_id, const cell_network_state *status,
+               gpointer user_data);
 
 static void
 check_pending_acks();
@@ -738,6 +736,7 @@ iap_dialog_error_note_show(int iap_id, DBusMessage *message,
   DBusMessageIter iter;
   gboolean has_modem_id = FALSE;
   gboolean failed;
+
   dbus_error_init(&dbus_error);
   dbus_message_iter_init (message, &iter);
 
