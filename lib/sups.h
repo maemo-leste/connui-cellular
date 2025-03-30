@@ -29,6 +29,6 @@ connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
                                              const char *path);
 
 void
-connui_cell_modem_remove_supplementary_services(OrgOfonoModem *modem);
+connui_cell_modem_remove_supplementary_services(ConnuiCellModem *modem);
 
 #endif /* __CONNUI_INTERNAL_SUPS_H_INCLUDED__ */

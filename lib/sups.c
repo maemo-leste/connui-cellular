@@ -38,7 +38,7 @@
 typedef struct _sups_data
 {
   connui_cell_context *ctx;
-  OrgOfonoSupplementaryServices *proxy;
+  ConnuiCellSupplementaryServices *proxy;
   gchar *path;
 
   GHashTable *pending;
@@ -72,7 +72,7 @@ _sups_data_destroy(gpointer data)
 static sups_data *
 _sups_data_get(const char *path, connui_cell_context *ctx, GError **error)
 {
-  OrgOfonoModem *modem;
+  ConnuiCellModem *modem;
   sups_data *sd;
 
   modem = g_hash_table_lookup(ctx->modems, path);
@@ -103,14 +103,14 @@ connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
                                              const char *path)
 {
   sups_data *sd = _sups_data_get(path, ctx, NULL);
-  OrgOfonoSupplementaryServices *proxy;
+  ConnuiCellSupplementaryServices *proxy;
   GError *error = NULL;
 
   g_assert(sd->proxy == NULL);
 
   g_debug("Adding ofono supplementary services for %s", path);
 
-  proxy = org_ofono_supplementary_services_proxy_new_for_bus_sync(
+  proxy = connui_cell_supplementary_services_proxy_new_for_bus_sync(
         OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         OFONO_SERVICE, path, NULL, &error);
 
@@ -138,7 +138,7 @@ connui_cell_modem_add_supplementary_services(connui_cell_context *ctx,
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove_supplementary_services(OrgOfonoModem *modem)
+connui_cell_modem_remove_supplementary_services(ConnuiCellModem *modem)
 {
   g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
@@ -156,7 +156,7 @@ _do_call(sups_data *sd, service_call_data *scd)
 
   if (scd->async_cb == _call_waiting_get_cb)
   {
-    org_ofono_supplementary_services_call_initiate(
+    connui_cell_supplementary_services_call_initiate(
           sd->proxy, "*#43#", scd->cancellable, scd->async_cb, scd);
   }
   else if (scd->async_cb == _call_waiting_set_cb)
@@ -164,12 +164,12 @@ _do_call(sups_data *sd, service_call_data *scd)
     gboolean enable = GPOINTER_TO_UINT(scd->data);
     const char *cmd = enable ? "*43#" : "#43#";
 
-    org_ofono_supplementary_services_call_initiate(
+    connui_cell_supplementary_services_call_initiate(
           sd->proxy, cmd, scd->cancellable, scd->async_cb, scd);
   }
   else if (scd->async_cb == _forwarding_get_cb)
   {
-    org_ofono_supplementary_services_call_initiate(
+    connui_cell_supplementary_services_call_initiate(
           sd->proxy, "*#004**11#", scd->cancellable, scd->async_cb, scd);
   }
   else
@@ -291,8 +291,8 @@ _sups_check_cancelled(GAsyncResult *res, service_call_data *scd)
 static void
 _call_waiting_get_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
-  OrgOfonoSupplementaryServices *proxy =
-      ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
+  ConnuiCellSupplementaryServices *proxy =
+      CONNUI_CELL_SUPPLEMENTARY_SERVICES(object);
   gchar *result_name;
   GVariant *value;
   service_call_data *scd = data;
@@ -300,7 +300,7 @@ _call_waiting_get_cb(GObject *object, GAsyncResult *res, gpointer data)
   gboolean enabled = FALSE;
 
   if (!_sups_check_cancelled(res, scd)&&
-      org_ofono_supplementary_services_call_initiate_finish(
+      connui_cell_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallWaiting"))
@@ -350,15 +350,15 @@ connui_cell_sups_get_call_waiting_enabled(const char *modem_id,
 static void
 _call_waiting_set_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
-  OrgOfonoSupplementaryServices *proxy =
-      ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
+  ConnuiCellSupplementaryServices *proxy =
+      CONNUI_CELL_SUPPLEMENTARY_SERVICES(object);
   gchar *result_name;
   GVariant *value;
   service_call_data *scd = data;
   sups_data *sd = scd->async_data;
 
   if (!_sups_check_cancelled(res, scd) &&
-      org_ofono_supplementary_services_call_initiate_finish(
+      connui_cell_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallWaiting"))
@@ -390,8 +390,8 @@ connui_cell_sups_set_call_waiting_enabled(const char *modem_id,
 static void
 _forwarding_get_cb(GObject *object, GAsyncResult *res, gpointer data)
 {
-  OrgOfonoSupplementaryServices *proxy =
-      ORG_OFONO_SUPPLEMENTARY_SERVICES(object);
+  ConnuiCellSupplementaryServices *proxy =
+      CONNUI_CELL_SUPPLEMENTARY_SERVICES(object);
   gchar *result_name;
   GVariant *value;
   service_call_data *scd = data;
@@ -403,7 +403,7 @@ _forwarding_get_cb(GObject *object, GAsyncResult *res, gpointer data)
   const connui_sups_call_forward *pscf = NULL;
 
   if (!_sups_check_cancelled(res, scd) &&
-      org_ofono_supplementary_services_call_initiate_finish(
+      connui_cell_supplementary_services_call_initiate_finish(
         proxy, &result_name, &value, res, &scd->error))
   {
     if (strcmp(result_name, "CallForwarding"))

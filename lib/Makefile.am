@@ -49,7 +49,8 @@ connui-cell-marshal.h: connui-cell-marshal.list
 
 .NOTPARALLEL:
 %.c: $(top_builddir)/data/%.xml
-	gdbus-codegen --generate-c-code $(@:%.c=%) $<
+	gdbus-codegen --c-namespace ConnuiCell --interface-prefix org.ofono. \
+		      --generate-c-code $(@:%.c=%) $<
 
 CLEANFILES = $(BUILT_SOURCES)
 

@@ -48,7 +48,7 @@ static void
 _add_modem(connui_cell_context *ctx, const gchar *path, GVariant *properties)
 {
   GError *error = NULL;
-  OrgOfonoModem *modem = org_ofono_modem_proxy_new_for_bus_sync(
+  ConnuiCellModem *modem = connui_cell_modem_proxy_new_for_bus_sync(
         OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         OFONO_SERVICE, path, NULL, &error);
 
@@ -68,7 +68,7 @@ _add_modem(connui_cell_context *ctx, const gchar *path, GVariant *properties)
 }
 
 static void
-_modem_added_cb(OrgOfonoManager *manager, const gchar *path,
+_modem_added_cb(ConnuiCellManager *manager, const gchar *path,
                 GVariant *properties, gpointer user_data)
 {
   _add_modem(user_data, path, properties);
@@ -82,7 +82,7 @@ _destroy_modem(gpointer modem)
 }
 
 static void
-_modem_removed_cb(OrgOfonoManager *manager, const gchar *path,
+_modem_removed_cb(ConnuiCellManager *manager, const gchar *path,
                   gpointer user_data)
 {
   connui_cell_context *ctx = user_data;
@@ -112,7 +112,7 @@ create_proxies(connui_cell_context *ctx)
   gchar *path;
   GVariantIter iter;
 
-  ctx->manager = org_ofono_manager_proxy_new_for_bus_sync(
+  ctx->manager = connui_cell_manager_proxy_new_for_bus_sync(
         G_BUS_TYPE_SYSTEM, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         "org.ofono", "/", NULL, &error);
 
@@ -126,7 +126,7 @@ create_proxies(connui_cell_context *ctx)
   ctx->modems = g_hash_table_new_full(
         g_str_hash, g_str_equal, g_free, _destroy_modem);
 
-  if (!org_ofono_manager_call_get_modems_sync(
+  if (!connui_cell_manager_call_get_modems_sync(
         ctx->manager, &modems, NULL, &error))
   {
     CONNUI_ERR("Error getting OFONO modems [%s]", error->message);

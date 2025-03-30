@@ -24,10 +24,10 @@
 #include "ofono.h"
 
 void
-connui_cell_modem_add(connui_cell_context *ctx, OrgOfonoModem *proxy,
+connui_cell_modem_add(connui_cell_context *ctx, ConnuiCellModem *proxy,
                       const gchar *path, GVariant *properties);
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove(OrgOfonoModem *proxy);
+connui_cell_modem_remove(ConnuiCellModem *proxy);
 
 #endif /* __CONNUI_INTERNAL_MODEM_H_INCLUDED__ */

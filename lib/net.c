@@ -39,7 +39,7 @@ typedef struct _service_call service_call;
 typedef struct _net_data
 {
   connui_cell_context *ctx;
-  OrgOfonoNetworkRegistration *proxy;
+  ConnuiCellNetworkRegistration *proxy;
   gchar *path;
 
   cell_network_state state;
@@ -56,7 +56,7 @@ static net_data *
 _net_data_get(const char *path, GError **error)
 {
   connui_cell_context *ctx = connui_cell_context_get(error);
-  OrgOfonoModem *modem;
+  ConnuiCellModem *modem;
 
   g_return_val_if_fail(path != NULL, NULL);
 
@@ -110,11 +110,11 @@ _net_data_destroy(gpointer data)
 }
 
 static net_data *
-_net_data_create(OrgOfonoNetworkRegistration *proxy, const gchar *path,
+_net_data_create(ConnuiCellNetworkRegistration *proxy, const gchar *path,
                  connui_cell_context *ctx)
 {
   net_data *nd = g_new0(net_data, 1);
-  OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
+  ConnuiCellModem *modem = g_hash_table_lookup(ctx->modems, path);
 
   g_assert(modem);
   g_assert(g_object_get_data(G_OBJECT(modem), DATA) == NULL);
@@ -282,7 +282,7 @@ _parse_property(net_data *nd, const gchar *name, GVariant *value)
 }
 
 static void
-_property_changed_cb(OrgOfonoNetworkRegistration *proxy, const gchar *name,
+_property_changed_cb(ConnuiCellNetworkRegistration *proxy, const gchar *name,
                     GVariant *value, gpointer user_data)
 {
   net_data *nd = user_data;
@@ -299,10 +299,10 @@ _property_changed_cb(OrgOfonoNetworkRegistration *proxy, const gchar *name,
 __attribute__((visibility("hidden"))) void
 connui_cell_modem_add_netreg(connui_cell_context *ctx, const char *path)
 {
-  OrgOfonoNetworkRegistration *proxy;
+  ConnuiCellNetworkRegistration *proxy;
   GError *error = NULL;
 
-  proxy = org_ofono_network_registration_proxy_new_for_bus_sync(
+  proxy = connui_cell_network_registration_proxy_new_for_bus_sync(
         OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         OFONO_SERVICE, path, NULL, &error);
 
@@ -311,7 +311,7 @@ connui_cell_modem_add_netreg(connui_cell_context *ctx, const char *path)
     net_data *nd = _net_data_create(proxy, path, ctx);
     GVariant *props;
 
-    if (org_ofono_network_registration_call_get_properties_sync(proxy, &props,
+    if (connui_cell_network_registration_call_get_properties_sync(proxy, &props,
                                                                 NULL, &error))
     {
       GVariantIter i;
@@ -347,7 +347,7 @@ connui_cell_modem_add_netreg(connui_cell_context *ctx, const char *path)
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove_netreg(OrgOfonoModem *modem)
+connui_cell_modem_remove_netreg(ConnuiCellModem *modem)
 {
   g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
@@ -491,7 +491,7 @@ connui_cell_net_get_operator_name(cell_network *network, GError **error)
     {
       GVariant *operators;
 
-      if (org_ofono_network_registration_call_get_operators_sync(
+      if (connui_cell_network_registration_call_get_operators_sync(
             nd->proxy, &operators, NULL, NULL))
       {
         GVariantIter i;

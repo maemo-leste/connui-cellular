@@ -16,7 +16,7 @@
 typedef struct _sim_data
 {
   connui_cell_context *ctx;
-  OrgOfonoSimManager *proxy;
+  ConnuiCellSimManager *proxy;
   gchar *path;
 
   gboolean present;
@@ -49,7 +49,7 @@ static sim_data *
 _sim_data_get(const char *path, GError **error)
 {
   connui_cell_context *ctx = connui_cell_context_get(error);
-  OrgOfonoModem *modem;
+  ConnuiCellModem *modem;
 
   g_return_val_if_fail(path != NULL, NULL);
 
@@ -94,11 +94,11 @@ _sim_data_destroy(gpointer data)
 }
 
 static sim_data *
-_sim_data_create(OrgOfonoSimManager *proxy, const gchar *path,
+_sim_data_create(ConnuiCellSimManager *proxy, const gchar *path,
                  connui_cell_context *ctx)
 {
   sim_data *sd = g_new0(sim_data, 1);
-  OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
+  ConnuiCellModem *modem = g_hash_table_lookup(ctx->modems, path);
 
   g_assert(modem);
   g_assert(g_object_get_data(G_OBJECT(modem), DATA) == NULL);
@@ -278,7 +278,7 @@ _parse_property(sim_data *sd, const gchar *name, GVariant *value)
 }
 
 static void
-_property_changed_cb(OrgOfonoSimManager *proxy, const gchar *name,
+_property_changed_cb(ConnuiCellSimManager *proxy, const gchar *name,
                      GVariant *value, gpointer user_data)
 {
   sim_data *sd = user_data;
@@ -298,12 +298,12 @@ _property_changed_cb(OrgOfonoSimManager *proxy, const gchar *name,
 __attribute__((visibility("hidden"))) void
 connui_cell_modem_add_simmgr(connui_cell_context *ctx, const char *path)
 {
-  OrgOfonoSimManager *proxy;
+  ConnuiCellSimManager *proxy;
   GError *error = NULL;
 
   g_debug("Adding ofono sim manager for %s", path);
 
-  proxy = org_ofono_sim_manager_proxy_new_for_bus_sync(
+  proxy = connui_cell_sim_manager_proxy_new_for_bus_sync(
         OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         OFONO_SERVICE, path, NULL, &error);
 
@@ -312,7 +312,7 @@ connui_cell_modem_add_simmgr(connui_cell_context *ctx, const char *path)
     sim_data *sd = _sim_data_create(proxy, path, ctx);
     GVariant *props;
 
-    if (org_ofono_sim_manager_call_get_properties_sync(proxy, &props, NULL,
+    if (connui_cell_sim_manager_call_get_properties_sync(proxy, &props, NULL,
                                                        &error))
     {
       GVariantIter i;
@@ -349,7 +349,7 @@ connui_cell_modem_add_simmgr(connui_cell_context *ctx, const char *path)
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove_simmgr(OrgOfonoModem *modem)
+connui_cell_modem_remove_simmgr(ConnuiCellModem *modem)
 {
   g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
@@ -404,7 +404,7 @@ _get_property(sim_data *sd, const char *name, GError **error)
 {
   GVariant *prop, *v = NULL;
 
-  if (org_ofono_sim_manager_call_get_properties_sync(
+  if (connui_cell_sim_manager_call_get_properties_sync(
         sd->proxy, &prop, NULL, error))
   {
     v = g_variant_lookup_value(prop, name, NULL);
@@ -469,12 +469,12 @@ verify_code(sim_data *sd, connui_sim_security_code_type code_type,
   /* check how pin reset works */
   if (!new_code)
   {
-      ok = org_ofono_sim_manager_call_enter_pin_sync(
+      ok = connui_cell_sim_manager_call_enter_pin_sync(
             sd->proxy, type, old_code, NULL, &local_error);
   }
    else
   {
-      ok = org_ofono_sim_manager_call_change_pin_sync(
+      ok = connui_cell_sim_manager_call_change_pin_sync(
             sd->proxy, type, old_code, new_code, NULL, &local_error);
   }
 
@@ -718,7 +718,7 @@ connui_cell_sim_deactivate_lock(const char *modem_id, const gchar *pin_code,
 
   if (sd)
   {
-    ok = org_ofono_sim_manager_call_unlock_pin_sync(
+    ok = connui_cell_sim_manager_call_unlock_pin_sync(
           sd->proxy, sd->pin_required_s, pin_code, NULL, error);
   }
 
@@ -899,7 +899,7 @@ connui_cell_security_code_set_active(const char *modem_id,
 
   if (sec_code_query(sd->ctx, modem_id, code_type, &code, NULL, &cbd))
   {
-    rv = org_ofono_sim_manager_call_lock_pin_sync(
+    rv = connui_cell_sim_manager_call_lock_pin_sync(
           sd->proxy, code_type == CONNUI_SIM_SECURITY_CODE_PIN ?
             "pin" : "pin2", code, NULL,
           &local_error);
@@ -953,12 +953,12 @@ connui_cell_security_code_set_enabled(const char *modem_id, gboolean active,
   {
     if (active)
     {
-      rv = org_ofono_sim_manager_call_lock_pin_sync(
+      rv = connui_cell_sim_manager_call_lock_pin_sync(
             sd->proxy, "pin", code, NULL, &local_error);
     }
     else
     {
-      rv = org_ofono_sim_manager_call_unlock_pin_sync(
+      rv = connui_cell_sim_manager_call_unlock_pin_sync(
             sd->proxy, "pin", code, NULL, &local_error);
     }
   }
@@ -1028,7 +1028,7 @@ connui_cell_security_code_change(const char *modem_id,
     {
       rv = verify_code(sd, code_type, old, new, &cbd, &local_error);
     }
-    else if (org_ofono_sim_manager_call_lock_pin_sync(sd->proxy, "pin", old,
+    else if (connui_cell_sim_manager_call_lock_pin_sync(sd->proxy, "pin", old,
                                                       NULL, &local_error))
     {
       rv = verify_code(sd, CONNUI_SIM_SECURITY_CODE_PIN, old, new,
@@ -1036,13 +1036,13 @@ connui_cell_security_code_change(const char *modem_id,
 
       if (rv)
       {
-        rv = org_ofono_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
+        rv = connui_cell_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
                                                         new, NULL,
                                                         &local_error);
       }
       else
       {
-        rv = org_ofono_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
+        rv = connui_cell_sim_manager_call_unlock_pin_sync(sd->proxy, "pin",
                                                         old, NULL,
                                                         &local_error);
       }

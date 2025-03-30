@@ -32,7 +32,7 @@
 typedef struct _cm_data
 {
   connui_cell_context *ctx;
-  OrgOfonoConnectionManager *proxy;
+  ConnuiCellConnectionManager *proxy;
   gchar *path;
 
   cell_connection_status status;
@@ -93,11 +93,11 @@ _cm_data_destroy(gpointer data)
 }
 
 static cm_data *
-_cm_data_create(OrgOfonoConnectionManager *proxy, const gchar *path,
+_cm_data_create(ConnuiCellConnectionManager *proxy, const gchar *path,
                 connui_cell_context *ctx)
 {
   cm_data *cmd = g_new0(cm_data, 1);
-  OrgOfonoModem *modem = g_hash_table_lookup(ctx->modems, path);
+  ConnuiCellModem *modem = g_hash_table_lookup(ctx->modems, path);
 
   g_assert(modem);
   g_assert(g_object_get_data(G_OBJECT(modem), DATA) == NULL);
@@ -115,7 +115,7 @@ _cm_data_create(OrgOfonoConnectionManager *proxy, const gchar *path,
 static cm_data *
 _cm_data_get(const char *path, connui_cell_context *ctx, GError **error)
 {
-  OrgOfonoModem *modem;
+  ConnuiCellModem *modem;
   cm_data *cmd;
 
   g_return_val_if_fail(path != NULL, NULL);
@@ -183,7 +183,7 @@ _parse_property(cm_data *cmd, const gchar *name, GVariant *value)
 }
 
 static void
-_property_changed_cb(OrgOfonoConnectionManager *proxy, const gchar *name,
+_property_changed_cb(ConnuiCellConnectionManager *proxy, const gchar *name,
                     GVariant *value, gpointer user_data)
 {
   cm_data *cmd = user_data;
@@ -201,12 +201,12 @@ __attribute__((visibility("hidden"))) void
 connui_cell_modem_add_connection_manager(connui_cell_context *ctx,
                                          const char *path)
 {
-  OrgOfonoConnectionManager *proxy;
+  ConnuiCellConnectionManager *proxy;
   GError *error = NULL;
 
   g_debug("Adding ofono connection manager for %s", path);
 
-  proxy = org_ofono_connection_manager_proxy_new_for_bus_sync(
+  proxy = connui_cell_connection_manager_proxy_new_for_bus_sync(
         OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
         OFONO_SERVICE, path, NULL, &error);
 
@@ -215,7 +215,7 @@ connui_cell_modem_add_connection_manager(connui_cell_context *ctx,
     cm_data *cmd = _cm_data_create(proxy, path, ctx);
     GVariant *props;
 
-    if (org_ofono_connection_manager_call_get_properties_sync(proxy, &props,
+    if (connui_cell_connection_manager_call_get_properties_sync(proxy, &props,
                                                               NULL, &error))
     {
       GVariantIter i;
@@ -250,7 +250,7 @@ connui_cell_modem_add_connection_manager(connui_cell_context *ctx,
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove_connection_manager(OrgOfonoModem *modem)
+connui_cell_modem_remove_connection_manager(ConnuiCellModem *modem)
 {
   g_object_set_data(G_OBJECT(modem), DATA, NULL);
 }
@@ -299,7 +299,7 @@ _set_property(const char *modem_id,const gchar *name, GVariant *value,
 
   if (cmd)
   {
-    rv = org_ofono_connection_manager_call_set_property_sync(
+    rv = connui_cell_connection_manager_call_set_property_sync(
           cmd->proxy, name, g_variant_new_variant(value), NULL, error);
   }
 

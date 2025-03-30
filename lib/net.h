@@ -28,6 +28,6 @@ void
 connui_cell_modem_add_netreg(connui_cell_context *ctx, const char *path);
 
 void
-connui_cell_modem_remove_netreg(OrgOfonoModem *modem);
+connui_cell_modem_remove_netreg(ConnuiCellModem *modem);
 
 #endif /* __CONNUI_NET_INTERNAL_H_INCLUDED__ */

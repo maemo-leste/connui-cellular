@@ -29,6 +29,6 @@ connui_cell_modem_add_connection_manager(connui_cell_context *ctx,
                                          const char *path);
 
 void
-connui_cell_modem_remove_connection_manager(OrgOfonoModem *modem);
+connui_cell_modem_remove_connection_manager(ConnuiCellModem *modem);
 
 #endif /* __CONNUI_INTERNAL_CONNMGR_H_INCLUDED__ */

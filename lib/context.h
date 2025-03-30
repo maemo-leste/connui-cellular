@@ -39,7 +39,7 @@ struct _connui_cell_context
 
 
   ///////////////////////////////////////////////////////
-  OrgOfonoManager *manager;
+  ConnuiCellManager *manager;
   GHashTable *modems;
   GSList *modem_cbs;
   gulong modem_added_id;

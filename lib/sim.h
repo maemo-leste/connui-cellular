@@ -28,6 +28,6 @@ void
 connui_cell_modem_add_simmgr(connui_cell_context *ctx, const char *path);
 
 void
-connui_cell_modem_remove_simmgr(OrgOfonoModem *modem);
+connui_cell_modem_remove_simmgr(ConnuiCellModem *modem);
 
 #endif /* __CONNUI_INTERNAL_SIM_H_INCLUDED__ */

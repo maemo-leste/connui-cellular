@@ -47,7 +47,7 @@
 typedef struct _modem_data
 {
   connui_cell_context *ctx;
-  OrgOfonoModem *proxy;
+  ConnuiCellModem *proxy;
   gchar *path;
   GHashTable *interfaces;
 
@@ -57,7 +57,7 @@ typedef struct _modem_data
   gchar *model;
   gchar *revision;
   gchar *serial;
-  OrgOfonoVoiceCallManager *vcm;
+  ConnuiCellVoiceCallManager *vcm;
 
   gulong properties_changed_id;
   guint notify_id;
@@ -89,7 +89,7 @@ _modem_data_destroy(gpointer data)
 }
 
 static modem_data *
-_modem_data_create(OrgOfonoModem *proxy, const gchar *path,
+_modem_data_create(ConnuiCellModem *proxy, const gchar *path,
                    connui_cell_context *ctx)
 {
   modem_data *md = g_new0(modem_data, 1);
@@ -107,7 +107,7 @@ static modem_data *
 _modem_get_data(const char *path, GError **error)
 {
   connui_cell_context *ctx = connui_cell_context_get(error);
-  OrgOfonoModem *proxy;
+  ConnuiCellModem *proxy;
   modem_data *md;
 
   g_return_val_if_fail(path != NULL, NULL);
@@ -168,7 +168,7 @@ connui_cell_modem_status_register(cell_modem_status_cb cb, gpointer user_data)
 {
   connui_cell_context *ctx = connui_cell_context_get(NULL);
   GHashTableIter iter;
-  OrgOfonoModem *modem;
+  ConnuiCellModem *modem;
 
   g_return_val_if_fail(ctx != NULL, FALSE);
 
@@ -309,7 +309,7 @@ _parse_interfaces(modem_data *md, GVariant *value)
     {
       GError *error = NULL;
 
-      md->vcm = org_ofono_voice_call_manager_proxy_new_for_bus_sync(
+      md->vcm = connui_cell_voice_call_manager_proxy_new_for_bus_sync(
             OFONO_BUS_TYPE, G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
             OFONO_SERVICE, md->path, NULL, &error);
 
@@ -374,7 +374,7 @@ _parse_property(modem_data *md, const gchar *name, GVariant *value)
 }
 
 static void
-_property_changed_cb(OrgOfonoModem *proxy, const gchar *name,
+_property_changed_cb(ConnuiCellModem *proxy, const gchar *name,
                     GVariant *value, gpointer user_data)
 {
   modem_data *md = user_data;
@@ -389,7 +389,7 @@ _property_changed_cb(OrgOfonoModem *proxy, const gchar *name,
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_add(connui_cell_context *ctx, OrgOfonoModem *proxy,
+connui_cell_modem_add(connui_cell_context *ctx, ConnuiCellModem *proxy,
                       const gchar *path, GVariant *properties)
 {
   modem_data *md = _modem_data_create(proxy, path, ctx);
@@ -413,7 +413,7 @@ connui_cell_modem_add(connui_cell_context *ctx, OrgOfonoModem *proxy,
 }
 
 __attribute__((visibility("hidden"))) void
-connui_cell_modem_remove(OrgOfonoModem *proxy)
+connui_cell_modem_remove(ConnuiCellModem *proxy)
 {
   gchar *path = NULL;
 
@@ -441,7 +441,7 @@ connui_cell_emergency_get_numbers(const char *modem_id, GError **error)
   {
     GVariant *props;
 
-    if (org_ofono_voice_call_manager_call_get_properties_sync(
+    if (connui_cell_voice_call_manager_call_get_properties_sync(
           md->vcm, &props, NULL, error))
     {
       gchar *name;
