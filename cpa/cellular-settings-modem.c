@@ -37,8 +37,8 @@ enum
 static void
 _modem_selector_append_modem(GtkListStore *store, const gchar *id)
 {
-  gchar *model = connui_cell_modem_get_model(id, NULL);
-  gchar *serial = connui_cell_modem_get_serial(id, NULL);
+  const gchar *model = connui_cell_modem_get_model(id, NULL);
+  const gchar *serial = connui_cell_modem_get_serial(id, NULL);
 
   if (model && serial)
   {
@@ -50,9 +50,6 @@ _modem_selector_append_modem(GtkListStore *store, const gchar *id)
                                       -1);
     g_free(text);
   }
-
-  g_free(serial);
-  g_free(model);
 }
 
 static void

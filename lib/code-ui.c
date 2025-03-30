@@ -95,7 +95,7 @@ gchar *connui_cell_code_ui_error_note_type_to_text(const char *modem_id,
                                                    const char *note_type)
 {
   gchar *text;
-  gchar *model = NULL;
+  const gchar *model = NULL;
 
   g_return_val_if_fail(note_type != NULL, NULL);
 
@@ -135,8 +135,6 @@ gchar *connui_cell_code_ui_error_note_type_to_text(const char *modem_id,
       text = g_strdup_printf("%s\n%s", model, text);
     else
       text = g_strdup(text);
-
-    g_free(model);
   }
 
   return text;

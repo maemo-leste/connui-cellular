@@ -222,7 +222,7 @@ connui_cell_modem_get_modems(GError **error)
   return modems;
 }
 
-#define GET(x, type, default, copy) \
+#define GET(x, type, default) \
   connui_cell_context *ctx; \
   modem_data *md; \
   type x = default; \
@@ -232,7 +232,7 @@ connui_cell_modem_get_modems(GError **error)
   g_return_val_if_fail(ctx != NULL, x); \
 \
   if ((md = _modem_get_data(modem_id, error))) \
-    x = copy(md->x); \
+    x = md->x; \
 \
   connui_cell_context_destroy(ctx); \
 \
@@ -241,37 +241,37 @@ connui_cell_modem_get_modems(GError **error)
 gboolean
 connui_cell_modem_is_online(const char *modem_id, GError **error)
 {
-  GET(online, gboolean, FALSE, )
+  GET(online, gboolean, FALSE)
 }
 
 gboolean
 connui_cell_modem_is_powered(const char *modem_id, GError **error)
 {
-  GET(powered, gboolean, FALSE, )
+  GET(powered, gboolean, FALSE)
 }
 
-gchar *
+const gchar *
 connui_cell_modem_get_model(const char *modem_id, GError **error)
 {
-  GET(model, gchar *, NULL, g_strdup)
+  GET(model, const gchar *, NULL)
 }
 
-gchar *
+const gchar *
 connui_cell_modem_get_serial(const char *modem_id, GError **error)
 {
-  GET(serial, gchar *, NULL, g_strdup)
+  GET(serial, const gchar *, NULL)
 }
 
-gchar *
+const gchar *
 connui_cell_modem_get_revision(const char *modem_id, GError **error)
 {
-  GET(revision, gchar *, NULL, g_strdup)
+  GET(revision, const gchar *, NULL)
 }
 
-gchar *
+const gchar *
 connui_cell_modem_get_manufacturer(const char *modem_id, GError **error)
 {
-  GET(manufacturer, gchar *, NULL, g_strdup)
+  GET(manufacturer, const gchar *, NULL)
 }
 
 static void

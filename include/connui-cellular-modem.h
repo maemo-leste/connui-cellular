@@ -48,16 +48,16 @@ connui_cell_modem_status_register(cell_modem_status_cb cb, gpointer user_data);
 void
 connui_cell_modem_status_close(cell_modem_status_cb cb);
 
-gchar *
+const gchar *
 connui_cell_modem_get_model(const char *modem_id, GError **error);
 
-gchar *
+const gchar *
 connui_cell_modem_get_serial(const char *modem_id, GError **error);
 
-gchar *
+const gchar *
 connui_cell_modem_get_revision(const char *modem_id, GError **error);
 
-gchar *
+const gchar *
 connui_cell_modem_get_manufacturer(const char *modem_id, GError **error);
 
 GList *
