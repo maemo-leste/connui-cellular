@@ -69,9 +69,6 @@ connui_cell_sim_status_close(cell_sim_status_cb cb);
 connui_sim_status
 connui_cell_sim_get_status(const char *modem_id, GError **error);
 
-gchar *
-connui_cell_sim_get_service_provider(const char *modem_id, GError **error);
-
 guint
 connui_cell_sim_verify_attempts_left(const char *modem_id,
                                      connui_sim_security_code_type code_type,
@@ -116,5 +113,14 @@ connui_cell_security_code_get_enabled(const char *modem_id,
 gboolean
 connui_cell_security_code_set_enabled(const char *modem_id,
                                       gboolean active, GError **error);
+
+const gchar *
+connui_cell_sim_get_service_provider(const char *modem_id, GError **error);
+
+const gchar *
+connui_cell_sim_get_imsi(const char *modem_id, GError **error);
+
+gboolean
+connui_cell_sim_get_present(const char *modem_id, GError **error);
 
 #endif /* __CONNUI_CELLULAR_SIM_H_INCLUDED__ */

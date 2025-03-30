@@ -491,6 +491,8 @@ verify_code(sim_data *sd, connui_sim_security_code_type code_type,
     g_error_free(local_error);
   }
 
+  g_variant_unref(v);
+
   return ok;
 }
 
@@ -604,25 +606,6 @@ connui_cell_sim_is_network_in_service_provider_info(guint mnc, guint mcc)
   return rv;
 }
 
-gchar *
-connui_cell_sim_get_service_provider(const char *modem_id, GError **error)
-{
-  connui_cell_context *ctx = connui_cell_context_get(error);
-  sim_data *sd;
-  gchar *spn = NULL;
-
-  g_return_val_if_fail(ctx != NULL, NULL);
-
-  sd = _sim_data_get(modem_id, error);
-
-  if (sd && sd->spn)
-    spn = g_strdup(sd->spn);
-
-  connui_cell_context_destroy(ctx);
-
-  return spn;
-}
-
 gboolean
 connui_cell_sim_needs_pin(const char *modem_id, GError **error)
 {
@@ -691,6 +674,7 @@ connui_cell_sim_is_locked(const char *modem_id, GError **error)
       }
 
       g_hash_table_unref(pins);
+      g_variant_unref(v);
     }
     else
     {
@@ -770,6 +754,7 @@ connui_cell_sim_verify_attempts_left(const char *modem_id,
 
       g_variant_get(v2, "y", &attempts_left);
       g_variant_unref(v2);
+      g_variant_unref(v);
     }
     else
     {
@@ -1069,4 +1054,38 @@ connui_cell_security_code_change(const char *modem_id,
   connui_cell_context_destroy(ctx);
 
   return rv;
+}
+
+#define GET(x, type, default) \
+  connui_cell_context *ctx; \
+  sim_data *sd; \
+  type x = default; \
+\
+  g_return_val_if_fail(modem_id != NULL, x); \
+  ctx = connui_cell_context_get(error); \
+  g_return_val_if_fail(ctx != NULL, x); \
+\
+  if ((sd = _sim_data_get(modem_id, error))) \
+    x = sd->x; \
+\
+  connui_cell_context_destroy(ctx); \
+\
+  return x;
+
+const gchar *
+connui_cell_sim_get_service_provider(const char *modem_id, GError **error)
+{
+  GET(spn, const gchar *, NULL);
+}
+
+const gchar *
+connui_cell_sim_get_imsi(const char *modem_id, GError **error)
+{
+  GET(imsi, const gchar *, NULL);
+}
+
+gboolean
+connui_cell_sim_get_present(const char *modem_id, GError **error)
+{
+  GET(present, gboolean, FALSE);
 }
