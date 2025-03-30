@@ -1,3 +1,9 @@
+connui-cellular (3.99.7) unstable; urgency=medium
+
+  * implement WIP roaming notification support
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sun, 30 Mar 2025 11:24:43 +0300
+
 connui-cellular (3.99.6) unstable; urgency=medium
 
   * experimental WIP
