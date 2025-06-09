@@ -63,6 +63,7 @@ struct _cell_network_state
   guchar network_signals_bar;
   connui_net_radio_access_tech rat_name;
   gboolean network_hsdpa_allocated;
+  gboolean network_edge_allocated;
   gchar *operator_name;
 };
 

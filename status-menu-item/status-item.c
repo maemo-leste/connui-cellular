@@ -134,7 +134,7 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
       }
       else if (rat == CONNUI_NET_RAT_GSM)
       {
-        if (modem->state.supported_services & NETWORK_MASK_EGPRS_SUPPORT)
+        if (modem->state.network_edge_allocated)
           mode = "statusarea_cell_mode_2_5g";
         else
           mode = "statusarea_cell_mode_2g";

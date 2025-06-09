@@ -83,6 +83,7 @@ init_net_state(cell_network_state *state)
   state->network_signals_bar = 0;
   state->rat_name = CONNUI_NET_RAT_UNKNOWN;
   state->network_hsdpa_allocated = FALSE;
+  state->network_edge_allocated = FALSE;
 }
 
 static void
@@ -203,6 +204,12 @@ _hspda(const gchar *tech)
 }
 
 static gboolean
+_edge(const gchar *tech)
+{
+  return !strcmp(tech, "edge");
+}
+
+static gboolean
 _parse_property(net_data *nd, const gchar *name, GVariant *value)
 {
   gboolean notify = FALSE;
@@ -260,6 +267,7 @@ _parse_property(net_data *nd, const gchar *name, GVariant *value)
 
     state->rat_name = _rat_name(tech);
     state->network_hsdpa_allocated = _hspda(tech);
+    state->network_edge_allocated = _edge(tech);
     notify = TRUE;
   }
   else if (!strcmp(name, OFONO_NETREG_PROPERTY_MODE))
