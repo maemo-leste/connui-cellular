@@ -256,7 +256,7 @@ connui_cell_modem_remove_connection_manager(ConnuiCellModem *modem)
 }
 
 gboolean
-connui_cell_connmgr_status_register(cell_connection_status_cb cb,
+connui_cell_connection_status_register(cell_connection_status_cb cb,
                                     gpointer user_data)
 {
   connui_cell_context *ctx = connui_cell_context_get(NULL);
@@ -273,7 +273,7 @@ connui_cell_connmgr_status_register(cell_connection_status_cb cb,
 }
 
 void
-connui_cell_connmgr_status_close(cell_connection_status_cb cb)
+connui_cell_connection_status_close(cell_connection_status_cb cb)
 {
   connui_cell_context *ctx = connui_cell_context_get(NULL);
 

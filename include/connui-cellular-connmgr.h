@@ -47,8 +47,7 @@ typedef struct _cell_connection_status cell_connection_status;
 
 typedef void (*cell_connection_status_cb) (const char *modem_id,
                                            const cell_connection_status *state,
-                                           gpointer user_data,
-                                           GError *error);
+                                           gpointer user_data);
 
 gboolean
 connui_cell_connection_status_register(cell_connection_status_cb cb,

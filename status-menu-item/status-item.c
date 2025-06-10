@@ -36,6 +36,7 @@ struct _ConnuiCellularModem
 {
   gchar *id;
   cell_network_state state;
+  cell_connection_status connmgr_status;
   const gchar *mode;
   const gchar *bars;
 };
@@ -127,14 +128,18 @@ _get_icons(ConnuiCellularModem *modem, gboolean offline)
         mode = "statusarea_cell_mode_4g";
       else if (rat == CONNUI_NET_RAT_UMTS)
       {
-        if (modem->state.network_hsdpa_allocated)
+        if (modem->connmgr_status.bearer == CONNUI_CONNMGR_BEARER_HSPA ||
+            modem->connmgr_status.bearer == CONNUI_CONNMGR_BEARER_HSPDA ||
+            modem->connmgr_status.bearer == CONNUI_CONNMGR_BEARER_HSUPA ||
+            modem->state.network_hsdpa_allocated)
           mode = "statusarea_cell_mode_3_5g";
         else
           mode = "statusarea_cell_mode_3g";
       }
       else if (rat == CONNUI_NET_RAT_GSM)
       {
-        if (modem->state.network_edge_allocated)
+        if (modem->connmgr_status.bearer == CONNUI_CONNMGR_BEARER_EDGE ||
+            modem->state.network_edge_allocated)
           mode = "statusarea_cell_mode_2_5g";
         else
           mode = "statusarea_cell_mode_2g";
@@ -355,6 +360,17 @@ _net_status_cb(const char *modem_id, const cell_network_state *state,
 }
 
 static void
+_connmgr_status_cb(const char *modem_id, const cell_connection_status *connmgr_status,
+               gpointer user_data)
+{
+  ConnuiCellularStatusItem *item = CONNUI_CELLULAR_STATUS_ITEM(user_data);
+  ConnuiCellularModem *modem = _get_modem(item, modem_id);
+
+  modem->connmgr_status = *connmgr_status;
+  connui_cellular_status_item_update_icon(item, modem_id);
+}
+
+static void
 connui_cellular_status_item_finalize(GObject *object)
 {
   ConnuiCellularStatusItemPrivate *priv = PRIVATE(object);
@@ -374,6 +390,7 @@ connui_cellular_status_item_finalize(GObject *object)
   connui_cell_modem_status_close(_modem_status_cb);
   connui_cell_net_status_close(_net_status_cb);
   connui_cell_sim_status_close(_sim_status_cb);
+  connui_cell_connection_status_close(_connmgr_status_cb);
   connui_flightmode_close(connui_cellular_status_item_flightmode_cb);
   g_list_free_full(priv->modems, (GDestroyNotify)_free_modem);
 
@@ -410,6 +427,9 @@ connui_cellular_status_item_init(ConnuiCellularStatusItem *item)
 
   if (!connui_cell_net_status_register(_net_status_cb, item))
     CONNUI_ERR("Unable to register cell net status!");
+
+  if (!connui_cell_connection_status_register(_connmgr_status_cb, item))
+    CONNUI_ERR("Unable to register cell connectionmanager status!");
 
   modems = connui_cell_modem_get_modems();
 
