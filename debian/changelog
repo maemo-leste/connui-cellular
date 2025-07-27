@@ -1,3 +1,9 @@
+connui-cellular (3.99.8) unstable; urgency=medium
+
+  * use correct tech/bearer icons
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sun, 27 Jul 2025 17:15:51 +0300
+
 connui-cellular (3.99.7) unstable; urgency=medium
 
   * implement WIP roaming notification support
