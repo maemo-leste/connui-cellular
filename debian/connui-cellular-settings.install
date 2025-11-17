@@ -1,2 +1,2 @@
 usr/share/applications/hildon-control-panel/*
-usr/lib/hildon-control-panel/*.so
+usr/lib/*/hildon-control-panel/*.so
